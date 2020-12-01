@@ -63,10 +63,18 @@ def add_arguments(parser):
         help="Project directory (default: current directory)",
         default=".",
     )
+    # This only really intended for use in CI. When running locally users
+    # generally want to know about failures as soon as they happen whereas in
+    # CI you want to run as many actions as possible.
+    parser.add_argument(
+        "--continue-on-error",
+        help="Don't stop on first failed action",
+        action="store_true",
+    )
     return parser
 
 
-def main(project_dir, actions, force_run_dependencies=False):
+def main(project_dir, actions, force_run_dependencies=False, continue_on_error=False):
     project_dir = Path(project_dir).resolve()
     temp_log_dir = project_dir / METADATA_DIR / ".logs"
     # Generate unique docker label to use for all volumes and containers we
@@ -80,6 +88,7 @@ def main(project_dir, actions, force_run_dependencies=False):
             project_dir,
             actions,
             force_run_dependencies=force_run_dependencies,
+            continue_on_error=continue_on_error,
             temp_log_dir=temp_log_dir,
             docker_label=docker_label,
         )
@@ -95,7 +104,12 @@ def main(project_dir, actions, force_run_dependencies=False):
 
 
 def create_and_run_jobs(
-    project_dir, actions, force_run_dependencies, temp_log_dir, docker_label
+    project_dir,
+    actions,
+    force_run_dependencies,
+    continue_on_error,
+    temp_log_dir,
+    docker_label,
 ):
     # Configure
     docker.LABEL = docker_label
@@ -189,7 +203,7 @@ def create_and_run_jobs(
 
     # Run everything
     try:
-        run_main(exit_when_done=True, raise_on_failure=True)
+        run_main(exit_when_done=True, raise_on_failure=not continue_on_error)
     except (JobError, KeyboardInterrupt):
         pass
 
@@ -204,6 +218,7 @@ def create_and_run_jobs(
     if not final_jobs:
         print("=> No jobs completed")
     for job in final_jobs:
+        log_file = f"{METADATA_DIR}/{job.action}.log"
         # If a job fails we don't want to clutter the output with its failed
         # dependants.
         if (
@@ -213,16 +228,26 @@ def create_and_run_jobs(
             continue
         print(f"=> {job.action}")
         print(textwrap.indent(job.status_message, "   "))
+        # Where a job failed because expected outputs weren't found we show a
+        # list of other outputs which were generated
         if job.unmatched_outputs:
             print(
                 "\n   Did you mean to match one of these files instead?\n    - ", end=""
             )
             print("\n    - ".join(job.unmatched_outputs))
         print()
-        print(f"   log file: {METADATA_DIR}/{job.action}.log")
+        print(f"   log file: {log_file}")
+        # Display matched outputs
         print("   outputs:")
         outputs = sorted(job.outputs.items()) if job.outputs else []
         print(tabulate(outputs, separator="  - ", indent=5, empty="(no outputs)"))
+        # If a job exited with an error code then try to display the end of the
+        # log output in case that makes the problem immediately obvious
+        if job.status_code == StatusCode.NONZERO_EXIT:
+            logs, truncated = get_log_file_snippet(project_dir / log_file, max_lines=32)
+            if logs:
+                print(f"\n   logs{' (truncated)' if truncated else ''}:\n")
+                print(textwrap.indent(logs, "     "))
         print()
 
     success_flag = all(job.state == State.SUCCEEDED for job in final_jobs)
@@ -260,6 +285,24 @@ def get_missing_docker_images(jobs):
     return [
         image for image in full_docker_images if not docker.image_exists_locally(image)
     ]
+
+
+def get_log_file_snippet(log_file, max_lines):
+    try:
+        contents = Path(log_file).read_text()
+    except Exception:
+        contents = ""
+    # As docker logs are timestamp-prefixed the first blank line marks the end
+    # of the docker logs and the start of our "trailer"
+    docker_logs = contents.partition("\n\n")[0]
+    # Strip off timestamp
+    log_lines = [line[31:] for line in docker_logs.splitlines()]
+    if len(log_lines) > max_lines:
+        log_lines = log_lines[-max_lines:]
+        truncated = True
+    else:
+        truncated = False
+    return "\n".join(log_lines).strip(), truncated
 
 
 if __name__ == "__main__":
