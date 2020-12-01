@@ -1,7 +1,7 @@
 import argparse
 import sys
 
-from jobrunner import local_run
+from opensafely._vendor.jobrunner import local_run
 
 
 def main():
@@ -20,7 +20,7 @@ def main():
     parser_help = subparsers.add_parser("help", help="Show this help message and exit")
     parser_help.set_defaults(function=show_help)
 
-    parser_run = subparsers.add_parser("run", help=local_run.HELP)
+    parser_run = subparsers.add_parser("run", help=local_run.DESCRIPTION)
     local_run.add_arguments(parser_run)
     parser_run.set_defaults(function=local_run.main)
 

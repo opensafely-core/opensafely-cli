@@ -1,0 +1,27 @@
+name: Tests
+
+on: [push]
+jobs:
+
+  test-package-build:
+    runs-on: ubuntu-latest
+    name: Test we can build PyPI package
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v1
+    - name: Set up Python 3.7
+      uses: actions/setup-python@v1
+      with:
+        python-version: 3.7
+    - name: Install wheel package
+      run: |
+        pip install wheel
+    - name: Build package
+      run: |
+        python setup.py sdist bdist_wheel
+    - name: Install it
+      run: |
+        pip install dist/opensafely-*.whl
+    - name: Run smoketest
+      run: |
+        opensafely run --help
