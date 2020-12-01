@@ -1,2 +1,2 @@
-https://github.com/opensafely/job-runner/archive/205da8e.tar.gz
+https://github.com/opensafely/job-runner/archive/86d2127.tar.gz
 ruamel.yaml==0.16.12
