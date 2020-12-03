@@ -5,7 +5,7 @@ back any associated Jobs.
 import logging
 import time
 
-import requests
+from opensafely._vendor import requests
 
 from .log_utils import configure_logging, set_log_context
 from . import config
