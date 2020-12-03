@@ -11,8 +11,8 @@ namespace = "opensafely._vendor"
 patches-dir = "patches"
 # Other config values which have to be defined even though we don't use them
 protected-files = []
-license.directories = {}
 license.fallback-urls = {}
+typing-stubs = {}
 
 [tool.vendoring.transformations]
 # Imports of the from `import X.Y` can't be rewritten automatically by the
@@ -23,12 +23,14 @@ substitute = [
   { match=' ruamel\.yaml', replace=" ruamel_yaml" },
   { match='from TEMP_ruamel\.yaml', replace="from ruamel.yaml" },
 ]
+
 drop = [
   # ruamel.yaml creates this and I don't think we need it
   "*-nspkg.pth",
+  # Scripts we don't need
+  "bin/",
 ]
 
-[tool.vendoring.typing-stubs]
-# Prevents us geneating `*.pyi` files which I don't think we need
-jobrunner = []
-ruamel = []
+[tool.vendoring.license.directories]
+job-runner = "jobrunner"
+"ruamel.yaml" = "ruamel"
