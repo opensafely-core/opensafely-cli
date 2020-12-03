@@ -1,3 +1,5 @@
 pip-tools
 vendoring
 black
+pytest
+requests-mock
