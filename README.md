@@ -3,30 +3,19 @@
 This tool is part of the [OpenSAFELY](https://www.opensafely.org)
 project.
 
-To use it you will need:
- * Python version 3.7 or above
- * git
- * Docker
+To use it you will need to install:
+ * [Python](https://www.python.org/downloads/) (at least version 3.7, but the more recent the better)
+ * [git](https://git-scm.com/downloads)
+ * [Docker](https://docs.docker.com/get-docker/)
 
 Once these are installed you can install the tool itself with:
 ```
 pip install opensafely
 ```
 
-At present there is one command, which can be used to run actions in an
-OpenSAFELY project:
+To see available commands run
 ```
-usage: opensafely run [-h] [-f] [--project-dir PROJECT_DIR] [actions [actions ...]]
-
-positional arguments:
-  actions               Name of project action to run
-
-optional arguments:
-  -h, --help            show this help message and exit
-  -f, --force-run-dependencies
-                        Re-run from scratch without using existing outputs
-  --project-dir PROJECT_DIR
-                        Project directory (default: current directory)
+opensafely --help
 ```
 
 
