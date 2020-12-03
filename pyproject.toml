@@ -22,6 +22,12 @@ substitute = [
   { match='from ruamel\.yaml', replace="from TEMP_ruamel.yaml" },
   { match=' ruamel\.yaml', replace=" ruamel_yaml" },
   { match='from TEMP_ruamel\.yaml', replace="from ruamel.yaml" },
+  # certifi refers to itself by string here so we need to fix that too
+  { match='get_path\("certifi"', replace='get_path("opensafely._vendor.certifi"' },
+  # The below import just pulls in some nasty backwards compatibility code that
+  # we don't need. See:
+  # https://github.com/psf/requests/blob/589c4547338b592b1fb77c65663d8aa6fbb7e38b/requests/packages.py
+  { match='from \. import packages', replace='' },
 ]
 
 drop = [
