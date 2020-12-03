@@ -25,21 +25,32 @@ To minimise the possibility for installation issues this package vendors
 all its dependencies under the [opensafely._vendor](./opensafely/_vendor)
 namespace using the [vendoring](https://pypi.org/project/vendoring/) tool.
 
-Note that while the `opensafely-jobrunner` package technically depends
-on `requests` this is only used by the `jobrunner.sync` module which is
-never invoked by this interface (as smoketests will confirm).
+The tool makes the process fairly painless. There are a few things
+workaround we needed to apply which are all configured in
+[pyproject.toml](./pyproject.toml).
 
-To update the vendored dependencies first update the versions in
-[vendor.txt](./vendor.txt).
+To update the versions of vendored dependencies:
 
-Install the developer tooling:
-```
-pip install -r requirements.dev.txt
-```
+1. Install the developer tooling:
+   ```
+   pip install -r requirements.dev.txt
+   ```
 
-Run the vendoring tool:
-```
-vendoring sync -v
-```
+2. Compile the vendor requirements file:
+   ```
+   pip-compile vendor.in
+   ```
 
-Finally commit the result.
+3. Awkward bit: edit `vendor.txt` to comment out the ruamel C library:
+   ```
+   # ruamel.yaml.clib==0.2.2   # via ruamel.yaml
+   ```
+   This is a binary dependency which we obviously can't vendor, but I
+   can't find a way to exclude this automatically.
+
+4. Run the vendoring tool:
+   ```
+   vendoring sync -v
+   ```
+
+5. Commit the updated files in `opensafely/_vendor`
