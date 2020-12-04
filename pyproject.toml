@@ -1,0 +1,42 @@
+[tool.black]
+exclude = 'opensafely/_vendor'
+
+[tool.vendoring]
+destination = "opensafely/_vendor/"
+requirements = "vendor.txt"
+namespace = "opensafely._vendor"
+
+# We don't use any patches, but this directory has to be defined (though it
+# doesn't have to exist)
+patches-dir = "patches"
+# Other config values which have to be defined even though we don't use them
+protected-files = []
+license.fallback-urls = {}
+typing-stubs = {}
+
+[tool.vendoring.transformations]
+# Imports of the from `import X.Y` can't be rewritten automatically by the
+# vendoring tool so we apply some basic replacements here
+substitute = [
+  { match='import ruamel\.yaml', replace="from ruamel import yaml as ruamel_yaml" },
+  { match='from ruamel\.yaml', replace="from TEMP_ruamel.yaml" },
+  { match=' ruamel\.yaml', replace=" ruamel_yaml" },
+  { match='from TEMP_ruamel\.yaml', replace="from ruamel.yaml" },
+  # certifi refers to itself by string here so we need to fix that too
+  { match='get_path\("certifi"', replace='get_path("opensafely._vendor.certifi"' },
+  # The below import just pulls in some nasty backwards compatibility code that
+  # we don't need. See:
+  # https://github.com/psf/requests/blob/589c4547338b592b1fb77c65663d8aa6fbb7e38b/requests/packages.py
+  { match='from \. import packages', replace='' },
+]
+
+drop = [
+  # ruamel.yaml creates this and I don't think we need it
+  "*-nspkg.pth",
+  # Scripts we don't need
+  "bin/",
+]
+
+[tool.vendoring.license.directories]
+job-runner = "jobrunner"
+"ruamel.yaml" = "ruamel"
