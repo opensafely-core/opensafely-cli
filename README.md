@@ -73,3 +73,16 @@ To update the versions of vendored dependencies:
    ```
 
 5. Commit the updated files in `opensafely/_vendor`
+
+
+### Tests
+
+Test with:
+```
+python -m pytest
+```
+
+Due to the fact that we're vendoring `requests` there's some slightly
+nasty monkeypatching which we need to apply `requests_mock` in order to
+get it to mock the right library. Monkeypatching mocking libraries is
+known as "software engineering".
