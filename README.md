@@ -44,9 +44,9 @@ package) but they are at least complexities which show up at development
 time rather than on some researcher's mysteriously broken Python
 installation.
 
-The tool makes the process relatively painless. There are a few things
-workaround we needed to apply which are all configured in
-[pyproject.toml](./pyproject.toml).
+The tool makes the process relatively painless. There are a few
+workarounds (crude string subsitutions) we need to apply which are all
+configured in [pyproject.toml](./pyproject.toml).
 
 To update the versions of vendored dependencies:
 
