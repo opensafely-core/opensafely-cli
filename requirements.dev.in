@@ -1,5 +1,7 @@
 pip-tools
-vendoring
+# We have to develop using 3.8, but we need to test under 3.7 (see README)
+vendoring; python_version >= '3.8'
 black
 pytest
 requests-mock
+wheel
