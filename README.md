@@ -50,29 +50,15 @@ configured in [pyproject.toml](./pyproject.toml).
 
 To update the versions of vendored dependencies:
 
-1. Install the developer tooling:
+1. Install the developer tooling (you'll need Python 3.8 for this):
    ```
    pip install -r requirements.dev.txt
    ```
 
-2. Compile the vendor requirements file:
+2. Run the update script:
    ```
-   pip-compile vendor.in
+   ./scripts/update-dependencies.sh
    ```
-
-3. Awkward bit: edit `vendor.txt` to comment out the ruamel C library:
-   ```
-   # ruamel.yaml.clib==0.2.2   # via ruamel.yaml
-   ```
-   This is a binary dependency which we obviously can't vendor, but I
-   can't find a way to exclude this automatically.
-
-4. Run the vendoring tool:
-   ```
-   vendoring sync -v
-   ```
-
-5. Commit the updated files in `opensafely/_vendor`
 
 
 ### Tests
