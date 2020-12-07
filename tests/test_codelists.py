@@ -3,7 +3,7 @@ import os
 from requests_mock import mocker
 
 from opensafely._vendor import requests
-from opensafely import update_codelists
+from opensafely import codelists
 
 # Because we're using a vendored version of requests we need to monkeypatch the
 # requests_mock library so it references our vendored library instead
@@ -11,7 +11,7 @@ mocker.requests = requests
 mocker._original_send = requests.Session.send
 
 
-def test_update_codelists(tmp_path, requests_mock):
+def test_codelists_update(tmp_path, requests_mock):
     codelist_dir = tmp_path / "codelists"
     codelist_dir.mkdir()
     (codelist_dir / "project123-codelist456.csv").touch()
@@ -30,7 +30,7 @@ def test_update_codelists(tmp_path, requests_mock):
         "codelist/project123/codelist098/version1/download.csv",
         text="bar",
     )
-    update_codelists.main()
+    codelists.update()
     assert (codelist_dir / "project123-codelist456.csv").read_text() == "foo"
     assert not (codelist_dir / "project123-codelist789-version1.csv").exists()
     assert (codelist_dir / "project123-codelist098.csv").read_text() == "bar"

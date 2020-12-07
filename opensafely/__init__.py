@@ -2,7 +2,7 @@ import argparse
 import sys
 
 from opensafely._vendor.jobrunner import local_run
-from opensafely import update_codelists
+from opensafely import codelists
 
 
 def main():
@@ -21,17 +21,15 @@ def main():
     parser_help = subparsers.add_parser("help", help="Show this help message and exit")
     parser_help.set_defaults(function=show_help)
 
-    # Add `run` command
+    # Add `run` subcommand
     parser_run = subparsers.add_parser("run", help=local_run.DESCRIPTION)
-    local_run.add_arguments(parser_run)
     parser_run.set_defaults(function=local_run.main)
+    local_run.add_arguments(parser_run)
 
-    # Add `update_codelists` command
-    parser_update_codelists = subparsers.add_parser(
-        "update_codelists", help=update_codelists.DESCRIPTION
-    )
-    update_codelists.add_arguments(parser_update_codelists)
-    parser_update_codelists.set_defaults(function=update_codelists.main)
+    # Add `codelists` subcommand
+    parser_codelists = subparsers.add_parser("codelists", help=codelists.DESCRIPTION)
+    parser_codelists.set_defaults(function=codelists.main)
+    codelists.add_arguments(parser_codelists)
 
     args = parser.parse_args()
     kwargs = vars(args)

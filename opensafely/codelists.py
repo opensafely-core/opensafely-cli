@@ -3,15 +3,34 @@ from pathlib import Path
 from opensafely._vendor import requests
 
 
-DESCRIPTION = "Update codelists, using specification at codelists/codelists.txt"
+DESCRIPTION = "Commands for interacting with https://codelists.opensafely.org/"
 
 
 def add_arguments(parser):
-    # This command doesn't yet take any arguments
+    def show_help(**kwargs):
+        parser.print_help()
+        parser.exit()
+
+    # Show help by default if no command supplied
+    parser.set_defaults(function=show_help)
+    subparsers = parser.add_subparsers(
+        title="available commands", description="", metavar="COMMAND"
+    )
+    parser_update = subparsers.add_parser(
+        "update",
+        help="Update codelists, using specification at codelists/codelists.txt",
+    )
+    parser_update.set_defaults(function=update)
+
+
+# Just here for consistency so we can always reference `<module>.main()` in the
+# primary entrypoint. The behaviour usually implemented by `main()` is handled
+# by the default `show_help` above
+def main():
     pass
 
 
-def main():
+def update():
     codelists_path = Path.cwd() / "codelists"
     old_files = set(codelists_path.glob("*.csv"))
     new_files = set()
