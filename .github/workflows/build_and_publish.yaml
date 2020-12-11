@@ -24,28 +24,77 @@ jobs:
 
   build-and-publish-package:
     runs-on: ubuntu-latest
+
     name: Build and publish PyPI package
     needs: tag-new-version
     if: needs.tag-new-version.outputs.tag
     steps:
+
     - name: Checkout
       uses: actions/checkout@v1
     - name: Set up Python 3.7
       uses: actions/setup-python@v1
       with:
         python-version: 3.7
+
     - name: Install wheel package
       run: |
         pip install wheel
+
     - name: Generate correct value for VERSION file
       run: |
         echo ${{ needs.tag-new-version.outputs.tag }} > VERSION
+
     - name: Build package
       run: |
         python setup.py sdist bdist_wheel
+
     - name: Publish package
       uses: pypa/gh-action-pypi-publish@master
       if: needs.tag-new-version.outputs.tag
       with:
         user: __token__
         password: ${{ secrets.PYPI_PASSWORD }}
+
+    # As well as uploading to PyPI it's useful to publish them as Github
+    # Release Assets for use in contexts where we have access to Github but not
+    # to PyPI
+    - name: Create release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ needs.tag-new-version.outputs.tag }}
+        release_name: ${{ needs.tag-new-version.outputs.tag }}
+        draft: false
+        prerelease: false
+
+    - name: Get release filenames
+      id: get_release_filenames
+      run: |
+        cd dist
+        whl_filename=$(ls *.whl | head -n 1)
+        sdist_filename=$(ls *.tar.gz | head -n 1)
+        echo "::set-output name=whl_filename::$whl_filename"
+        echo "::set-output name=sdist_filename::$sdist_filename"
+
+    - name: Upload release asset: wheel
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: dist/${{ steps.get_release_filenames.outputs.whl_filename }}
+        asset_name: ${{ steps.get_release_filenames.outputs.whl_filename }}
+        asset_content_type: application/zip
+
+    - name: Upload release asset: sdist
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: dist/${{ steps.get_release_filenames.outputs.sdist_filename }}
+        asset_name: ${{ steps.get_release_filenames.outputs.sdist_filename }}
+        asset_content_type: application/gzip
