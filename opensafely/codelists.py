@@ -49,7 +49,7 @@ def update():
 
         response = requests.get(url)
         response.raise_for_status()
-        codelist_file.write_text(response.text)
+        codelist_file.write_bytes(response.content)
         new_files.add(codelist_file)
     for file in old_files - new_files:
         print(f"Deleting {file.name}")
