@@ -2,8 +2,10 @@ import dataclasses
 import datetime
 import hashlib
 import json
+import os
 from pathlib import Path
 import sys
+import tempfile
 
 from opensafely._vendor import requests
 
@@ -25,6 +27,7 @@ def add_arguments(parser):
     subparsers = parser.add_subparsers(
         title="available commands", description="", metavar="COMMAND"
     )
+
     parser_update = subparsers.add_parser(
         "update",
         help=(
@@ -34,6 +37,15 @@ def add_arguments(parser):
     )
     parser_update.set_defaults(function=update)
 
+    parser_check = subparsers.add_parser(
+        "check",
+        help=(
+            f"Check that codelists on disk match the specification at "
+            f"{CODELISTS_DIR}/{CODELISTS_FILE}"
+        ),
+    )
+    parser_check.set_defaults(function=check)
+
 
 # Just here for consistency so we can always reference `<module>.main()` in the
 # primary entrypoint. The behaviour usually implemented by `main()` is handled
@@ -42,8 +54,9 @@ def main():
     pass
 
 
-def update():
-    codelists_dir = Path.cwd() / CODELISTS_DIR
+def update(codelists_dir=None):
+    if not codelists_dir:
+        codelists_dir = Path.cwd() / CODELISTS_DIR
     codelists = parse_codelist_file(codelists_dir)
     old_files = set(codelists_dir.glob("*.csv"))
     new_files = set()
@@ -72,6 +85,64 @@ def update():
     for file in old_files - new_files:
         print(f"Deleting {file.name}")
         file.unlink()
+    return True
+
+
+def check():
+    codelists_dir = Path.cwd() / CODELISTS_DIR
+    codelists = parse_codelist_file(codelists_dir)
+    manifest_file = codelists_dir / MANIFEST_FILE
+    if not manifest_file.exists():
+        # This is here so that switching to use this test in Github Actions
+        # doesn't cause existing repos which previously passed to start
+        # failing. It works by creating a temporary manifest file and then
+        # checking against that. Functionally, this is the same as the old test
+        # which would check against the OpenCodelists website every time.
+        if os.environ.get("GITHUB_WORKFLOW"):
+            print(
+                "==> WARNING\n"
+                "    Using temporary workaround for Github Actions tests.\n"
+                "    You should run: opensafely codelists update\n"
+            )
+            manifest = make_temporary_manifest(codelists_dir)
+        else:
+            exit_with_prompt(f"No file found at '{CODELISTS_DIR}/{MANIFEST_FILE}'.")
+    else:
+        manifest = json.loads(manifest_file.read_text())
+    all_urls = {codelist.url for codelist in codelists}
+    urls_in_manifest = {f["url"] for f in manifest["files"].values()}
+    if all_urls != urls_in_manifest:
+        exit_with_prompt(
+            f"It looks like '{CODELISTS_FILE}' has been edited but "
+            f"'update' hasn't been run."
+        )
+    all_csvs = set(f.name for f in codelists_dir.glob("*.csv"))
+    csvs_in_manifest = set(manifest["files"].keys())
+    if all_csvs != csvs_in_manifest:
+        exit_with_prompt(
+            f"It looks like CSV files have been added or deleted in the "
+            f"'{CODELISTS_DIR}' folder."
+        )
+    for filename, details in manifest["files"].items():
+        csv_file = codelists_dir / filename
+        sha = hash_bytes(csv_file.read_bytes())
+        if sha != details["sha"]:
+            exit_with_prompt(
+                f"A CSV file seems to have been modified since it was downloaded:\n"
+                f"  {CODELISTS_DIR}/{filename}\n"
+            )
+    print("Codelists OK")
+    return True
+
+
+def make_temporary_manifest(codelists_dir):
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        contents = codelists_dir.joinpath(CODELISTS_FILE).read_bytes()
+        tmpdir.joinpath(CODELISTS_FILE).write_bytes(contents)
+        update(codelists_dir=tmpdir)
+        manifest = json.loads(tmpdir.joinpath(MANIFEST_FILE).read_text())
+    return manifest
 
 
 @dataclasses.dataclass
@@ -129,6 +200,14 @@ def hash_bytes(content):
     # particular, is prone to messing about with these
     content = b"\n".join(content.splitlines())
     return hashlib.sha1(content).hexdigest()
+
+
+def exit_with_prompt(message):
+    exit_with_error(
+        f"{message}\n"
+        f"To fix these errors run the command below and commit the changes:\n\n"
+        f"  opensafely codelists update\n"
+    )
 
 
 def exit_with_error(message):

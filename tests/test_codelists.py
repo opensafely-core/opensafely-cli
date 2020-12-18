@@ -1,6 +1,9 @@
 import json
 import os
+from pathlib import Path
+import shutil
 
+import pytest
 from requests_mock import mocker
 
 from opensafely._vendor import requests
@@ -40,3 +43,39 @@ def test_codelists_update(tmp_path, requests_mock):
         "project123-codelist456.csv",
         "project123-codelist098.csv",
     }
+
+
+@pytest.fixture
+def codelists_path(tmp_path):
+    shutil.copytree(
+        Path(__file__).parent / "fixtures/codelists", tmp_path / "codelists"
+    )
+    yield tmp_path
+
+
+def test_codelists_check(codelists_path):
+    os.chdir(codelists_path)
+    codelists.check()
+
+
+def test_codelists_check_fail_if_list_updated(codelists_path):
+    with open(codelists_path / "codelists/codelists.txt", "a") as f:
+        f.write("\nsomeproject/somelist/someversion")
+    os.chdir(codelists_path)
+    with pytest.raises(SystemExit):
+        codelists.check()
+
+
+def test_codelists_check_fail_if_file_added(codelists_path):
+    codelists_path.joinpath("codelists", "my-new-file.csv").touch()
+    os.chdir(codelists_path)
+    with pytest.raises(SystemExit):
+        codelists.check()
+
+
+def test_codelists_check_fail_if_file_modified(codelists_path):
+    filename = codelists_path / "codelists" / "opensafely-covid-identification.csv"
+    filename.write_text("blah")
+    os.chdir(codelists_path)
+    with pytest.raises(SystemExit):
+        codelists.check()
