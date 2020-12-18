@@ -37,7 +37,7 @@ def update():
     lines = codelists_path.joinpath("codelists.txt").read_text().splitlines()
     for line in lines:
         line = line.strip()
-        if not line:
+        if not line or line.startswith("#"):
             continue
         print(f"Fetching {line}")
         project_id, codelist_id, version = line.split("/")
