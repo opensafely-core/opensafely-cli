@@ -1,3 +1,4 @@
+import json
 import os
 
 from requests_mock import mocker
@@ -34,3 +35,8 @@ def test_codelists_update(tmp_path, requests_mock):
     assert (codelist_dir / "project123-codelist456.csv").read_text() == "foo"
     assert not (codelist_dir / "project123-codelist789-version1.csv").exists()
     assert (codelist_dir / "project123-codelist098.csv").read_text() == "bar"
+    manifest = json.loads((codelist_dir / "codelists.json").read_text())
+    assert manifest["files"].keys() == {
+        "project123-codelist456.csv",
+        "project123-codelist098.csv",
+    }
