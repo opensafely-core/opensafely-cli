@@ -1,3 +1,4 @@
+import dataclasses
 import datetime
 import hashlib
 import json
@@ -42,50 +43,70 @@ def main():
 
 
 def update():
-    codelists_path = Path.cwd() / CODELISTS_DIR
-    if not codelists_path.exists() or not codelists_path.is_dir():
-        exit_with_error(f"No '{CODELISTS_DIR}' folder found")
-    codelists_file = codelists_path / CODELISTS_FILE
-    if not codelists_file.exists():
-        exit_with_error(f"No file found at '{CODELISTS_DIR}/{CODELISTS_FILE}'")
-    old_files = set(codelists_path.glob("*.csv"))
+    codelists_dir = Path.cwd() / CODELISTS_DIR
+    codelists = parse_codelist_file(codelists_dir)
+    old_files = set(codelists_dir.glob("*.csv"))
     new_files = set()
-    lines = codelists_file.read_text().splitlines()
     manifest = {"files": {}}
-    for line in lines:
-        line = line.strip()
-        if not line or line.startswith("#"):
-            continue
-        print(f"Fetching {line}")
-        project_id, codelist_id, version = line.split("/")
-        codelist_url = (
-            f"https://codelists.opensafely.org"
-            f"/codelist/{project_id}/{codelist_id}/{version}/"
-        )
-        download_url = f"{codelist_url}download.csv"
-        codelist_file = codelists_path / f"{project_id}-{codelist_id}.csv"
+    for codelist in codelists:
+        print(f"Fetching {codelist.id}")
         try:
-            response = requests.get(download_url)
+            response = requests.get(codelist.download_url)
             response.raise_for_status()
         except Exception as e:
             exit_with_error(
                 f"Error downloading codelist: {e}\n\n"
-                f"Check that you can access the codelist at:\n{codelist_url}"
+                f"Check that you can access the codelist at:\n{codelist.url}"
             )
-        codelist_file.write_bytes(response.content)
-        new_files.add(codelist_file)
-        key = str(codelist_file.relative_to(codelists_path))
+        codelist.filename.write_bytes(response.content)
+        new_files.add(codelist.filename)
+        key = str(codelist.filename.relative_to(codelists_dir))
         manifest["files"][key] = {
-            "url": codelist_url,
+            "url": codelist.url,
             "downloaded_at": f"{datetime.datetime.utcnow()}Z",
             "sha": hash_bytes(response.content),
         }
-    manifest_file = codelists_path / MANIFEST_FILE
+    manifest_file = codelists_dir / MANIFEST_FILE
     preserve_download_dates(manifest, manifest_file)
     manifest_file.write_text(json.dumps(manifest, indent=2))
     for file in old_files - new_files:
         print(f"Deleting {file.name}")
         file.unlink()
+
+
+@dataclasses.dataclass
+class Codelist:
+    id: str
+    url: str
+    download_url: str
+    filename: Path
+
+
+def parse_codelist_file(codelists_dir):
+    if not codelists_dir.exists() or not codelists_dir.is_dir():
+        exit_with_error(f"No '{CODELISTS_DIR}' folder found")
+    codelists_file = codelists_dir / CODELISTS_FILE
+    if not codelists_file.exists():
+        exit_with_error(f"No file found at '{CODELISTS_DIR}/{CODELISTS_FILE}'")
+    codelists = []
+    for line in codelists_file.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        project_id, codelist_id, version = line.split("/")
+        url = (
+            f"https://codelists.opensafely.org"
+            f"/codelist/{project_id}/{codelist_id}/{version}/"
+        )
+        codelists.append(
+            Codelist(
+                id=line,
+                url=url,
+                download_url=f"{url}download.csv",
+                filename=codelists_dir / f"{project_id}-{codelist_id}.csv",
+            )
+        )
+    return codelists
 
 
 def preserve_download_dates(manifest, old_manifest_file):
