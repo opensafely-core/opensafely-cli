@@ -75,6 +75,7 @@ def update(codelists_dir=None):
         new_files.add(codelist.filename)
         key = str(codelist.filename.relative_to(codelists_dir))
         manifest["files"][key] = {
+            "id": codelist.id,
             "url": codelist.url,
             "downloaded_at": f"{datetime.datetime.utcnow()}Z",
             "sha": hash_bytes(response.content),
@@ -109,28 +110,33 @@ def check():
             exit_with_prompt(f"No file found at '{CODELISTS_DIR}/{MANIFEST_FILE}'.")
     else:
         manifest = json.loads(manifest_file.read_text())
-    all_urls = {codelist.url for codelist in codelists}
-    urls_in_manifest = {f["url"] for f in manifest["files"].values()}
-    if all_urls != urls_in_manifest:
+    all_ids = {codelist.id for codelist in codelists}
+    ids_in_manifest = {f["id"] for f in manifest["files"].values()}
+    if all_ids != ids_in_manifest:
+        diff = format_diff(all_ids, ids_in_manifest)
         exit_with_prompt(
             f"It looks like '{CODELISTS_FILE}' has been edited but "
-            f"'update' hasn't been run."
+            f"'update' hasn't been run.\n{diff}\n"
         )
     all_csvs = set(f.name for f in codelists_dir.glob("*.csv"))
     csvs_in_manifest = set(manifest["files"].keys())
     if all_csvs != csvs_in_manifest:
+        diff = format_diff(all_csvs, csvs_in_manifest)
         exit_with_prompt(
             f"It looks like CSV files have been added or deleted in the "
-            f"'{CODELISTS_DIR}' folder."
+            f"'{CODELISTS_DIR}' folder.\n{diff}\n"
         )
+    modified = []
     for filename, details in manifest["files"].items():
         csv_file = codelists_dir / filename
         sha = hash_bytes(csv_file.read_bytes())
         if sha != details["sha"]:
-            exit_with_prompt(
-                f"A CSV file seems to have been modified since it was downloaded:\n"
-                f"  {CODELISTS_DIR}/{filename}\n"
-            )
+            modified.append(f"  {CODELISTS_DIR}/{filename}")
+    if modified:
+        exit_with_prompt(
+            "A CSV file seems to have been modified since it was downloaded:\n"
+            "{}\n".format("\n".join(modified))
+        )
     print("Codelists OK")
     return True
 
@@ -200,6 +206,15 @@ def hash_bytes(content):
     # particular, is prone to messing about with these
     content = b"\n".join(content.splitlines())
     return hashlib.sha1(content).hexdigest()
+
+
+def format_diff(set_a, set_b):
+    return "\n".join(
+        [
+            f"  {'  added' if element in set_a else 'removed'}: {element}"
+            for element in set_a.symmetric_difference(set_b)
+        ]
+    )
 
 
 def exit_with_prompt(message):
