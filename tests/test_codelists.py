@@ -47,9 +47,8 @@ def test_codelists_update(tmp_path, requests_mock):
 
 @pytest.fixture
 def codelists_path(tmp_path):
-    shutil.copytree(
-        Path(__file__).parent / "fixtures/codelists", tmp_path / "codelists"
-    )
+    fixture_path = Path(__file__).parent / "fixtures" / "codelists"
+    shutil.copytree(fixture_path, tmp_path / "codelists")
     yield tmp_path
 
 

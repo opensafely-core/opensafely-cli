@@ -1,9 +1,13 @@
-from pathlib import Path
+import os
+from pathlib import Path, PurePath
 import shutil
 import subprocess
 import sys
 
 import pytest
+
+
+BIN_DIR = "bin" if os.name != "nt" else "Scripts"
 
 
 @pytest.mark.parametrize(
@@ -16,17 +20,42 @@ def test_packaging(package_type, ext, tmp_path):
     shutil.rmtree(project_root / "dist", ignore_errors=True)
     shutil.rmtree(project_root / "build", ignore_errors=True)
     # Build the package
-    subprocess.run(
+    subprocess_run(
         [sys.executable, "setup.py", "build", package_type],
         check=True,
         cwd=project_root,
     )
     # Install it in a temporary virtualenv
-    subprocess.run([sys.executable, "-m", "venv", tmp_path])
+    subprocess_run([sys.executable, "-m", "venv", tmp_path])
     package = list(project_root.glob(f"dist/*.{ext}"))[0]
-    subprocess.run([tmp_path / "bin/pip", "install", package])
+    subprocess_run([tmp_path / BIN_DIR / "pip", "install", package])
     # Smoketest it by running `--help`. This is actually a more comprehensive
     # test than you might think as it involves importing everything and because
     # all the complexity in this project is in the vendoring and packaging,
     # issues tend to show up at import time.
-    subprocess.run([tmp_path / "bin/opensafely", "run", "--help"])
+    subprocess_run([tmp_path / BIN_DIR / "opensafely", "run", "--help"])
+
+
+def subprocess_run(cmd_args, **kwargs):
+    """
+    Thin wrapper around `subprocess.run` which ensures that any arguments which
+    are pathlib instances get coerced to strings, which is necessary for them
+    to work on Windows (but not POSIX). Most of these issues are fixed in
+    Python 3.8 so it's possible we can drop this later. (The exception being
+    the `env` argument which the documentation doesn't mention so we'll have to
+    wait and see.)
+    """
+    assert not kwargs.get("shell"), "Don't use shell as we need to work cross-platform"
+    cmd_args = list(map(to_str, cmd_args))
+    if "cwd" in kwargs:
+        kwargs["cwd"] = to_str(kwargs["cwd"])
+    if "env" in kwargs:
+        kwargs["env"] = {key: to_str(value) for (key, value) in kwargs["env"].items()}
+    return subprocess.run(cmd_args, **kwargs)
+
+
+def to_str(value):
+    # PurePath is the base class for all pathlib classes
+    if isinstance(value, PurePath):
+        return str(value)
+    return value
