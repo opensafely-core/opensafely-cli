@@ -29,11 +29,12 @@ def test_packaging(package_type, ext, tmp_path):
     subprocess_run([sys.executable, "-m", "venv", tmp_path])
     package = list(project_root.glob(f"dist/*.{ext}"))[0]
     subprocess_run([tmp_path / BIN_DIR / "pip", "install", package])
-    # Smoketest it by running `--help`. This is actually a more comprehensive
-    # test than you might think as it involves importing everything and because
-    # all the complexity in this project is in the vendoring and packaging,
-    # issues tend to show up at import time.
+    # Smoketest it by running `--help` and `--version`. This is actually a more
+    # comprehensive test than you might think as it involves importing
+    # everything and because all the complexity in this project is in the
+    # vendoring and packaging, issues tend to show up at import time.
     subprocess_run([tmp_path / BIN_DIR / "opensafely", "run", "--help"])
+    subprocess_run([tmp_path / BIN_DIR / "opensafely", "run", "--version"])
 
 
 def subprocess_run(cmd_args, **kwargs):
