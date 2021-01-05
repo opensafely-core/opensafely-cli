@@ -3,7 +3,7 @@ import os
 from setuptools import find_namespace_packages, setup
 
 
-with open(os.path.join("VERSION")) as f:
+with open(os.path.join("opensafely", "VERSION")) as f:
     version = f.read().strip()
 
 setup(

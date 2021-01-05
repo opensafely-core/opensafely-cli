@@ -43,7 +43,7 @@ jobs:
 
     - name: Generate correct value for VERSION file
       run: |
-        echo ${{ needs.tag-new-version.outputs.tag }} > VERSION
+        echo ${{ needs.tag-new-version.outputs.tag }} > opensafely/VERSION
 
     - name: Build package
       run: |
