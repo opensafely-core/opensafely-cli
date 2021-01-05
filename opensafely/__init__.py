@@ -1,8 +1,12 @@
 import argparse
+from pathlib import Path
 import sys
 
 from opensafely._vendor.jobrunner import local_run
 from opensafely import codelists
+
+
+__version__ = Path(__file__).parent.joinpath("VERSION").read_text().strip()
 
 
 def main():
@@ -13,6 +17,9 @@ def main():
         parser.exit()
 
     parser.set_defaults(function=show_help)
+    parser.add_argument(
+        "--version", action="version", version=f"opensafely {__version__}"
+    )
 
     subparsers = parser.add_subparsers(
         title="available commands", description="", metavar="COMMAND"
