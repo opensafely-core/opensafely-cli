@@ -84,6 +84,8 @@ def start_job(job):
     # Prepend registry name
     image = action_args[0]
     full_image = f"{config.DOCKER_REGISTRY}/{image}"
+    if image.startswith("stata-mp"):
+        env["STATA_LICENSE"] = str(config.STATA_LICENSE)
     # Check the image exists locally and error if not. Newer versions of
     # docker-cli support `--pull=never` as an argument to `docker run` which
     # would make this simpler, but it looks like it will be a while before this
@@ -508,7 +510,10 @@ def update_manifest(manifest, job_metadata):
     # Add newly created files
     for filename, privacy_level in new_outputs.items():
         files.append(
-            (filename, {"created_by_action": action, "privacy_level": privacy_level},)
+            (
+                filename,
+                {"created_by_action": action, "privacy_level": privacy_level},
+            )
         )
     files.sort()
     manifest["files"] = dict(files)

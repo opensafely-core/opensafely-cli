@@ -7,7 +7,7 @@
 certifi==2020.12.5        # via requests
 chardet==4.0.0            # via requests
 idna==2.10                # via requests
-opensafely-jobrunner==2.1.6  # via -r vendor.in
+opensafely-jobrunner==2.7.1  # via -r vendor.in
 requests==2.25.1          # via opensafely-jobrunner
 # ruamel.yaml.clib==0.2.2   # via ruamel.yaml
 ruamel.yaml==0.16.12      # via opensafely-jobrunner
