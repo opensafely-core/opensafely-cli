@@ -3,6 +3,7 @@ Script which polls the job-server endpoint for active JobRequests and POSTs
 back any associated Jobs.
 """
 import logging
+import sys
 import time
 
 from opensafely._vendor import requests
@@ -37,6 +38,11 @@ def sync():
         params={"backend": config.BACKEND},
     )
     job_requests = [job_request_from_remote_format(i) for i in response["results"]]
+
+    # Bail early if there's nothing to do
+    if not job_requests:
+        return
+
     job_request_ids = [i.id for i in job_requests]
     for job_request in job_requests:
         with set_log_context(job_request=job_request):
@@ -59,11 +65,19 @@ def api_request(method, path, *args, **kwargs):
     url = "{}/{}/".format(config.JOB_SERVER_ENDPOINT.rstrip("/"), path.strip("/"))
     # We could do this just once on import, but it makes changing the config in
     # tests more fiddly
-    session.auth = (config.QUEUE_USER, config.QUEUE_PASS)
+    session.headers = {"Authorization": config.JOB_SERVER_TOKEN}
     response = session.request(method, url, *args, **kwargs)
 
-    if response.status_code == 400:
-        log.info("job-server returned 400: %s" % response.text)
+    log.debug(
+        "%s %s %s post_data=%s %s"
+        % (
+            method.upper(),
+            response.status_code,
+            url,
+            kwargs.get("json", '""'),
+            response.text,
+        )
+    )
 
     response.raise_for_status()
     return response.json()
@@ -107,4 +121,8 @@ def job_to_remote_format(job):
 
 if __name__ == "__main__":
     configure_logging()
-    main()
+
+    try:
+        main()
+    except KeyboardInterrupt:
+        sys.exit(0)

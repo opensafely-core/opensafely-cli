@@ -28,8 +28,7 @@ JOB_LOG_DIR = HIGH_PRIVACY_STORAGE_BASE / "logs"
 JOB_SERVER_ENDPOINT = os.environ.get(
     "JOB_SERVER_ENDPOINT", "https://jobs.opensafely.org/api/v2/"
 )
-QUEUE_USER = os.environ.get("QUEUE_USER", "user")
-QUEUE_PASS = os.environ.get("QUEUE_PASS", "pass")
+JOB_SERVER_TOKEN = os.environ.get("JOB_SERVER_TOKEN", "token")
 
 PRIVATE_REPO_ACCESS_TOKEN = os.environ.get("PRIVATE_REPO_ACCESS_TOKEN", "")
 
@@ -59,3 +58,9 @@ LOCAL_RUN_MODE = False
 
 # See `manage_jobs.ensure_overwritable` for more detail
 ENABLE_PERMISSIONS_WORKAROUND = bool(os.environ.get("ENABLE_PERMISSIONS_WORKAROUND"))
+
+STATA_LICENSE = os.environ.get("STATA_LICENCE")
+STATA_LICENSE_REPO = os.environ.get(
+    "STATA_LICENCE_REPO",
+    "https://github.com/opensafely/server-instructions.git",
+)
