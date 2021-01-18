@@ -21,7 +21,7 @@ def test_codelists_update(tmp_path, requests_mock):
     (codelist_dir / "project123-codelist456.csv").touch()
     (codelist_dir / "project123-codelist789.csv").touch()
     (codelist_dir / "codelists.txt").write_text(
-        "project123/codelist456/version2\n  \nproject123/codelist098/version1\n"
+        "project123/codelist456/version2\n  \nuser/user123/codelist098/version1\n"
     )
     os.chdir(tmp_path)
     requests_mock.get(
@@ -31,17 +31,17 @@ def test_codelists_update(tmp_path, requests_mock):
     )
     requests_mock.get(
         "https://codelists.opensafely.org/"
-        "codelist/project123/codelist098/version1/download.csv",
+        "codelist/user/user123/codelist098/version1/download.csv",
         text="bar",
     )
     codelists.update()
     assert (codelist_dir / "project123-codelist456.csv").read_text() == "foo"
     assert not (codelist_dir / "project123-codelist789-version1.csv").exists()
-    assert (codelist_dir / "project123-codelist098.csv").read_text() == "bar"
+    assert (codelist_dir / "user-user123-codelist098.csv").read_text() == "bar"
     manifest = json.loads((codelist_dir / "codelists.json").read_text())
     assert manifest["files"].keys() == {
         "project123-codelist456.csv",
-        "project123-codelist098.csv",
+        "user-user123-codelist098.csv",
     }
 
 
