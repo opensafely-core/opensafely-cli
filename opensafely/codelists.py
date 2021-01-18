@@ -170,17 +170,20 @@ def parse_codelist_file(codelists_dir):
         line = line.strip()
         if not line or line.startswith("#"):
             continue
-        project_id, codelist_id, version = line.split("/")
-        url = (
-            f"https://codelists.opensafely.org"
-            f"/codelist/{project_id}/{codelist_id}/{version}/"
-        )
+        tokens = line.split("/")
+        if len(tokens) not in [3, 4]:
+            exit_with_error(
+                f"{line} does not match [project]/[codelist]/[version] "
+                "or user/[username]/[codelist]/[version]"
+            )
+        url = f"https://codelists.opensafely.org/codelist/{line}/"
+        filename = "-".join(tokens[:-1]) + ".csv"
         codelists.append(
             Codelist(
                 id=line,
                 url=url,
                 download_url=f"{url}download.csv",
-                filename=codelists_dir / f"{project_id}-{codelist_id}.csv",
+                filename=codelists_dir / filename,
             )
         )
     return codelists
