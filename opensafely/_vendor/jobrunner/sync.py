@@ -19,6 +19,10 @@ session = requests.Session()
 log = logging.getLogger(__name__)
 
 
+class SyncAPIError(Exception):
+    pass
+
+
 def main():
     log.info(
         f"Polling for JobRequests at: "
@@ -50,6 +54,7 @@ def sync():
     jobs = find_where(Job, job_request_id__in=job_request_ids)
     jobs_data = [job_to_remote_format(i) for i in jobs]
     log.debug(f"Syncing {len(jobs_data)} jobs back to job-server")
+
     api_post("jobs", json=jobs_data)
 
 
@@ -79,7 +84,11 @@ def api_request(method, path, *args, **kwargs):
         )
     )
 
-    response.raise_for_status()
+    try:
+        response.raise_for_status()
+    except Exception as e:
+        raise SyncAPIError(e) from e
+
     return response.json()
 
 
@@ -111,6 +120,7 @@ def job_to_remote_format(job):
         "job_request_id": job.job_request_id,
         "action": job.action,
         "status": job.state.value,
+        "status_code": job.status_code.value if job.status_code else "",
         "status_message": job.status_message or "",
         "created_at": job.created_at_isoformat,
         "updated_at": job.updated_at_isoformat,
