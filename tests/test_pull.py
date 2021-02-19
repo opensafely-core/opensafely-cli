@@ -77,7 +77,7 @@ def tag(image):
 
 def test_default_no_local_images(run, capsys):
 
-    run.expect(["docker", "image", "ls", "--format='{{.Repository}}'"], stdout="")
+    run.expect(["docker", "image", "ls", "--format={{.Repository}}"], stdout=b"")
 
     pull.main(image="all", force=False)
     out, err = capsys.readouterr()
@@ -87,7 +87,7 @@ def test_default_no_local_images(run, capsys):
 
 def test_default_no_local_images_force(run, capsys):
 
-    run.expect(["docker", "image", "ls", "--format='{{.Repository}}'"], stdout="")
+    run.expect(["docker", "image", "ls", "--format={{.Repository}}"], stdout=b"")
     run.expect(["docker", "pull", tag("r")])
     run.expect(["docker", "pull", tag("python")])
     run.expect(["docker", "pull", tag("jupyter")])
@@ -109,8 +109,8 @@ def test_default_no_local_images_force(run, capsys):
 def test_default_with_local_images(run, capsys):
 
     run.expect(
-        ["docker", "image", "ls", "--format='{{.Repository}}'"],
-        stdout="ghcr.io/opensafely-core/r",
+        ["docker", "image", "ls", "--format={{.Repository}}"],
+        stdout=b"ghcr.io/opensafely-core/r",
     )
     run.expect(["docker", "pull", tag("r")])
     run.expect(["docker", "image", "prune", "--force"])
@@ -126,7 +126,7 @@ def test_default_with_local_images(run, capsys):
 
 def test_specific_image(run, capsys):
 
-    run.expect(["docker", "image", "ls", "--format='{{.Repository}}'"], stdout="")
+    run.expect(["docker", "image", "ls", "--format={{.Repository}}"], stdout=b"")
     run.expect(["docker", "pull", tag("r")])
     run.expect(["docker", "image", "prune", "--force"])
 
