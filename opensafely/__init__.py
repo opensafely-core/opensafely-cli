@@ -3,7 +3,7 @@ from pathlib import Path
 import sys
 
 from opensafely._vendor.jobrunner import local_run
-from opensafely import codelists
+from opensafely import codelists, pull
 
 
 __version__ = Path(__file__).parent.joinpath("VERSION").read_text().strip()
@@ -37,6 +37,11 @@ def main():
     parser_codelists = subparsers.add_parser("codelists", help=codelists.DESCRIPTION)
     parser_codelists.set_defaults(function=codelists.main)
     codelists.add_arguments(parser_codelists)
+
+    # Add `pull` subcommand
+    parser_pull = subparsers.add_parser("pull", help=pull.DESCRIPTION)
+    parser_pull.set_defaults(function=pull.main)
+    pull.add_arguments(parser_pull)
 
     args = parser.parse_args()
     kwargs = vars(args)
