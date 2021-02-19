@@ -18,7 +18,9 @@ mocker._original_send = requests.Session.send
 
 @pytest.fixture(autouse=True)
 def clean_cache_file():
-    upgrade.CACHE_FILE.unlink(missing_ok=True)
+    if upgrade.CACHE_FILE.exists():
+        upgrade.CACHE_FILE.unlink()
+
 
 
 @pytest.fixture
