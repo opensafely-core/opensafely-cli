@@ -57,11 +57,12 @@ def main(image, force):
 
 def get_local_images():
     ps = subprocess.run(
-        ["docker", "image", "ls", "--format='{{.Repository}}'"],
+        ["docker", "image", "ls", "--format={{.Repository}}"],
         check=True,
         capture_output=True,
     )
-    return set(ps.stdout.split("\n"))
+    lines = [line for line in ps.stdout.decode('utf8').split("\n") if line.strip()]
+    return set(lines)
 
 
 def remove_deprecated_images(local_images):
