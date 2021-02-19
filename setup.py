@@ -12,6 +12,8 @@ setup(
     packages=find_namespace_packages(exclude=["tests"]),
     include_package_data=True,
     url="https://github.com/opensafely/opensafely-cli",
+    description="Command line tool for running OpenSAFELY studies locally.",
+    license="GPLv3",
     author="OpenSAFELY",
     author_email="tech@opensafely.org",
     python_requires=">=3.7",
