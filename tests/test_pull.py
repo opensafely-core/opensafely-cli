@@ -27,7 +27,7 @@ class SubprocessRunFixture(deque):
         run.expect(['your', 'cmd', 'here'], check=True, returncode=1, stderr='error!')
 
     By default, strict=True, which means all calls to subprocess.run must have
-    a matching expect(), or an AssertionError will be raised. 
+    a matching expect(), or an AssertionError will be raised.
 
     If strict is set to False, any unexpected calls are passed through to the
     real subprocess.run(). This allows you to only mock some calls to
@@ -66,7 +66,9 @@ def run(monkeypatch):
     yield fixture
     if len(fixture) != 0:
         remaining = "\n".join(str(cmd) for cmd, _ in fixture)
-        raise AssertionError(f"run fixture had unused remaining expected cmds:\n{remaining}")
+        raise AssertionError(
+            f"run fixture had unused remaining expected cmds:\n{remaining}"
+        )
 
 
 def tag(image):
@@ -75,10 +77,7 @@ def tag(image):
 
 def test_default_no_local_images(run, capsys):
 
-    run.expect(["docker", "image", "inspect", tag("r")], returncode=1)
-    run.expect(["docker", "image", "inspect", tag("python")], returncode=1)
-    run.expect(["docker", "image", "inspect", tag("jupyter")], returncode=1)
-    run.expect(["docker", "image", "inspect", tag("stata-mp")], returncode=1)
+    run.expect(["docker", "image", "ls", "--format='{{.Repository}}'"], stdout="")
 
     pull.main(image="all", force=False)
     out, err = capsys.readouterr()
@@ -88,11 +87,12 @@ def test_default_no_local_images(run, capsys):
 
 def test_default_no_local_images_force(run, capsys):
 
-    run.expect(["docker", "pull", tag("r")], returncode=0)
-    run.expect(["docker", "pull", tag("python")], returncode=0)
-    run.expect(["docker", "pull", tag("jupyter")], returncode=0)
-    run.expect(["docker", "pull", tag("stata-mp")], returncode=0)
-    run.expect(["docker", "image", "prune", "--force"], returncode=0)
+    run.expect(["docker", "image", "ls", "--format='{{.Repository}}'"], stdout="")
+    run.expect(["docker", "pull", tag("r")])
+    run.expect(["docker", "pull", tag("python")])
+    run.expect(["docker", "pull", tag("jupyter")])
+    run.expect(["docker", "pull", tag("stata-mp")])
+    run.expect(["docker", "image", "prune", "--force"])
 
     pull.main(image="all", force=True)
     out, err = capsys.readouterr()
@@ -108,12 +108,12 @@ def test_default_no_local_images_force(run, capsys):
 
 def test_default_with_local_images(run, capsys):
 
-    run.expect(["docker", "image", "inspect", tag("r")], returncode=0)
-    run.expect(["docker", "pull", tag("r")], returncode=0)
-    run.expect(["docker", "image", "inspect", tag("python")], returncode=1)
-    run.expect(["docker", "image", "inspect", tag("jupyter")], returncode=1)
-    run.expect(["docker", "image", "inspect", tag("stata-mp")], returncode=1)
-    run.expect(["docker", "image", "prune", "--force"], returncode=0)
+    run.expect(
+        ["docker", "image", "ls", "--format='{{.Repository}}'"],
+        stdout="ghcr.io/opensafely-core/r",
+    )
+    run.expect(["docker", "pull", tag("r")])
+    run.expect(["docker", "image", "prune", "--force"])
 
     pull.main(image="all", force=False)
     out, err = capsys.readouterr()
@@ -126,8 +126,9 @@ def test_default_with_local_images(run, capsys):
 
 def test_specific_image(run, capsys):
 
-    run.expect(["docker", "pull", tag("r")], returncode=0)
-    run.expect(["docker", "image", "prune", "--force"], returncode=0)
+    run.expect(["docker", "image", "ls", "--format='{{.Repository}}'"], stdout="")
+    run.expect(["docker", "pull", tag("r")])
+    run.expect(["docker", "image", "prune", "--force"])
 
     pull.main(image="r", force=False)
     out, err = capsys.readouterr()
@@ -138,6 +139,21 @@ def test_specific_image(run, capsys):
     ]
 
 
+def test_remove_deprecated_images(run):
+    local_images = set(
+        [
+            "docker.opensafely.org/r",
+            "ghcr.io/opensafely/r",
+            "ghcr.io/opensafely-core/r",
+        ]
+    )
+
+    run.expect(["docker", "image", "rm", "docker.opensafely.org/r"])
+    run.expect(["docker", "image", "rm", "ghcr.io/opensafely/r"])
+
+    pull.remove_deprecated_images(local_images)
+
+
 @pytest.mark.parametrize(
     "argv,expected",
     [
@@ -145,7 +161,7 @@ def test_specific_image(run, capsys):
         (["--force"], argparse.Namespace(image="all", force=True)),
         (["r"], argparse.Namespace(image="r", force=False)),
         (["r", "--force"], argparse.Namespace(image="r", force=True)),
-        (["invalid", "--force"], SystemExit()),
+        (["invalid"], SystemExit()),
     ],
 )
 def test_pull_parser_valid(argv, expected, capsys):

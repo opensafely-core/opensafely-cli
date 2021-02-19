@@ -7,6 +7,7 @@ DESCRIPTION = (
 )
 REGISTRY = "ghcr.io/opensafely-core"
 IMAGES = ["r", "python", "jupyter", "stata-mp"]
+DEPRECATED_REGISTRIES = ["docker.opensafely.org", "ghcr.io/opensafely"]
 
 
 def add_arguments(parser):
@@ -33,25 +34,40 @@ def main(image, force):
         force = True
         images = [image]
 
+    local_images = get_local_images()
     try:
         updated = False
         for image in images:
-            tag = f"{REGISTRY}/{image}:latest"
-            if force or tag_present(tag):
+            tag = f"{REGISTRY}/{image}"
+            if force or tag in local_images:
                 updated = True
                 print(f"Updating OpenSAFELY {image} image")
-                subprocess.run(["docker", "pull", tag], check=True)
+                subprocess.run(["docker", "pull", tag + ":latest"], check=True)
 
         if updated:
             print("Cleaning up old images")
+            remove_deprecated_images(local_images)
             subprocess.run(["docker", "image", "prune", "--force"], check=True)
         else:
             print("No OpenSAFELY docker images found to update.")
 
     except subprocess.CalledProcessError as exc:
-        sys.exit(exc.output)
+        sys.exit(exc.stderr)
 
 
-def tag_present(tag):
-    ps = subprocess.run(["docker", "image", "inspect", tag], capture_output=True)
-    return ps.returncode == 0
+def get_local_images():
+    ps = subprocess.run(
+        ["docker", "image", "ls", "--format='{{.Repository}}'"],
+        check=True,
+        capture_output=True,
+    )
+    return set(ps.stdout.split("\n"))
+
+
+def remove_deprecated_images(local_images):
+    """Temporary clean up functon to remove orphaned images."""
+    for registry in DEPRECATED_REGISTRIES:
+        for image in IMAGES:
+            tag = f"{registry}/{image}"
+            if tag in local_images:
+                subprocess.run(["docker", "image", "rm", tag], capture_output=True)
