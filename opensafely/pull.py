@@ -61,7 +61,7 @@ def get_local_images():
         check=True,
         capture_output=True,
     )
-    lines = [line for line in ps.stdout.decode('utf8').split("\n") if line.strip()]
+    lines = [line for line in ps.stdout.decode("utf8").split("\n") if line.strip()]
     return set(lines)
 
 
