@@ -11,7 +11,7 @@ def tag(image):
 
 def test_default_no_local_images(run, capsys):
 
-    run.expect(["docker", "image", "ls", "--format={{.Repository}}"], stdout=b"")
+    run.expect(["docker", "image", "ls", "--format={{.Repository}}"], stdout="")
 
     pull.main(image="all", force=False)
     out, err = capsys.readouterr()
@@ -21,10 +21,11 @@ def test_default_no_local_images(run, capsys):
 
 def test_default_no_local_images_force(run, capsys):
 
-    run.expect(["docker", "image", "ls", "--format={{.Repository}}"], stdout=b"")
-    run.expect(["docker", "pull", tag("r")])
-    run.expect(["docker", "pull", tag("python")])
+    run.expect(["docker", "image", "ls", "--format={{.Repository}}"], stdout="")
+    run.expect(["docker", "pull", tag("cohortextractor")])
     run.expect(["docker", "pull", tag("jupyter")])
+    run.expect(["docker", "pull", tag("python")])
+    run.expect(["docker", "pull", tag("r")])
     run.expect(["docker", "pull", tag("stata-mp")])
     run.expect(["docker", "image", "prune", "--force"])
 
@@ -32,9 +33,10 @@ def test_default_no_local_images_force(run, capsys):
     out, err = capsys.readouterr()
     assert err == ""
     assert out.splitlines() == [
-        "Updating OpenSAFELY r image",
-        "Updating OpenSAFELY python image",
+        "Updating OpenSAFELY cohortextractor image",
         "Updating OpenSAFELY jupyter image",
+        "Updating OpenSAFELY python image",
+        "Updating OpenSAFELY r image",
         "Updating OpenSAFELY stata-mp image",
         "Cleaning up old images",
     ]
@@ -44,7 +46,7 @@ def test_default_with_local_images(run, capsys):
 
     run.expect(
         ["docker", "image", "ls", "--format={{.Repository}}"],
-        stdout=b"ghcr.io/opensafely-core/r",
+        stdout="ghcr.io/opensafely-core/r",
     )
     run.expect(["docker", "pull", tag("r")])
     run.expect(["docker", "image", "prune", "--force"])
@@ -60,7 +62,7 @@ def test_default_with_local_images(run, capsys):
 
 def test_specific_image(run, capsys):
 
-    run.expect(["docker", "image", "ls", "--format={{.Repository}}"], stdout=b"")
+    run.expect(["docker", "image", "ls", "--format={{.Repository}}"], stdout="")
     run.expect(["docker", "pull", tag("r")])
     run.expect(["docker", "image", "prune", "--force"])
 

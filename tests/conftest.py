@@ -33,26 +33,49 @@ class SubprocessRunFixture(deque):
     strict = True
 
     def expect(self, cmd, returncode=0, stdout=None, stderr=None, check=False):
+        value = exc = None
         if check and returncode != 0:
-            value = subprocess.CalledProcessError(returncode, cmd, stdout, stderr)
+            exc = subprocess.CalledProcessError(returncode, cmd, stdout, stderr)
         else:
             value = subprocess.CompletedProcess(cmd, returncode, stdout, stderr)
-        self.append((cmd, value))
+        self.append((cmd, value, exc))
 
     def run(self, cmd, *args, **kwargs):
         """The replacement run() function."""
-        expected, value = self.popleft()
+        expected, value, exc = self.popleft()
+        # text and check affect the return value and behaviour of run()
+        text = kwargs.get("text", False)
+        check = kwargs.get("check", False)
 
-        if expected == cmd:
-            if isinstance(value, Exception):
+        # first up, do we expect this cmd?
+        if expected != cmd:
+            if self.strict:
+                raise AssertionError(f"run fixture got unexpected call: {cmd}")
+            else:
+                # pass through to system
+                return _actual_run(cmd, *args, **kwargs)
+
+        # next: are we expecting an exception?
+        if exc is not None:
+            if check:
+                # run called with check, and we are expecting exception, so raise
                 raise value
-            return value
+            else:
+                # expected to raise exception, but run was called without check
+                raise AssertionError(f"run fixture expected check=True: {cmd}")
 
-        if self.strict:
-            raise AssertionError(f"run fixture got unexpected call: {cmd}")
-        else:
-            # pass through to system
-            return _actual_run(cmd, *args, **kwargs)
+        # check bytes/string
+        valid_type = str if text else bytes
+        for output in ["stdout", "stderr"]:
+            output_value = getattr(value, output)
+            if output_value is None:
+                continue
+
+            assert isinstance(
+                output_value, valid_type
+            ), f"run fixture called with text={text} but expected {output} is of type {type(output_value)}"
+
+        return value
 
 
 @pytest.fixture
