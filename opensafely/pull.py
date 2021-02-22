@@ -1,13 +1,16 @@
 import subprocess
 import sys
 
+from opensafely._vendor.jobrunner import config
+
 
 DESCRIPTION = (
     "Command for updating the docker images used to run OpenSAFELY studies locally"
 )
-REGISTRY = "ghcr.io/opensafely-core"
-IMAGES = ["r", "python", "jupyter", "stata-mp"]
+REGISTRY = config.DOCKER_REGISTRY
+IMAGES = list(config.ALLOWED_IMAGES)
 DEPRECATED_REGISTRIES = ["docker.opensafely.org", "ghcr.io/opensafely"]
+IMAGES.sort()  # this is just for consistency for testing
 
 
 def add_arguments(parser):
@@ -59,9 +62,10 @@ def get_local_images():
     ps = subprocess.run(
         ["docker", "image", "ls", "--format={{.Repository}}"],
         check=True,
+        text=True,
         capture_output=True,
     )
-    lines = [line for line in ps.stdout.decode("utf8").split("\n") if line.strip()]
+    lines = [line for line in ps.stdout.splitlines() if line.strip()]
     return set(lines)
 
 

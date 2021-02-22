@@ -22,7 +22,6 @@ def clean_cache_file():
         upgrade.CACHE_FILE.unlink()
 
 
-
 @pytest.fixture
 def set_current_version(monkeypatch):
     def set(value):
