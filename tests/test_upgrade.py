@@ -1,6 +1,7 @@
 import argparse
 from datetime import datetime, timedelta
 import os
+import sys
 
 import pytest
 
@@ -37,7 +38,9 @@ def test_main_latest_upgrade(requests_mock, run, set_current_version):
         json={"info": {"version": "1.1.0"}},
     )
     set_current_version("v1.0.0")
-    run.expect(["pip", "install", "--upgrade", "opensafely==1.1.0"])
+    run.expect(
+        [sys.executable, "-m", "pip", "install", "--upgrade", "opensafely==1.1.0"]
+    )
     upgrade.main("latest")
 
 
@@ -114,12 +117,14 @@ def test_check_version_needs_updating(set_current_version, capsys):
     set_current_version("v1.0.0")
     assert upgrade.check_version()
     out, _ = capsys.readouterr()
-    assert out.strip() == (
-        f"Warning: there is a newer version of opensafely available - please run 'opensafely upgrade' to update to 1.1.0"
-    )
+    assert out.splitlines() == [
+        "Warning: there is a newer version of opensafely available (1.1.0) - please upgrade by running:",
+        "    opensafely upgrade",
+        "",
+    ]
 
 
-def test_check_version_needs_updating(set_current_version, capsys):
+def test_check_version_not_need_updating(set_current_version, capsys):
     upgrade.CACHE_FILE.write_text("1.0.0")
     set_current_version("v1.0.0")
     assert not upgrade.check_version()
