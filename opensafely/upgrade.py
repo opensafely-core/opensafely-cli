@@ -33,7 +33,9 @@ def main(version):
     pkg = "opensafely==" + version
 
     try:
-        subprocess.run(["pip", "install", "--upgrade", pkg], check=True)
+        subprocess.run(
+            [sys.executable, "-m", "pip", "install", "--upgrade", pkg], check=True
+        )
     except subprocess.CalledProcessError as exc:
         sys.exit(exc)
 
@@ -73,7 +75,8 @@ def check_version():
         update = need_to_update(latest)
         if update:
             print(
-                f"Warning: there is a newer version of opensafely available - please run 'opensafely upgrade' to update to {latest}\n"
+                f"Warning: there is a newer version of opensafely available ({latest}) - please upgrade by running:\n"
+                "    opensafely upgrade\n"
             )
         return update
     except Exception:
