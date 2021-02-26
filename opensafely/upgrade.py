@@ -79,6 +79,8 @@ def get_latest_version(force=False):
 
 
 def comparable(version_string):
+    if version_string == "not-from-a-package":
+        return (0,)
     try:
         return tuple(int(s) for s in version_string.split("."))
     except Exception:

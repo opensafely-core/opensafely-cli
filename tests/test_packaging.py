@@ -35,6 +35,9 @@ def test_packaging(package_type, ext, tmp_path):
     # vendoring and packaging, issues tend to show up at import time.
     subprocess_run([tmp_path / BIN_DIR / "opensafely", "run", "--help"], check=True)
     subprocess_run([tmp_path / BIN_DIR / "opensafely", "--version"], check=True)
+    # This always triggers an upgrade because the development version is always
+    # considered lower than the latest published version
+    subprocess_run([tmp_path / BIN_DIR / "opensafely", "upgrade"], check=True)
 
 
 def subprocess_run(cmd_args, **kwargs):
