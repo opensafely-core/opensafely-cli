@@ -1,7 +1,9 @@
 from datetime import datetime, timedelta
+import os
+from pathlib import Path
+import shutil
 import subprocess
 import sys
-from pathlib import Path
 import tempfile
 
 import opensafely
@@ -30,6 +32,26 @@ def main(version):
         print(f"opensafely is already at version {version}")
         return 0
 
+    # Windows shennanigans: pip triggers a permissions error when it tries to
+    # update the currently executing binary. However if we replace the binary
+    # with a copy of itself (i.e. copy to a temporary file and then move the
+    # copy over the original) it runs quite happily. This is fine.
+    entrypoint_bin = Path(sys.argv[0]).with_suffix(".exe")
+    if os.name == "nt" and entrypoint_bin.exists():
+        tmp_file = entrypoint_bin.with_suffix(".exe._opensafely_.tmp")
+        # copy2 attempts to preserve all file metadata
+        shutil.copy2(entrypoint_bin, tmp_file)
+        # Under some circumstances we can move the copy directly over the
+        # existing file, which is safer because at no point does the file not
+        # exist and cleaner because it doesn't leave an old file lying around
+        try:
+            tmp_file.replace(entrypoint_bin)
+        # Sometimes, however, this doesn't work in which case we have to move
+        # the original file out of the way first
+        except PermissionError:
+            entrypoint_bin.replace(entrypoint_bin.with_suffix(".exe._old_.tmp"))
+            tmp_file.replace(entrypoint_bin)
+
     pkg = "opensafely==" + version
 
     try:
@@ -57,6 +79,8 @@ def get_latest_version(force=False):
 
 
 def comparable(version_string):
+    if version_string == "not-from-a-package":
+        return (0,)
     try:
         return tuple(int(s) for s in version_string.split("."))
     except Exception:

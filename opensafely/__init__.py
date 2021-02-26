@@ -52,14 +52,14 @@ def main():
     # following recent documentation but has an old opensafely installed,
     # there's some hint as to why their invocation is failing before being told
     # by argparse.
-    if sys.argv[1] != "upgrade":
+    if len(sys.argv) == 1 or sys.argv[1] != "upgrade":
         upgrade.check_version()
 
     args = parser.parse_args()
     kwargs = vars(args)
     function = kwargs.pop("function")
     success = function(**kwargs)
-    sys.exit(0 if success else 1)
+    sys.exit(0 if success is not False else 1)
 
 
 if __name__ == "__main__":
