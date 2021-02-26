@@ -52,7 +52,7 @@ def main():
     # following recent documentation but has an old opensafely installed,
     # there's some hint as to why their invocation is failing before being told
     # by argparse.
-    if sys.argv[1] != "upgrade":
+    if len(sys.argv) == 1 or sys.argv[1] != "upgrade":
         upgrade.check_version()
 
     args = parser.parse_args()
