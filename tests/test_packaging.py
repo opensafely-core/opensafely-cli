@@ -26,15 +26,15 @@ def test_packaging(package_type, ext, tmp_path):
         cwd=project_root,
     )
     # Install it in a temporary virtualenv
-    subprocess_run([sys.executable, "-m", "venv", tmp_path])
+    subprocess_run([sys.executable, "-m", "venv", tmp_path], check=True)
     package = list(project_root.glob(f"dist/*.{ext}"))[0]
-    subprocess_run([tmp_path / BIN_DIR / "pip", "install", package])
+    subprocess_run([tmp_path / BIN_DIR / "pip", "install", package], check=True)
     # Smoketest it by running `--help` and `--version`. This is actually a more
     # comprehensive test than you might think as it involves importing
     # everything and because all the complexity in this project is in the
     # vendoring and packaging, issues tend to show up at import time.
-    subprocess_run([tmp_path / BIN_DIR / "opensafely", "run", "--help"])
-    subprocess_run([tmp_path / BIN_DIR / "opensafely", "run", "--version"])
+    subprocess_run([tmp_path / BIN_DIR / "opensafely", "run", "--help"], check=True)
+    subprocess_run([tmp_path / BIN_DIR / "opensafely", "--version"], check=True)
 
 
 def subprocess_run(cmd_args, **kwargs):
