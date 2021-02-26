@@ -59,7 +59,7 @@ def main():
     kwargs = vars(args)
     function = kwargs.pop("function")
     success = function(**kwargs)
-    sys.exit(0 if success else 1)
+    sys.exit(0 if success is not False else 1)
 
 
 if __name__ == "__main__":
