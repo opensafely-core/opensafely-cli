@@ -84,6 +84,8 @@ def start_job(job):
             if config.PRESTO_TLS_KEY and config.PRESTO_TLS_CERT:
                 env["PRESTO_TLS_CERT"] = config.PRESTO_TLS_CERT
                 env["PRESTO_TLS_KEY"] = config.PRESTO_TLS_KEY
+            if config.EMIS_ORGANISATION_HASH:
+                env["EMIS_ORGANISATION_HASH"] = config.EMIS_ORGANISATION_HASH
     # Prepend registry name
     image = action_args[0]
     full_image = f"{config.DOCKER_REGISTRY}/{image}"
@@ -310,6 +312,10 @@ def cleanup_job(job):
         log.info("Leaving container and volume in place for debugging")
 
 
+def kill_job(job):
+    docker.kill(container_name(job))
+
+
 def get_container_metadata(job):
     metadata = docker.container_inspect(container_name(job), none_if_not_exists=True)
     if not metadata:
@@ -373,6 +379,7 @@ def get_job_metadata(job, container_metadata):
     job_metadata["job_id"] = job_metadata["id"]
     job_metadata["run_by_user"] = job_metadata["job_request"].get("created_by")
     job_metadata["docker_image_id"] = container_metadata["Image"]
+    job_metadata["exit_code"] = container_metadata["State"]["ExitCode"]
     job_metadata["container_metadata"] = container_metadata
     return job_metadata
 
@@ -391,6 +398,7 @@ def write_log_file(job, job_metadata, filename):
             "state",
             "commit",
             "docker_image_id",
+            "exit_code",
             "job_id",
             "run_by_user",
             "created_at",
@@ -408,13 +416,12 @@ def write_log_file(job, job_metadata, filename):
 
 
 # Environment variables whose values do not need to be hidden from the debug
-# logs. At present the only sensitive value is DATABASE_URL, but its better to
-# have an explicit safelist here. We might end up including things like license
-# keys in the environment.
+# logs
 SAFE_ENVIRONMENT_VARIABLES = set(
     """
-    PATH PYTHON_VERSION DEBIAN_FRONTEND DEBCONF_NONINTERACTIVE_SEEN UBUNTU_VERSION
-    PYENV_SHELL PYENV_VERSION PYTHONUNBUFFERED
+    PATH PYTHON_VERSION DEBIAN_FRONTEND DEBCONF_NONINTERACTIVE_SEEN
+    UBUNTU_VERSION PYENV_SHELL PYENV_VERSION PYTHONUNBUFFERED
+    OPENSAFELY_BACKEND TZ TEMP_DATABASE_NAME
     """.split()
 )
 

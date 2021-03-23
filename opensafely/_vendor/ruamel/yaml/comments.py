@@ -230,7 +230,10 @@ class CommentedBase(object):
             comment = comment[:-1]  # strip final newline if there
         start_mark = CommentMark(indent)
         for com in comment.split('\n'):
-            pre_comments.append(CommentToken('# ' + com + '\n', start_mark, None))
+            c = com.strip()
+            if len(c) > 0 and c[0] != '#':
+                com = '# ' + com
+            pre_comments.append(CommentToken(com + '\n', start_mark, None))
 
     def yaml_set_comment_before_after_key(
         self, key, before=None, indent=0, after=None, after_indent=None
@@ -696,20 +699,22 @@ class CommentedMap(ordereddict, CommentedBase):  # type: ignore
             self.ca.comment[1] = pre_comments
         return pre_comments
 
-    def update(self, vals):
-        # type: (Any) -> None
+    def update(self, *vals, **kw):
+        # type: (Any, Any) -> None
         try:
-            ordereddict.update(self, vals)
+            ordereddict.update(self, *vals, **kw)
         except TypeError:
             # probably a dict that is used
-            for x in vals:
-                self[x] = vals[x]
+            for x in vals[0]:
+                self[x] = vals[0][x]
         try:
             self._ok.update(vals.keys())  # type: ignore
         except AttributeError:
-            # assume a list/tuple of two element lists/tuples
-            for x in vals:
+            # assume one argument that is a list/tuple of two element lists/tuples
+            for x in vals[0]:
                 self._ok.add(x[0])
+        if kw:
+            self._ok.add(*kw.keys())
 
     def insert(self, pos, key, value, comment=None):
         # type: (Any, Any, Any, Optional[Any]) -> None
