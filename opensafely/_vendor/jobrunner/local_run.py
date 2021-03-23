@@ -77,6 +77,12 @@ def add_arguments(parser):
         help="Don't stop on first failed action",
         action="store_true",
     )
+    # This particularly useful in CI.
+    parser.add_argument(
+        "--timestamps",
+        help="Include timestamps in output",
+        action="store_true",
+    )
     parser.add_argument(
         "--debug",
         help="Leave docker containers and volumes in place for debugging",
@@ -91,6 +97,7 @@ def main(
     force_run_dependencies=False,
     continue_on_error=False,
     debug=False,
+    timestamps=False,
 ):
     if not docker_preflight_check():
         return False
@@ -110,6 +117,10 @@ def main(
         # volumes) we use a consistent label to make manual clean up easier
         docker_label = "job-runner-debug"
 
+    log_format = LOCAL_RUN_FORMAT
+    if timestamps:
+        log_format = "{asctime} " + LOCAL_RUN_FORMAT
+
     try:
         success_flag = create_and_run_jobs(
             project_dir,
@@ -119,6 +130,7 @@ def main(
             temp_log_dir=temp_log_dir,
             docker_label=docker_label,
             clean_up_docker_objects=(not debug),
+            log_format=log_format,
         )
     except KeyboardInterrupt:
         print("\nKilled by user")
@@ -153,6 +165,7 @@ def create_and_run_jobs(
     temp_log_dir,
     docker_label,
     clean_up_docker_objects=True,
+    log_format=LOCAL_RUN_FORMAT,
 ):
     # Configure
     docker.LABEL = docker_label
@@ -181,6 +194,7 @@ def create_and_run_jobs(
         repo_url=str(project_dir),
         commit="none",
         requested_actions=actions,
+        cancelled_actions=[],
         workspace=project_dir.name,
         database_name="dummy",
         force_run_dependencies=force_run_dependencies,
@@ -240,7 +254,7 @@ def create_and_run_jobs(
     print(f"\nRunning actions: {', '.join(action_names)}\n")
 
     configure_logging(
-        fmt=LOCAL_RUN_FORMAT,
+        fmt=log_format,
         # None of these status messages are particularly useful in local run
         # mode, and they can generate a lot of clutter in large dependency
         # trees
@@ -256,7 +270,11 @@ def create_and_run_jobs(
 
     # Run everything
     try:
-        run_main(exit_when_done=True, raise_on_failure=not continue_on_error)
+        run_main(
+            exit_when_done=True,
+            shuffle_jobs=False,
+            raise_on_failure=not continue_on_error,
+        )
     except (JobError, KeyboardInterrupt):
         pass
 

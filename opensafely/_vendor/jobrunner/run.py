@@ -5,12 +5,13 @@ updates its state as appropriate.
 """
 import datetime
 import logging
+import random
 import sys
 import time
 
 from .log_utils import configure_logging, set_log_context
 from . import config
-from .database import find_where, count_where, update, select_values
+from .database import find_where, update, select_values
 from .models import Job, State, StatusCode
 from .manage_jobs import (
     JobError,
@@ -18,23 +19,32 @@ from .manage_jobs import (
     job_still_running,
     finalise_job,
     cleanup_job,
+    kill_job,
 )
 
 
 log = logging.getLogger(__name__)
 
 
-def main(exit_when_done=False, raise_on_failure=False):
+def main(exit_when_done=False, raise_on_failure=False, shuffle_jobs=True):
     log.info("jobrunner.run loop started")
     while True:
-        active_jobs = handle_jobs(raise_on_failure=raise_on_failure)
+        active_jobs = handle_jobs(
+            raise_on_failure=raise_on_failure, shuffle_jobs=shuffle_jobs
+        )
         if exit_when_done and len(active_jobs) == 0:
             break
         time.sleep(config.JOB_LOOP_INTERVAL)
 
 
-def handle_jobs(raise_on_failure=False):
+def handle_jobs(raise_on_failure=False, shuffle_jobs=True):
     active_jobs = find_where(Job, state__in=[State.PENDING, State.RUNNING])
+    # Randomising the job order is a crude but effective way to ensure that a
+    # single large job request doesn't hog all the workers. We make this
+    # optional as, when running locally, having jobs run in a predictable order
+    # is preferable
+    if shuffle_jobs:
+        random.shuffle(active_jobs)
     for job in active_jobs:
         # `set_log_context` ensures that all log messages triggered anywhere
         # further down the stack will have `job` set on them
@@ -49,6 +59,15 @@ def handle_jobs(raise_on_failure=False):
 
 
 def handle_pending_job(job):
+    if job.cancelled:
+        # Mark the job as running and let `handle_running_job` deal with
+        # cancelling it on the next loop iteration. This allows us to keep all
+        # the kill/cleanup code together and it means that there aren't edge
+        # cases where we could lose track of jobs completely after losing
+        # database state
+        mark_job_as_running(job)
+        return
+
     awaited_states = get_states_of_awaited_jobs(job)
     if State.FAILED in awaited_states:
         mark_job_as_failed(
@@ -59,10 +78,9 @@ def handle_pending_job(job):
             job, "Waiting on dependencies", code=StatusCode.WAITING_ON_DEPENDENCIES
         )
     else:
-        if not job_running_capacity_available():
-            set_message(
-                job, "Waiting for available workers", code=StatusCode.WAITING_ON_WORKERS
-            )
+        not_started_reason = get_reason_job_not_started(job)
+        if not_started_reason:
+            set_message(job, not_started_reason, code=StatusCode.WAITING_ON_WORKERS)
         else:
             try:
                 set_message(job, "Preparing")
@@ -78,6 +96,10 @@ def handle_pending_job(job):
 
 
 def handle_running_job(job):
+    if job.cancelled:
+        log.info("Cancellation requested, killing job")
+        kill_job(job)
+
     if job_still_running(job):
         set_message(job, "Running")
     else:
@@ -119,6 +141,9 @@ def mark_job_as_failed(job, error, code=None):
         message = error
     else:
         message = f"{type(error).__name__}: {error}"
+    if job.cancelled:
+        message = "Cancelled by user"
+        code = StatusCode.CANCELLED_BY_USER
     set_state(job, State.FAILED, message, code=code)
 
 
@@ -131,6 +156,9 @@ def mark_job_as_completed(job):
     # database exactly as is with the exception of setting the completed at
     # timestamp
     assert job.state in [State.SUCCEEDED, State.FAILED]
+    if job.state == State.FAILED and job.cancelled:
+        job.status_message = "Cancelled by user"
+        job.status_code = StatusCode.CANCELLED_BY_USER
     job.completed_at = int(time.time())
     update(job)
     log.info(job.status_message, extra={"status_code": job.status_code})
@@ -183,9 +211,30 @@ def set_message(job, message, code=None):
             log.info(job.status_message, extra={"status_code": job.status_code})
 
 
-def job_running_capacity_available():
-    running_jobs = count_where(Job, state=State.RUNNING)
-    return running_jobs < config.MAX_WORKERS
+def get_reason_job_not_started(job):
+    running_jobs = find_where(Job, state=State.RUNNING)
+    used_resources = sum(
+        get_job_resource_weight(running_job) for running_job in running_jobs
+    )
+    required_resources = get_job_resource_weight(job)
+    if used_resources + required_resources > config.MAX_WORKERS:
+        if required_resources > 1:
+            return "Waiting on available workers for resource intensive job"
+        else:
+            return "Waiting on available workers"
+
+
+def get_job_resource_weight(job, weights=config.JOB_RESOURCE_WEIGHTS):
+    """
+    Get the job's resource weight by checking its workspace and action against
+    the config file, default to 1 otherwise
+    """
+    action_patterns = weights.get(job.workspace)
+    if action_patterns:
+        for pattern, weight in action_patterns.items():
+            if pattern.fullmatch(job.action):
+                return weight
+    return 1
 
 
 if __name__ == "__main__":
