@@ -2,6 +2,7 @@ import subprocess
 import sys
 
 from opensafely._vendor.jobrunner import config
+from opensafely._vendor.jobrunner.local_run import docker_preflight_check
 
 
 DESCRIPTION = (
@@ -30,6 +31,9 @@ def add_arguments(parser):
 
 
 def main(image, force):
+    if not docker_preflight_check():
+        return False
+
     if image == "all":
         images = IMAGES
     else:
