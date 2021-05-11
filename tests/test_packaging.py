@@ -36,8 +36,8 @@ def test_packaging(package_type, ext, tmp_path):
     subprocess_run([tmp_path / BIN_DIR / "opensafely", "run", "--help"], check=True)
     subprocess_run([tmp_path / BIN_DIR / "opensafely", "--version"], check=True)
     # This always triggers an upgrade because the development version is always
-    # considered lower than the latest published version
-    subprocess_run([tmp_path / BIN_DIR / "opensafely", "upgrade"], check=True)
+    # considered lower than any other version
+    subprocess_run([tmp_path / BIN_DIR / "opensafely", "upgrade", "1.7.0"], check=True)
 
 
 def subprocess_run(cmd_args, **kwargs):
