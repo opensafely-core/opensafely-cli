@@ -1,7 +1,4 @@
-
 # coding: utf-8
-
-from __future__ import print_function, absolute_import, division, unicode_literals
 
 import datetime
 import copy
@@ -28,9 +25,18 @@ class TimeStamp(datetime.datetime):
         ts._yaml = copy.deepcopy(self._yaml)
         return ts
 
-    def replace(self, year=None, month=None, day=None, hour=None,
-                minute=None, second=None, microsecond=None, tzinfo=True,
-                fold=None):
+    def replace(
+        self,
+        year=None,
+        month=None,
+        day=None,
+        hour=None,
+        minute=None,
+        second=None,
+        microsecond=None,
+        tzinfo=True,
+        fold=None,
+    ):
         if year is None:
             year = self.year
         if month is None:

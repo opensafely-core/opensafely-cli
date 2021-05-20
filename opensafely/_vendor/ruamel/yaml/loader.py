@@ -1,8 +1,5 @@
 # coding: utf-8
 
-from __future__ import absolute_import
-
-
 from opensafely._vendor.ruamel.yaml.reader import Reader
 from opensafely._vendor.ruamel.yaml.scanner import Scanner, RoundTripScanner
 from opensafely._vendor.ruamel.yaml.parser import Parser, RoundTripParser

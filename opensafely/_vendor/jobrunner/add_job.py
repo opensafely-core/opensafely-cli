@@ -16,6 +16,7 @@ from .sync import job_request_from_remote_format
 from .database import find_where
 from .models import Job
 from .create_or_update_jobs import create_or_update_jobs
+from .git import get_sha_from_remote_ref
 
 
 def main(
@@ -27,6 +28,8 @@ def main(
         path = Path(parsed.path).resolve()
         # In case we're on Windows
         repo_url = str(path).replace("\\", "/")
+    if not commit:
+        commit = get_sha_from_remote_ref(repo_url, branch)
     job_request = job_request_from_remote_format(
         dict(
             identifier=random_id(),
@@ -34,6 +37,7 @@ def main(
             workspace=dict(name=workspace, repo=repo_url, branch=branch, db=database),
             requested_actions=actions,
             force_run_dependencies=force_run_dependencies,
+            cancelled_actions=[],
         )
     )
     print("Submitting JobRequest:\n")
@@ -66,7 +70,7 @@ def random_id():
     return base64.b32encode(secrets.token_bytes(10)).decode("ascii").lower()
 
 
-if __name__ == "__main__":
+def run():
     configure_logging()
     parser = argparse.ArgumentParser(description=__doc__.partition("\n\n")[0])
     parser.add_argument("repo_url", help="URL (or local path) of git repository")
@@ -93,3 +97,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     main(**vars(args))
+
+
+if __name__ == "__main__":
+    run()

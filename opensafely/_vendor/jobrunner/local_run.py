@@ -19,6 +19,7 @@ temporary database and log directory is created for each run and then thrown
 away afterwards.
 """
 import argparse
+from datetime import datetime, timedelta
 import json
 import os
 from pathlib import Path
@@ -56,12 +57,22 @@ DESCRIPTION = __doc__.partition("\n\n")[0]
 LOCAL_RUN_FORMAT = "{action}{message}"
 
 
+# Super-crude support for colourised/formatted output inside Github Actions. It
+# would be good to support formatted output in the CLI more generally, but we
+# should use a decent library for that to handle the various cross-platform
+# issues.
+class ANSI:
+    Reset = "\u001b[0m"
+    Bold = "\u001b[1m"
+    Grey = "\u001b[38;5;248m"
+
+
 def add_arguments(parser):
     parser.add_argument("actions", nargs="*", help="Name of project action to run")
     parser.add_argument(
         "-f",
         "--force-run-dependencies",
-        help="Re-run from scratch without using existing outputs",
+        help="Force the dependencies of the action to run, whether or not their outputs exist",
         action="store_true",
     )
     parser.add_argument(
@@ -88,6 +99,14 @@ def add_arguments(parser):
         help="Leave docker containers and volumes in place for debugging",
         action="store_true",
     )
+    parser.add_argument(
+        "--format-output-for-github",
+        help=(
+            "Produce output in a format suitable for display inside a "
+            "Github Actions Workflow"
+        ),
+        action="store_true",
+    )
     return parser
 
 
@@ -98,6 +117,7 @@ def main(
     continue_on_error=False,
     debug=False,
     timestamps=False,
+    format_output_for_github=False,
 ):
     if not docker_preflight_check():
         return False
@@ -131,6 +151,7 @@ def main(
             docker_label=docker_label,
             clean_up_docker_objects=(not debug),
             log_format=log_format,
+            format_output_for_github=format_output_for_github,
         )
     except KeyboardInterrupt:
         print("\nKilled by user")
@@ -166,6 +187,7 @@ def create_and_run_jobs(
     docker_label,
     clean_up_docker_objects=True,
     log_format=LOCAL_RUN_FORMAT,
+    format_output_for_github=False,
 ):
     # Configure
     docker.LABEL = docker_label
@@ -268,6 +290,10 @@ def create_and_run_jobs(
         stream=sys.stdout,
     )
 
+    # Wrap all the log output inside an expandable block when running inside
+    # Github Actions
+    if format_output_for_github:
+        print(f"::group::Job Runner Logs {ANSI.Grey}(click to view){ANSI.Reset}")
     # Run everything
     try:
         run_main(
@@ -277,6 +303,9 @@ def create_and_run_jobs(
         )
     except (JobError, KeyboardInterrupt):
         pass
+    finally:
+        if format_output_for_github:
+            print("::endgroup::")
 
     final_jobs = find_where(Job, state__in=[State.FAILED, State.SUCCEEDED])
     # Always show failed jobs last, otherwise show in order run
@@ -300,7 +329,10 @@ def create_and_run_jobs(
             and job.status_code == StatusCode.DEPENDENCY_FAILED
         ):
             continue
-        print(f"=> {job.action}")
+        if format_output_for_github:
+            print(f"{ANSI.Bold}=> {job.action}{ANSI.Reset}")
+        else:
+            print(f"=> {job.action}")
         print(textwrap.indent(job.status_message, "   "))
         # Where a job failed because expected outputs weren't found we show a
         # list of other outputs which were generated
@@ -310,7 +342,19 @@ def create_and_run_jobs(
             )
             print("\n    - ".join(job.unmatched_outputs))
         print()
-        print(f"   log file: {log_file}")
+        # Output the entire log file inside an expandable block when running
+        # inside Github Actions
+        if format_output_for_github:
+            print(
+                f"::group:: log file: {log_file} {ANSI.Grey}(click to view){ANSI.Reset}"
+            )
+            long_grey_line = ANSI.Grey + ("\u2015" * 80) + ANSI.Reset
+            print(long_grey_line)
+            print((project_dir / log_file).read_text())
+            print(long_grey_line)
+            print("::endgroup::")
+        else:
+            print(f"   log file: {log_file}")
         # Display matched outputs
         print("   outputs:")
         outputs = sorted(job.outputs.items()) if job.outputs else []
@@ -441,6 +485,7 @@ def temporary_stata_workaround(image):
 def get_stata_license(repo=config.STATA_LICENSE_REPO):
     """Load a stata license from local cache or remote repo."""
     cached = Path(f"{tempfile.gettempdir()}/opensafely-stata.lic")
+    license_timeout = timedelta(hours=2)
 
     def git_clone(repo_url, cwd):
         cmd = ["git", "clone", "--depth=1", repo_url, "repo"]
@@ -455,7 +500,15 @@ def get_stata_license(repo=config.STATA_LICENSE_REPO):
         )
         return result.returncode == 0
 
-    if not cached.exists():
+    fetch = False
+    if cached.exists():
+        mtime = datetime.fromtimestamp(cached.stat().st_mtime)
+        if datetime.utcnow() - mtime > license_timeout:
+            fetch = True
+    else:
+        fetch = True
+
+    if fetch:
         try:
             tmp = tempfile.TemporaryDirectory(suffix="opensafely")
             success = git_clone(repo, tmp.name)
@@ -467,22 +520,29 @@ def get_stata_license(repo=config.STATA_LICENSE_REPO):
                 )
             shutil.copyfile(f"{tmp.name}/repo/stata.lic", cached)
         except Exception:
-            return None
+            pass
         finally:
             # py3.7 on windows can't clean up TemporaryDirectory with git's read only
             # files in them, so just don't bother.
             if platform.system() != "Windows" or sys.version_info[:2] > (3, 7):
                 tmp.cleanup()
 
-    return cached.read_text()
+    if cached.exists():
+        # if the refresh failed for some reason, update the last time it was
+        # used to now to avoid spamming github on every subsequent run
+        t = datetime.utcnow().timestamp()
+        os.utime(cached, (t, t))
+        return cached.read_text()
+    else:
+        return None
 
 
 def docker_preflight_check():
     try:
         subprocess_run(["docker", "info"], check=True, capture_output=True)
     except FileNotFoundError:
-        print("Could not find command: docker")
-        print("\nTo use the `run` command you must have Docker installed, see:")
+        print("Could not find application: docker")
+        print("\nYou must have Docker installed to run this command, see:")
         print("https://docs.docker.com/get-docker/")
         return False
     except subprocess.CalledProcessError:
@@ -492,9 +552,13 @@ def docker_preflight_check():
     return True
 
 
-if __name__ == "__main__":
+def run():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
     parser = add_arguments(parser)
     args = parser.parse_args()
     success = main(**vars(args))
     sys.exit(0 if success else 1)
+
+
+if __name__ == "__main__":
+    run()
