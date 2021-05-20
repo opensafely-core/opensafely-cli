@@ -78,3 +78,8 @@ def test_codelists_check_fail_if_file_modified(codelists_path):
     os.chdir(codelists_path)
     with pytest.raises(SystemExit):
         codelists.check()
+
+
+def test_codelists_check_passes_if_no_codelists_dir(tmp_path):
+    os.chdir(tmp_path)
+    assert codelists.check()
