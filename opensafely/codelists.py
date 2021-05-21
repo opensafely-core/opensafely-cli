@@ -91,6 +91,9 @@ def update(codelists_dir=None):
 
 def check():
     codelists_dir = Path.cwd() / CODELISTS_DIR
+    if not codelists_dir.exists():
+        print(f"No '{CODELISTS_DIR}' directory present so nothing to check")
+        return True
     codelists = parse_codelist_file(codelists_dir)
     manifest_file = codelists_dir / MANIFEST_FILE
     if not manifest_file.exists():
