@@ -1,8 +1,11 @@
+from pathlib import Path
 import subprocess
 import sys
 
 from opensafely._vendor.jobrunner import config
 from opensafely._vendor.jobrunner.local_run import docker_preflight_check
+from opensafely._vendor.ruamel.yaml import YAML
+from opensafely._vendor.ruamel.yaml.error import YAMLError, YAMLStreamError, YAMLWarning, YAMLFutureWarning
 
 
 DESCRIPTION = (
@@ -28,13 +31,20 @@ def add_arguments(parser):
         action="store_true",
         help="Update docker images even if not present locally",
     )
+    parser.add_argument(
+        "--project",
+        help="Use this project to yaml to decide which images to download",
+    )
 
 
-def main(image, force):
+def main(image="all", force=False, project=None):
     if not docker_preflight_check():
         return False
 
-    if image == "all":
+    if project:
+        force = True
+        images = get_actions_from_project_file(project)
+    elif image == "all":
         images = IMAGES
     else:
         # if user has requested a specific image, pull it regardless
@@ -60,6 +70,35 @@ def main(image, force):
 
     except subprocess.CalledProcessError as exc:
         sys.exit(exc.stderr)
+
+
+def get_actions_from_project_file(project_yaml):
+    path = Path(project_yaml)
+    if not path.exists():
+        raise RuntimeError(f"Could not find {project_yaml}")
+
+    try:
+        with path.open() as f:
+            project = YAML(typ="safe", pure=True).load(path)
+    except (YAMLError, YAMLStreamError, YAMLWarning, YAMLFutureWarning) as e:
+        raise RuntimeError(f"Could not parse {project_yaml}: str(e)")
+
+    images = []
+    for action_name, action in project.get("actions", {}).items():
+        if not action:
+            continue
+        command = action.get("run", None)
+        if command is None:
+            continue
+
+        name, _, version = command.partition(":")
+        if name in IMAGES:
+            images.append(name)
+
+    if not images:
+        raise RuntimeError(f"No actions found in {project_yaml}")
+
+    return images
 
 
 def get_local_images():
