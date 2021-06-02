@@ -84,7 +84,7 @@ def test_specific_image(run, capsys):
 
 
 
-def test_preseed(run, capsys):
+def test_project(run, capsys):
 
     run.expect(["docker", "info"])
     run.expect(["docker", "image", "ls", "--format={{.Repository}}"], stdout="")
@@ -93,7 +93,7 @@ def test_preseed(run, capsys):
     run.expect(["docker", "pull", tag("jupyter")])
     run.expect(["docker", "image", "prune", "--force"])
 
-    pull.main(preseed=project_fixture_path / "project.yaml")
+    pull.main(project=project_fixture_path / "project.yaml")
     out, err = capsys.readouterr()
     assert err == ""
     assert out.splitlines() == [
@@ -137,11 +137,11 @@ def test_get_actions_from_project_yaml_errors(project_yaml, exc_msg):
 @pytest.mark.parametrize(
     "argv,expected",
     [
-        ([], argparse.Namespace(image="all", force=False, preseed=None)),
-        (["--force"], argparse.Namespace(image="all", force=True, preseed=None)),
-        (["r"], argparse.Namespace(image="r", force=False, preseed=None)),
-        (["r", "--force"], argparse.Namespace(image="r", force=True, preseed=None)),
-        (["--preseed", "project.yaml"], argparse.Namespace(image="all", force=False, preseed="project.yaml")),
+        ([], argparse.Namespace(image="all", force=False, project=None)),
+        (["--force"], argparse.Namespace(image="all", force=True, project=None)),
+        (["r"], argparse.Namespace(image="r", force=False, project=None)),
+        (["r", "--force"], argparse.Namespace(image="r", force=True, project=None)),
+        (["--project", "project.yaml"], argparse.Namespace(image="all", force=False, project="project.yaml")),
         (["invalid"], SystemExit()),
     ],
 )

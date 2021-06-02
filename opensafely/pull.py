@@ -32,18 +32,18 @@ def add_arguments(parser):
         help="Update docker images even if not present locally",
     )
     parser.add_argument(
-        "--preseed",
+        "--project",
         help="Use this project to yaml to decide which images to download",
     )
 
 
-def main(image="all", force=False, preseed=None):
+def main(image="all", force=False, project=None):
     if not docker_preflight_check():
         return False
 
-    if preseed:
+    if project:
         force = True
-        images = get_actions_from_project_file(preseed)
+        images = get_actions_from_project_file(project)
     elif image == "all":
         images = IMAGES
     else:
@@ -75,13 +75,13 @@ def main(image="all", force=False, preseed=None):
 def get_actions_from_project_file(project_yaml):
     path = Path(project_yaml)
     if not path.exists():
-        raise RuntimeError(f"Could not find {project_yaml} for preseed")
+        raise RuntimeError(f"Could not find {project_yaml}")
 
     try:
         with path.open() as f:
             project = YAML(typ="safe", pure=True).load(path)
     except (YAMLError, YAMLStreamError, YAMLWarning, YAMLFutureWarning) as e:
-        raise RuntimeError(f"Could not parse {project_yaml} for preseed: str(e)")
+        raise RuntimeError(f"Could not parse {project_yaml}: str(e)")
 
     images = []
     for action_name, action in project.get("actions", {}).items():
@@ -96,7 +96,7 @@ def get_actions_from_project_file(project_yaml):
             images.append(name)
 
     if not images:
-        raise RuntimeError(f"No actions found in {project_yaml} to preseed")
+        raise RuntimeError(f"No actions found in {project_yaml}")
 
     return images
 
