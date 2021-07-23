@@ -43,7 +43,12 @@ JOB_LOOP_INTERVAL = float(os.environ.get("JOB_LOOP_INTERVAL", "1.0"))
 
 BACKEND = os.environ.get("BACKEND", "expectations")
 
-USING_DUMMY_DATA_BACKEND = BACKEND == "expectations"
+truthy = ("true", "1", "yes")
+
+if os.environ.get("USING_DUMMY_DATA_BACKEND", "false").lower().strip() in truthy:
+    USING_DUMMY_DATA_BACKEND = True
+else:
+    USING_DUMMY_DATA_BACKEND = BACKEND == "expectations"
 
 ALLOWED_IMAGES = {"cohortextractor", "stata-mp", "r", "jupyter", "python"}
 
@@ -103,6 +108,9 @@ STATA_LICENSE_REPO = os.environ.get(
     "https://github.com/opensafely/server-instructions.git",
 )
 
+
+ACTIONS_GITHUB_ORG = "opensafely-actions"
+ACTIONS_GITHUB_ORG_URL = f"https://github.com/{ACTIONS_GITHUB_ORG}"
 
 ALLOWED_GITHUB_ORGS = (
     os.environ.get("ALLOWED_GITHUB_ORGS", "opensafely").strip().split(",")
