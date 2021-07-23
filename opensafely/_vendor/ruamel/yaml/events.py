@@ -7,13 +7,15 @@ from opensafely._vendor.ruamel.yaml.compat import _F
 if False:  # MYPY
     from typing import Any, Dict, Optional, List  # NOQA
 
+SHOW_LINES = False
+
 
 def CommentCheck():
     # type: () -> None
     pass
 
 
-class Event(object):
+class Event:
     __slots__ = 'start_mark', 'end_mark', 'comment'
 
     def __init__(self, start_mark=None, end_mark=None, comment=CommentCheck):
@@ -27,18 +29,42 @@ class Event(object):
 
     def __repr__(self):
         # type: () -> Any
-        attributes = [
-            key
-            for key in ['anchor', 'tag', 'implicit', 'value', 'flow_style', 'style']
-            if hasattr(self, key)
-        ]
-        arguments = ', '.join(
-            [_F('{key!s}={attr!r}', key=key, attr=getattr(self, key)) for key in attributes]
-        )
-        if self.comment not in [None, CommentCheck]:
-            arguments += ', comment={!r}'.format(self.comment)
+        if True:
+            arguments = []
+            if hasattr(self, 'value'):
+                # if you use repr(getattr(self, 'value')) then flake8 complains about
+                # abuse of getattr with a constant. When you change to self.value
+                # then mypy throws an error
+                arguments.append(repr(self.value))  # type: ignore
+            for key in ['anchor', 'tag', 'implicit', 'flow_style', 'style']:
+                v = getattr(self, key, None)
+                if v is not None:
+                    arguments.append(_F('{key!s}={v!r}', key=key, v=v))
+            if self.comment not in [None, CommentCheck]:
+                arguments.append('comment={!r}'.format(self.comment))
+            if SHOW_LINES:
+                arguments.append(
+                    '({}:{}/{}:{})'.format(
+                        self.start_mark.line,
+                        self.start_mark.column,
+                        self.end_mark.line,
+                        self.end_mark.column,
+                    )
+                )
+            arguments = ', '.join(arguments)  # type: ignore
+        else:
+            attributes = [
+                key
+                for key in ['anchor', 'tag', 'implicit', 'value', 'flow_style', 'style']
+                if hasattr(self, key)
+            ]
+            arguments = ', '.join(
+                [_F('{k!s}={attr!r}', k=key, attr=getattr(self, key)) for key in attributes]
+            )
+            if self.comment not in [None, CommentCheck]:
+                arguments += ', comment={!r}'.format(self.comment)
         return _F(
-            '{self_class_name!s}{arguments!s}',
+            '{self_class_name!s}({arguments!s})',
             self_class_name=self.__class__.__name__,
             arguments=arguments,
         )
@@ -124,7 +150,12 @@ class DocumentEndEvent(Event):
 
 
 class AliasEvent(NodeEvent):
-    __slots__ = ()
+    __slots__ = 'style'
+
+    def __init__(self, anchor, start_mark=None, end_mark=None, style=None, comment=None):
+        # type: (Any, Any, Any, Any, Any) -> None
+        NodeEvent.__init__(self, anchor, start_mark, end_mark, comment)
+        self.style = style
 
 
 class ScalarEvent(NodeEvent):

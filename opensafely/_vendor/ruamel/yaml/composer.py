@@ -27,7 +27,7 @@ class ComposerError(MarkedYAMLError):
     pass
 
 
-class Composer(object):
+class Composer:
     def __init__(self, loader=None):
         # type: (Any) -> None
         self.loader = loader
@@ -105,6 +105,7 @@ class Composer(object):
         return node
 
     def return_alias(self, a):
+        # type: (Any) -> Any
         return a
 
     def compose_node(self, parent, index):

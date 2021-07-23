@@ -1,0 +1,1 @@
+from charset_normalizer import *

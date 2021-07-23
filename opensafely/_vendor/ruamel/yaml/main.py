@@ -16,7 +16,7 @@ from opensafely._vendor.ruamel.yaml.nodes import *  # NOQA
 
 from opensafely._vendor.ruamel.yaml.loader import BaseLoader, SafeLoader, Loader, RoundTripLoader  # NOQA
 from opensafely._vendor.ruamel.yaml.dumper import BaseDumper, SafeDumper, Dumper, RoundTripDumper  # NOQA
-from opensafely._vendor.ruamel.yaml.compat import StringIO, BytesIO, with_metaclass, nprint
+from opensafely._vendor.ruamel.yaml.compat import StringIO, BytesIO, with_metaclass, nprint, nprintf  # NOQA
 from opensafely._vendor.ruamel.yaml.resolver import VersionedResolver, Resolver  # NOQA
 from opensafely._vendor.ruamel.yaml.representer import (
     BaseRepresenter,
@@ -31,6 +31,7 @@ from opensafely._vendor.ruamel.yaml.constructor import (
     RoundTripConstructor,
 )
 from opensafely._vendor.ruamel.yaml.loader import Loader as UnsafeLoader
+from opensafely._vendor.ruamel.yaml.comments import CommentedMap, CommentedSeq, C_PRE
 
 if False:  # MYPY
     from typing import List, Set, Dict, Union, Any, Callable, Optional, Text  # NOQA
@@ -49,7 +50,7 @@ except:  # NOQA
 # subset of abbreviations, which should be all caps according to PEP8
 
 
-class YAML(object):
+class YAML:
     def __init__(self, *, typ=None, pure=False, output=None, plug_ins=None):  # input=None,
         # type: (Any, Optional[Text], Any, Any, Any) -> None
         """
@@ -81,6 +82,7 @@ class YAML(object):
         self.Scanner = None  # type: Any
         self.Serializer = None  # type: Any
         self.default_flow_style = None  # type: Any
+        self.comment_handling = None
         typ_found = 1
         setup_rt = False
         if 'rt' in self.typ:
@@ -107,6 +109,18 @@ class YAML(object):
             self.Parser = ruamel_yaml.parser.Parser if pure or CParser is None else CParser
             self.Composer = ruamel_yaml.composer.Composer
             self.Constructor = ruamel_yaml.constructor.Constructor
+        elif 'rtsc' in self.typ:
+            self.default_flow_style = False
+            # no optimized rt-dumper yet
+            self.Emitter = ruamel_yaml.emitter.Emitter
+            self.Serializer = ruamel_yaml.serializer.Serializer
+            self.Representer = ruamel_yaml.representer.RoundTripRepresenter
+            self.Scanner = ruamel_yaml.scanner.RoundTripScannerSC
+            # no optimized rt-parser yet
+            self.Parser = ruamel_yaml.parser.RoundTripParserSC
+            self.Composer = ruamel_yaml.composer.Composer
+            self.Constructor = ruamel_yaml.constructor.RoundTripConstructor
+            self.comment_handling = C_PRE
         else:
             setup_rt = True
             typ_found = 0
@@ -150,7 +164,6 @@ class YAML(object):
         self.scalar_after_indicator = None
         # [a, b: 1, c: {d: 2}]  vs. [a, {b: 1}, {c: {d: 2}}]
         self.brace_single_entry_mapping_in_flow_sequence = False
-        self.comment_handling = None
         for module in self.plug_ins:
             if getattr(module, 'typ', None) in self.typ:
                 typ_found += 1
@@ -431,7 +444,7 @@ class YAML(object):
                 pass
 
     def load_all(self, stream):  # *, skip=None):
-        # type: (Union[Path, StreamTextType], Any) -> Any
+        # type: (Union[Path, StreamTextType]) -> Any
         if not hasattr(stream, 'read') and hasattr(stream, 'open'):
             # pathlib.Path() instance
             with stream.open('r') as fp:
@@ -503,6 +516,7 @@ class YAML(object):
         return self.constructor, self.parser
 
     def emit(self, events, stream):
+        # type: (Any, Any) -> None
         """
         Emit YAML parsing events into a stream.
         If stream is None, return the produced string instead.
@@ -560,7 +574,7 @@ class YAML(object):
             return self.dump_all([data], stream, transform=transform)
 
     def dump_all(self, documents, stream, *, transform=None):
-        # type: (Any, Union[Path, StreamType], Any, Any) -> Any
+        # type: (Any, Union[Path, StreamType], Any) -> Any
         if self._context_manager:
             raise NotImplementedError
         self._output = stream
@@ -572,7 +586,7 @@ class YAML(object):
         self._context_manager = None
 
     def Xdump_all(self, documents, stream, *, transform=None):
-        # type: (Any, Union[Path, StreamType], Any, Any) -> Any
+        # type: (Any, Any, Any) -> Any
         """
         Serialize a sequence of Python objects into a YAML stream.
         """
@@ -711,8 +725,6 @@ class YAML(object):
     def map(self, **kw):
         # type: (Any) -> Any
         if 'rt' in self.typ:
-            from opensafely._vendor.ruamel.yaml.comments import CommentedMap
-
             return CommentedMap(**kw)
         else:
             return dict(**kw)
@@ -720,8 +732,6 @@ class YAML(object):
     def seq(self, *args):
         # type: (Any) -> Any
         if 'rt' in self.typ:
-            from opensafely._vendor.ruamel.yaml.comments import CommentedSeq
-
             return CommentedSeq(*args)
         else:
             return list(*args)
@@ -825,7 +835,7 @@ class YAML(object):
         self.compact_seq_map = seq_map
 
 
-class YAMLContextManager(object):
+class YAMLContextManager:
     def __init__(self, yaml, transform=None):
         # type: (Any, Any) -> None  # used to be: (Any, Optional[Callable]) -> None
         self._yaml = yaml
@@ -971,6 +981,7 @@ def yaml_object(yml):
 
 ########################################################################################
 def warn_deprecation(fun, method, arg=''):
+    # type: (Any, Any, str) -> None
     from opensafely._vendor.ruamel.yaml.compat import _F
 
     warnings.warn(
@@ -983,6 +994,8 @@ def warn_deprecation(fun, method, arg=''):
         PendingDeprecationWarning,  # this will show when testing with pytest/tox
         stacklevel=3,
     )
+
+
 ########################################################################################
 
 
@@ -1044,7 +1057,7 @@ def compose_all(stream, Loader=Loader):
 
 
 def load(stream, Loader=None, version=None, preserve_quotes=None):
-    # type: (StreamTextType, Any, Optional[VersionType], Any) -> Any
+    # type: (Any, Any, Any, Any) -> Any
     """
     Parse the first YAML document in a stream
     and produce the corresponding Python object.
@@ -1053,7 +1066,7 @@ def load(stream, Loader=None, version=None, preserve_quotes=None):
     if Loader is None:
         warnings.warn(UnsafeLoaderWarning.text, UnsafeLoaderWarning, stacklevel=2)
         Loader = UnsafeLoader
-    loader = Loader(stream, version, preserve_quotes=preserve_quotes)
+    loader = Loader(stream, version, preserve_quotes=preserve_quotes)  # type: Any
     try:
         return loader._constructor.get_single_data()
     finally:
@@ -1069,7 +1082,7 @@ def load(stream, Loader=None, version=None, preserve_quotes=None):
 
 
 def load_all(stream, Loader=None, version=None, preserve_quotes=None):
-    # type: (Optional[StreamTextType], Any, Optional[VersionType], Optional[bool]) -> Any  # NOQA
+    # type: (Any, Any, Any, Any) -> Any  # NOQA
     """
     Parse all YAML documents in a stream
     and produce corresponding Python objects.
@@ -1078,7 +1091,7 @@ def load_all(stream, Loader=None, version=None, preserve_quotes=None):
     if Loader is None:
         warnings.warn(UnsafeLoaderWarning.text, UnsafeLoaderWarning, stacklevel=2)
         Loader = UnsafeLoader
-    loader = Loader(stream, version, preserve_quotes=preserve_quotes)
+    loader = Loader(stream, version, preserve_quotes=preserve_quotes)  # type: Any
     try:
         while loader._constructor.check_data():
             yield loader._constructor.get_data()
@@ -1268,7 +1281,7 @@ def dump_all(
     top_level_colon_align=None,
     prefix_colon=None,
 ):
-    # type: (Any, Optional[StreamType], Any, Any, Any, Optional[bool], Optional[int], Optional[int], Optional[bool], Any, Any, Optional[bool], Optional[bool], Any, Any, Any, Any, Any) -> Optional[str]   # NOQA
+    # type: (Any, Optional[StreamType], Any, Any, Any, Optional[bool], Optional[int], Optional[int], Optional[bool], Any, Any, Optional[bool], Optional[bool], Any, Any, Any, Any, Any) -> Any  # NOQA
     """
     Serialize a sequence of Python objects into a YAML stream.
     If stream is None, return the produced string instead.
@@ -1339,7 +1352,7 @@ def dump(
     tags=None,
     block_seq_indent=None,
 ):
-    # type: (Any, Optional[StreamType], Any, Any, Any, Optional[bool], Optional[int], Optional[int], Optional[bool], Any, Any, Optional[bool], Optional[bool], Optional[VersionType], Any, Any) -> Optional[str]   # NOQA
+    # type: (Any, Optional[StreamType], Any, Any, Any, Optional[bool], Optional[int], Optional[int], Optional[bool], Any, Any, Optional[bool], Optional[bool], Optional[VersionType], Any, Any) -> Optional[Any]   # NOQA
     """
     Serialize a Python object into a YAML stream.
     If stream is None, return the produced string instead.
@@ -1369,7 +1382,7 @@ def dump(
 
 
 def safe_dump_all(documents, stream=None, **kwds):
-    # type: (Any, Optional[StreamType], Any) -> Optional[str]
+    # type: (Any, Optional[StreamType], Any) -> Optional[Any]
     """
     Serialize a sequence of Python objects into a YAML stream.
     Produce only basic YAML tags.
@@ -1380,7 +1393,7 @@ def safe_dump_all(documents, stream=None, **kwds):
 
 
 def safe_dump(data, stream=None, **kwds):
-    # type: (Any, Optional[StreamType], Any) -> Optional[str]
+    # type: (Any, Optional[StreamType], Any) -> Optional[Any]
     """
     Serialize a Python object into a YAML stream.
     Produce only basic YAML tags.
@@ -1410,7 +1423,7 @@ def round_trip_dump(
     top_level_colon_align=None,
     prefix_colon=None,
 ):
-    # type: (Any, Optional[StreamType], Any, Any, Any, Optional[bool], Optional[int], Optional[int], Optional[bool], Any, Any, Optional[bool], Optional[bool], Optional[VersionType], Any, Any, Any, Any) -> Optional[str]   # NOQA
+    # type: (Any, Optional[StreamType], Any, Any, Any, Optional[bool], Optional[int], Optional[int], Optional[bool], Any, Any, Optional[bool], Optional[bool], Optional[VersionType], Any, Any, Any, Any) -> Optional[Any]   # NOQA
     allow_unicode = True if allow_unicode is None else allow_unicode
     warn_deprecation('round_trip_dump', 'dump')
     return dump_all(

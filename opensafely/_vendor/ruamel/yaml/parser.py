@@ -44,7 +44,7 @@
 #
 # FIRST sets:
 #
-# stream: { STREAM-START }
+# stream: { STREAM-START <}
 # explicit_document: { DIRECTIVE DOCUMENT-START }
 # implicit_document: FIRST(block_node)
 # block_node: { ALIAS TAG ANCHOR SCALAR BLOCK-SEQUENCE-START
@@ -78,19 +78,27 @@ from opensafely._vendor.ruamel.yaml.error import MarkedYAMLError
 from opensafely._vendor.ruamel.yaml.tokens import *  # NOQA
 from opensafely._vendor.ruamel.yaml.events import *  # NOQA
 from opensafely._vendor.ruamel.yaml.scanner import Scanner, RoundTripScanner, ScannerError  # NOQA
+from opensafely._vendor.ruamel.yaml.scanner import BlankLineComment
+from opensafely._vendor.ruamel.yaml.comments import C_PRE, C_POST, C_SPLIT_ON_FIRST_BLANK
 from opensafely._vendor.ruamel.yaml.compat import _F, nprint, nprintf  # NOQA
 
 if False:  # MYPY
-    from typing import Any, Dict, Optional, List  # NOQA
+    from typing import Any, Dict, Optional, List, Optional  # NOQA
 
 __all__ = ['Parser', 'RoundTripParser', 'ParserError']
+
+
+def xprintf(*args, **kw):
+    # type: (Any, Any) -> Any
+    return nprintf(*args, **kw)
+    pass
 
 
 class ParserError(MarkedYAMLError):
     pass
 
 
-class Parser(object):
+class Parser:
     # Since writing a recursive-descendant parser is a straightforward task, we
     # do not give many comments here.
 
@@ -106,7 +114,7 @@ class Parser(object):
     def reset_parser(self):
         # type: () -> None
         # Reset the state attributes (to clear self-references)
-        self.current_event = None
+        self.current_event = self.last_event = None
         self.tag_handles = {}  # type: Dict[Any, Any]
         self.states = []  # type: List[Any]
         self.marks = []  # type: List[Any]
@@ -158,7 +166,10 @@ class Parser(object):
         if self.current_event is None:
             if self.state:
                 self.current_event = self.state()
-        value = self.current_event
+        # assert self.current_event is not None
+        # if self.current_event.end_mark.line != self.peek_event().start_mark.line:
+        xprintf('get_event', repr(self.current_event), self.peek_event().start_mark.line)
+        self.last_event = value = self.current_event
         self.current_event = None
         return value
 
@@ -171,7 +182,7 @@ class Parser(object):
         # type: () -> Any
         # Parse the stream start.
         token = self.scanner.get_token()
-        token.move_comment(self.scanner.peek_token())
+        self.move_token_comment(token)
         event = StreamStartEvent(token.start_mark, token.end_mark, encoding=token.encoding)
 
         # Prepare the next state.
@@ -204,8 +215,6 @@ class Parser(object):
             self.scanner.get_token()
         # Parse an explicit document.
         if not self.scanner.check_token(StreamEndToken):
-            token = self.scanner.peek_token()
-            start_mark = token.start_mark
             version, tags = self.process_directives()
             if not self.scanner.check_token(DocumentStartToken):
                 raise ParserError(
@@ -218,6 +227,7 @@ class Parser(object):
                     self.scanner.peek_token().start_mark,
                 )
             token = self.scanner.get_token()
+            start_mark = token.start_mark
             end_mark = token.end_mark
             # if self.loader is not None and \
             #    end_mark.line != self.scanner.peek_token().start_mark.line:
@@ -357,7 +367,7 @@ class Parser(object):
         start_mark = end_mark = tag_mark = None
         if self.scanner.check_token(AnchorToken):
             token = self.scanner.get_token()
-            token.move_comment(self.scanner.peek_token())
+            self.move_token_comment(token)
             start_mark = token.start_mark
             end_mark = token.end_mark
             anchor = token.value
@@ -401,9 +411,13 @@ class Parser(object):
         if indentless_sequence and self.scanner.check_token(BlockEntryToken):
             comment = None
             pt = self.scanner.peek_token()
-            if pt.comment and pt.comment[0]:
-                comment = [pt.comment[0], []]
-                pt.comment[0] = None
+            if self.loader and self.loader.comment_handling is None:
+                if pt.comment and pt.comment[0]:
+                    comment = [pt.comment[0], []]
+                    pt.comment[0] = None
+            elif self.loader:
+                if pt.comment:
+                    comment = pt.comment
             end_mark = self.scanner.peek_token().end_mark
             event = SequenceStartEvent(
                 anchor, tag, implicit, start_mark, end_mark, flow_style=False, comment=comment
@@ -467,7 +481,7 @@ class Parser(object):
             comment = pt.comment
             # nprint('pt0', type(pt))
             if comment is None or comment[1] is None:
-                comment = pt.split_comment()
+                comment = pt.split_old_comment()
             # nprint('pt1', comment)
             event = SequenceStartEvent(
                 anchor, tag, implicit, start_mark, end_mark, flow_style=False, comment=comment
@@ -506,7 +520,7 @@ class Parser(object):
         # type: () -> Any
         token = self.scanner.get_token()
         # move any comment from start token
-        # token.move_comment(self.scanner.peek_token())
+        # self.move_token_comment(token)
         self.marks.append(token.start_mark)
         return self.parse_block_sequence_entry()
 
@@ -514,7 +528,7 @@ class Parser(object):
         # type: () -> Any
         if self.scanner.check_token(BlockEntryToken):
             token = self.scanner.get_token()
-            token.move_comment(self.scanner.peek_token())
+            self.move_token_comment(token)
             if not self.scanner.check_token(BlockEntryToken, BlockEndToken):
                 self.states.append(self.parse_block_sequence_entry)
                 return self.parse_block_node()
@@ -546,7 +560,7 @@ class Parser(object):
         # type: () -> Any
         if self.scanner.check_token(BlockEntryToken):
             token = self.scanner.get_token()
-            token.move_comment(self.scanner.peek_token())
+            self.move_token_comment(token)
             if not self.scanner.check_token(
                 BlockEntryToken, KeyToken, ValueToken, BlockEndToken
             ):
@@ -556,7 +570,14 @@ class Parser(object):
                 self.state = self.parse_indentless_sequence_entry
                 return self.process_empty_scalar(token.end_mark)
         token = self.scanner.peek_token()
-        event = SequenceEndEvent(token.start_mark, token.start_mark, comment=token.comment)
+        c = None
+        if self.loader and self.loader.comment_handling is None:
+            c = token.comment
+            start_mark = token.start_mark
+        else:
+            start_mark = self.last_event.end_mark  # type: ignore
+            c = self.distribute_comment(token.comment, start_mark.line)  # type: ignore
+        event = SequenceEndEvent(start_mark, start_mark, comment=c)
         self.state = self.states.pop()
         return event
 
@@ -575,7 +596,7 @@ class Parser(object):
         # type: () -> Any
         if self.scanner.check_token(KeyToken):
             token = self.scanner.get_token()
-            token.move_comment(self.scanner.peek_token())
+            self.move_token_comment(token)
             if not self.scanner.check_token(KeyToken, ValueToken, BlockEndToken):
                 self.states.append(self.parse_block_mapping_value)
                 return self.parse_block_node_or_indentless_sequence()
@@ -594,7 +615,7 @@ class Parser(object):
                 token.start_mark,
             )
         token = self.scanner.get_token()
-        token.move_comment(self.scanner.peek_token())
+        self.move_token_comment(token)
         event = MappingEndEvent(token.start_mark, token.end_mark, comment=token.comment)
         self.state = self.states.pop()
         self.marks.pop()
@@ -606,10 +627,10 @@ class Parser(object):
             token = self.scanner.get_token()
             # value token might have post comment move it to e.g. block
             if self.scanner.check_token(ValueToken):
-                token.move_comment(self.scanner.peek_token())
+                self.move_token_comment(token)
             else:
                 if not self.scanner.check_token(KeyToken):
-                    token.move_comment(self.scanner.peek_token(), empty=True)
+                    self.move_token_comment(token, empty=True)
                 # else: empty value for this key cannot move token.comment
             if not self.scanner.check_token(KeyToken, ValueToken, BlockEndToken):
                 self.states.append(self.parse_block_mapping_key)
@@ -782,6 +803,10 @@ class Parser(object):
         # type: (Any, Any) -> Any
         return ScalarEvent(None, None, (True, False), "", mark, mark, comment=comment)
 
+    def move_token_comment(self, token, nt=None, empty=False):
+        # type: (Any, Optional[Any], Optional[bool]) -> Any
+        pass
+
 
 class RoundTripParser(Parser):
     """roundtrip is a safe loader, that wants to see the unmangled tag"""
@@ -805,3 +830,54 @@ class RoundTripParser(Parser):
         ):
             return Parser.transform_tag(self, handle, suffix)
         return handle + suffix
+
+    def move_token_comment(self, token, nt=None, empty=False):
+        # type: (Any, Optional[Any], Optional[bool]) -> Any
+        token.move_old_comment(self.scanner.peek_token() if nt is None else nt, empty=empty)
+
+
+class RoundTripParserSC(RoundTripParser):
+    """roundtrip is a safe loader, that wants to see the unmangled tag"""
+
+    # some of the differences are based on the superclass testing
+    # if self.loader.comment_handling is not None
+
+    def move_token_comment(self, token, nt=None, empty=False):
+        # type: (Any, Any, Any, Optional[bool]) -> None
+        token.move_new_comment(self.scanner.peek_token() if nt is None else nt, empty=empty)
+
+    def distribute_comment(self, comment, line):
+        # type: (Any, Any) -> Any
+        # ToDo, look at indentation of the comment to determine attachment
+        if comment is None:
+            return None
+        if not comment[0]:
+            return None
+        if comment[0][0] != line + 1:
+            nprintf('>>>dcxxx', comment, line)
+        assert comment[0][0] == line + 1
+        # if comment[0] - line > 1:
+        #     return
+        typ = self.loader.comment_handling & 0b11
+        # nprintf('>>>dca', comment, line, typ)
+        if typ == C_POST:
+            return None
+        if typ == C_PRE:
+            c = [None, None, comment[0]]
+            comment[0] = None
+            return c
+        # nprintf('>>>dcb', comment[0])
+        for _idx, cmntidx in enumerate(comment[0]):
+            # nprintf('>>>dcb', cmntidx)
+            if isinstance(self.scanner.comments[cmntidx], BlankLineComment):
+                break
+        else:
+            return None  # no space found
+        if _idx == 0:
+            return None  # first line was blank
+        # nprintf('>>>dcc', idx)
+        if typ == C_SPLIT_ON_FIRST_BLANK:
+            c = [None, None, comment[0][:_idx]]
+            comment[0] = comment[0][_idx:]
+            return c
+        raise NotImplementedError  # reserved

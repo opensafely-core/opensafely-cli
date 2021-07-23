@@ -2,7 +2,7 @@
 
 from opensafely._vendor.ruamel.yaml.error import *  # NOQA
 from opensafely._vendor.ruamel.yaml.nodes import *  # NOQA
-from opensafely._vendor.ruamel.yaml.compat import ordereddict  # type: ignore
+from opensafely._vendor.ruamel.yaml.compat import ordereddict
 from opensafely._vendor.ruamel.yaml.compat import _F, nprint, nprintf  # NOQA
 from opensafely._vendor.ruamel.yaml.scalarstring import (
     LiteralScalarString,
@@ -47,7 +47,7 @@ class RepresenterError(YAMLError):
     pass
 
 
-class BaseRepresenter(object):
+class BaseRepresenter:
 
     yaml_representers = {}  # type: Dict[Any, Any]
     yaml_multi_representers = {}  # type: Dict[Any, Any]
@@ -253,7 +253,8 @@ class SafeRepresenter(BaseRepresenter):
         if hasattr(base64, 'encodebytes'):
             data = base64.encodebytes(data).decode('ascii')
         else:
-            data = base64.encodestring(data).decode('ascii')
+            # check py2 only?
+            data = base64.encodestring(data).decode('ascii')  # type: ignore
         return self.represent_scalar('tag:yaml.org,2002:binary', data, style='|')
 
     def represent_bool(self, data, anchor=None):
@@ -439,8 +440,8 @@ class Representer(SafeRepresenter):
         # !!python/object/apply node.
 
         cls = type(data)
-        if cls in copyreg.dispatch_table:
-            reduce = copyreg.dispatch_table[cls](data)
+        if cls in copyreg.dispatch_table:  # type: ignore
+            reduce = copyreg.dispatch_table[cls](data)  # type: ignore
         elif hasattr(data, '__reduce_ex__'):
             reduce = data.__reduce_ex__(2)
         elif hasattr(data, '__reduce__'):
@@ -837,13 +838,17 @@ class RoundTripRepresenter(SafeRepresenter):
                 for ct in node.comment[1]:
                     ct.reset()
             item_comments = comment.items
-            for v in item_comments.values():
-                if v and v[1]:
-                    for ct in v[1]:
-                        ct.reset()
-            try:
-                node.comment.append(comment.end)
-            except AttributeError:
+            if self.dumper.comment_handling is None:
+                for v in item_comments.values():
+                    if v and v[1]:
+                        for ct in v[1]:
+                            ct.reset()
+                try:
+                    node.comment.append(comment.end)
+                except AttributeError:
+                    pass
+            else:
+                # NEWCMNT
                 pass
         except AttributeError:
             item_comments = {}

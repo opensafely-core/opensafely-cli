@@ -13,7 +13,7 @@ from opensafely._vendor.ruamel.yaml.events import *  # NOQA
 
 # fmt: off
 from opensafely._vendor.ruamel.yaml.compat import _F, nprint, dbg, DBG_EVENT, \
-    check_anchorname_char
+    check_anchorname_char, nprintf  # NOQA
 # fmt: on
 
 if False:  # MYPY
@@ -27,7 +27,7 @@ class EmitterError(YAMLError):
     pass
 
 
-class ScalarAnalysis(object):
+class ScalarAnalysis:
     def __init__(
         self,
         scalar,
@@ -50,7 +50,7 @@ class ScalarAnalysis(object):
         self.allow_block = allow_block
 
 
-class Indents(object):
+class Indents:
     # replacement for the list based stack of None/int
     def __init__(self):
         # type: () -> None
@@ -87,7 +87,7 @@ class Indents(object):
         return len(self.values)
 
 
-class Emitter(object):
+class Emitter:
     # fmt: off
     DEFAULT_TAG_PREFIXES = {
         '!': '!',
@@ -695,7 +695,8 @@ class Emitter(object):
                         pass
                 self.states.append(self.expect_block_mapping_simple_value)
                 self.expect_node(mapping=True, simple_key=True)
-                if isinstance(self.event, AliasEvent):
+                # test on style for alias in !!set
+                if isinstance(self.event, AliasEvent) and not self.event.style == '?':
                     self.stream.write(' ')
             else:
                 self.write_indicator('?', True, indention=True)
@@ -903,16 +904,21 @@ class Emitter(object):
                 and self.event.comment[0].column >= self.indent
             ):
                 # comment following a folded scalar must dedent (issue 376)
-                self.event.comment[0].column = self.indent - 1
+                self.event.comment[0].column = self.indent - 1  # type: ignore
         elif self.style == '|':
-            self.write_literal(self.analysis.scalar, self.event.comment)
+            # self.write_literal(self.analysis.scalar, self.event.comment)
+            try:
+                cmx = self.event.comment[1][0]
+            except (IndexError, TypeError):
+                cmx = ""
+            self.write_literal(self.analysis.scalar, cmx)
             if (
                 self.event.comment
                 and self.event.comment[0]
                 and self.event.comment[0].column >= self.indent
             ):
                 # comment following a literal scalar must dedent (issue 376)
-                self.event.comment[0].column = self.indent - 1
+                self.event.comment[0].column = self.indent - 1  # type: ignore
         else:
             self.write_plain(self.analysis.scalar, split)
         self.analysis = None
@@ -1265,7 +1271,7 @@ class Emitter(object):
             data = ' ' * (indent - self.column)
             self.column = indent
             if self.encoding:
-                data = data.encode(self.encoding)
+                data = data.encode(self.encoding)  # type: ignore
             self.stream.write(data)
 
     def write_line_break(self, data=None):
@@ -1557,13 +1563,21 @@ class Emitter(object):
     def write_literal(self, text, comment=None):
         # type: (Any, Any) -> None
         hints, _indent, _indicator = self.determine_block_hints(text)
-        self.write_indicator('|' + hints, True)
-        try:
-            comment = comment[1][0]
-            if comment:
-                self.stream.write(comment)
-        except (TypeError, IndexError):
-            pass
+        # if comment is not None:
+        #    try:
+        #        hints += comment[1][0]
+        #    except (TypeError, IndexError) as e:
+        #        pass
+        if not isinstance(comment, str):
+            comment = ''
+        self.write_indicator('|' + hints + comment, True)
+        # try:
+        #    nprintf('selfev', comment)
+        #    cmx = comment[1][0]
+        #    if cmx:
+        #        self.stream.write(cmx)
+        # except (TypeError, IndexError) as e:
+        #    pass
         if _indicator == '+':
             self.open_ended = True
         self.write_line_break()
@@ -1615,7 +1629,7 @@ class Emitter(object):
             data = ' '
             self.column += len(data)
             if self.encoding:
-                data = data.encode(self.encoding)
+                data = data.encode(self.encoding)  # type: ignore
             self.stream.write(data)
         self.whitespace = False
         self.indention = False
@@ -1636,7 +1650,7 @@ class Emitter(object):
                         data = text[start:end]
                         self.column += len(data)
                         if self.encoding:
-                            data = data.encode(self.encoding)
+                            data = data.encode(self.encoding)  # type: ignore
                         self.stream.write(data)
                     start = end
             elif breaks:
@@ -1657,7 +1671,7 @@ class Emitter(object):
                     data = text[start:end]
                     self.column += len(data)
                     if self.encoding:
-                        data = data.encode(self.encoding)
+                        data = data.encode(self.encoding)  # type: ignore
                     try:
                         self.stream.write(data)
                     except:  # NOQA
