@@ -50,7 +50,7 @@ if os.environ.get("USING_DUMMY_DATA_BACKEND", "false").lower().strip() in truthy
 else:
     USING_DUMMY_DATA_BACKEND = BACKEND == "expectations"
 
-ALLOWED_IMAGES = {"cohortextractor", "stata-mp", "r", "jupyter", "python"}
+ALLOWED_IMAGES = {"cohortextractor", "cohortextractor-v2", "stata-mp", "r", "jupyter", "python"}
 
 DOCKER_REGISTRY = "ghcr.io/opensafely-core"
 
@@ -92,6 +92,12 @@ if PRESTO_TLS_CERT_PATH:
 
 
 MAX_WORKERS = int(os.environ.get("MAX_WORKERS") or max(cpu_count() - 1, 1))
+
+# This is a crude mechanism for preventing a single large JobRequest with lots
+# of associated Jobs from hogging all the resources. We want this configurable
+# because it's useful to be able to disable this during tests and when running
+# locally
+RANDOMISE_JOB_ORDER = True
 
 # See `local_run.py` for more detail
 LOCAL_RUN_MODE = False
