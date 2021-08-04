@@ -9,6 +9,11 @@ from opensafely._vendor.ruamel.yaml import YAML
 from opensafely._vendor.ruamel.yaml.error import YAMLError, YAMLStreamError, YAMLWarning, YAMLFutureWarning
 
 from . import config, git
+from .github_validators import (
+    validate_branch_and_commit,
+    validate_repo_url,
+    GithubValidationError,
+)
 
 
 # The magic action name which means "run every action"
@@ -65,6 +70,13 @@ class ActionSpecifiction:
     commit: str
 
 
+@dataclasses.dataclass
+class ReusableAction:
+    repo_url: str
+    commit: str
+    action_file: bytes
+
+
 def parse_yaml_file(yaml_file):
     try:
         # We're using the pure-Python version here as we don't care about speed
@@ -115,14 +127,6 @@ def handle_reusable_action(action_id, action):
     Raises:
         ReusableActionError: An error occurred when accessing the reusable action.
     """
-    # This avoids a circular import and is much less invasive than either moving the
-    # imports or importing `project` within `create_or_update_jobs`.
-    from .create_or_update_jobs import (
-        JobRequestError,
-        validate_branch_and_commit,
-        validate_repo_url,
-    )
-
     run_args = shlex.split(action["run"])
     image, tag = run_args[0].split(":")
 
@@ -130,45 +134,105 @@ def handle_reusable_action(action_id, action):
         # This isn't a reusable action.
         return action
 
-    # This is a reusable action.
+    reusable_action = fetch_reusable_action(action_id, image, tag)
+    new_action = apply_reusable_action(action_id, action, reusable_action)
+    return new_action
+
+
+def fetch_reusable_action(action_id, image, tag):
+    """
+    Fetch all metadata from git needed to apply a reusable action
+
+    Args:
+        action_id: The action's ID as a string. This is the action's key in
+            project.yaml. It is used to raise errors with more informative messages.
+        image: The name of the reusable action
+        tag: The specified version of the reusable action
+
+    Returns:
+        ReusableAction object, wrapping the repo_url, commit and the contents
+        of the `action.yaml` file
+
+    Raises:
+        ReusableActionError: An error occurred when accessing the reusable action.
+    """
     repo_url = f"{config.ACTIONS_GITHUB_ORG_URL}/{image}"
     try:
         validate_repo_url(repo_url, [config.ACTIONS_GITHUB_ORG])
-    except JobRequestError as e:
+    except GithubValidationError as e:
         raise ReusableActionError(*e.args)  # This keeps the function signature clean
 
     try:
         # If there's a problem, then it relates to the repository. Maybe the study
         # developer made an error; maybe the reusable action developer made an error.
-        commit_sha = git.get_sha_from_remote_ref(repo_url, tag)
+        commit = git.get_sha_from_remote_ref(repo_url, tag)
     except git.GitError:
         raise ReusableActionError(
             f"Cannot resolve '{action_id}' to a repository at '{repo_url}'"
         )
 
     try:
-        validate_branch_and_commit(repo_url, commit_sha, "main")
-    except JobRequestError as e:
+        validate_branch_and_commit(repo_url, commit, "main")
+    except GithubValidationError as e:
         raise ReusableActionError(*e.args)
 
     try:
         # If there's a problem, then it relates to the reusable action. The study
         # developer didn't make an error; the reusable action developer did.
-        action_file = git.read_file_from_repo(repo_url, commit_sha, "action.yaml")
-        action_config = parse_yaml_file(action_file)
+        action_file = git.read_file_from_repo(repo_url, commit, "action.yaml")
+    except git.GitError:
+        raise ReusableActionError(
+            f"There is a problem with the reusable action required by '{action_id}'"
+        )
+
+    return ReusableAction(repo_url=repo_url, commit=commit, action_file=action_file)
+
+
+def apply_reusable_action(action_id, action, reusable_action):
+    """
+    Rewrite an `action` dict to run the code specifed by the supplied
+    `ReusableAction` instance.
+
+    Args:
+        action_id: The action's ID as a string. This is the action's key in
+            project.yaml. It is used to raise errors with more informative messages.
+        action: The action's representation as a dict. This is the action's value in
+            project.yaml.
+        reusable_action: A ReusableAction instance
+
+    Returns:
+        The modified action's representation as a dict.
+
+    Raises:
+        ReusableActionError: An error occurred when accessing the reusable action.
+    """
+    try:
+        # If there's a problem, then it relates to the reusable action. The study
+        # developer didn't make an error; the reusable action developer did.
+        action_config = parse_yaml_file(reusable_action.action_file)
         assert "run" in action_config
-    except (git.GitError, ProjectYAMLError, AssertionError):
+        action_run_args = shlex.split(action_config["run"])
+        action_image, action_tag = action_run_args[0].split(":")
+        if action_image not in config.ALLOWED_IMAGES:
+            raise ProjectValidationError(f"Unrecognised runtime: {action_image}")
+        is_generate_cohort, _ = is_generate_cohort_command(action_run_args)
+        if is_generate_cohort:
+            raise ProjectValidationError(
+                "Re-usable actions cannot invoke cohortextractor"
+            )
+    except (ProjectYAMLError, AssertionError, ProjectValidationError):
         raise ReusableActionError(
             f"There is a problem with the reusable action required by '{action_id}'"
         )
 
     # ["action:tag", "arg", ...] -> ["runtime:tag binary entrypoint", "arg", ...]
+    run_args = shlex.split(action["run"])
     run_args[0] = action_config["run"]
 
     new_action = action.copy()
     new_action["run"] = " ".join(run_args)
-    new_action["repo_url"] = repo_url
-    new_action["commit"] = commit_sha
+    new_action["repo_url"] = reusable_action.repo_url
+    new_action["commit"] = reusable_action.commit
     return new_action
 
 
@@ -222,7 +286,8 @@ def validate_project_and_set_defaults(project):
     project_actions = project["actions"]
 
     for action_id, action_config in project_actions.items():
-        if is_generate_cohort_command(shlex.split(action_config["run"])):
+        is_generate_cohort, _ = is_generate_cohort_command(shlex.split(action_config["run"]))
+        if is_generate_cohort:
             if len(action_config["outputs"]) != 1:
                 raise ProjectValidationError(
                     f"A `generate_cohort` action must have exactly one output; {action_id} had {len(action_config['outputs'])}",
@@ -313,36 +378,49 @@ def get_action_specification(project, action_id):
         run_command = add_config_to_run_command(run_command, action_spec["config"])
     run_args = shlex.split(run_command)
 
-    # Specical case handling for the `cohortextractor generate_cohort` command
-    if is_generate_cohort_command(run_args):
-        # Set the size of the dummy data population, if that's what were
-        # generating.  Possibly this should be moved to the study definition
-        # anyway, which would make this unnecessary.
-        if config.USING_DUMMY_DATA_BACKEND:
-            if "dummy_data_file" in action_spec:
-                run_command += f" --dummy-data-file={action_spec['dummy_data_file']}"
+    # Special case handling for the `cohortextractor generate_cohort` command
+    is_generate_cohort, version = is_generate_cohort_command(run_args)
+    if is_generate_cohort:
+        if version == 1:
+            # Set the size of the dummy data population, if that's what we're
+            # generating.  Possibly this should be moved to the study definition
+            # anyway, which would make this unnecessary.
+            if config.USING_DUMMY_DATA_BACKEND:
+                if "dummy_data_file" in action_spec:
+                    run_command += f" --dummy-data-file={action_spec['dummy_data_file']}"
+                else:
+                    size = int(project["expectations"]["population_size"])
+                    run_command += f" --expectations-population={size}"
+            # Automatically configure the cohortextractor to produce output in the
+            # directory the `outputs` spec is expecting. Longer term I'd like to
+            # just make it an error if the directories don't match, rather than
+            # silently fixing it. (We can use the project versioning system to
+            # ensure this doesn't break existing studies.)
+            output_dirs = get_output_dirs(action_spec["outputs"])
+            if len(output_dirs) != 1:
+                # If we detect multiple output directories but the command
+                # explicitly specifies an output directory then we assume the user
+                # knows what they're doing and don't attempt to modify the output
+                # directory or throw an error
+                if not args_include(run_args, "--output-dir"):
+                    raise ProjectValidationError(
+                        f"generate_cohort command should produce output in only one "
+                        f"directory, found {len(output_dirs)}:\n"
+                        + "\n".join([f" - {d}/" for d in output_dirs])
+                    )
             else:
-                size = int(project["expectations"]["population_size"])
-                run_command += f" --expectations-population={size}"
-        # Automatically configure the cohortextractor to produce output in the
-        # directory the `outputs` spec is expecting. Longer term I'd like to
-        # just make it an error if the directories don't match, rather than
-        # silently fixing it. (We can use the project versioning system to
-        # ensure this doesn't break existing studies.)
-        output_dirs = get_output_dirs(action_spec["outputs"])
-        if len(output_dirs) != 1:
-            # If we detect multiple output directories but the command
-            # explicitly specifies an output directory then we assume the user
-            # knows what they're doing and don't attempt to modify the output
-            # directory or throw an error
-            if not args_include(run_args, "--output-dir"):
-                raise ProjectValidationError(
-                    f"generate_cohort command should produce output in only one "
-                    f"directory, found {len(output_dirs)}:\n"
-                    + "\n".join([f" - {d}/" for d in output_dirs])
-                )
+                run_command += f" --output-dir={output_dirs[0]}"
         else:
-            run_command += f" --output-dir={output_dirs[0]}"
+            # cohortextractor Version 2 expects all command line arguments to be specified in the run command
+            assert version == 2, version
+            if config.USING_DUMMY_DATA_BACKEND and "--dummy-data-file" not in run_command:
+                raise ProjectValidationError("--dummy-data-file is required for a local run")
+
+            # There is one and only one output file in the outputs spec (verified in validate_project_and_set_defaults())
+            output_file = next(output_file for output in action_spec["outputs"].values() for output_file in output.values())
+            if output_file not in run_command:
+                raise ProjectValidationError("--output in run command and outputs must match")
+
     return ActionSpecifiction(
         run=run_command,
         needs=action_spec.get("needs", []),
@@ -372,13 +450,12 @@ def is_generate_cohort_command(args):
     database) so it's helpful to have a single function for identifying it
     """
     assert not isinstance(args, str)
-    if (
-        len(args) > 1
-        and args[0].startswith("cohortextractor:")
-        and args[1] == "generate_cohort"
-    ):
-        return True
-    return False
+    if len(args) > 1:
+        if args[0].startswith("cohortextractor:") and args[1] == "generate_cohort":
+            return True, 1
+        if args[0].startswith("cohortextractor-v2:"):
+            return True, 2
+    return False, None
 
 
 def args_include(args, target_arg):
