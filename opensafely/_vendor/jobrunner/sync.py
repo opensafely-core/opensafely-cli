@@ -8,12 +8,11 @@ import time
 
 from opensafely._vendor import requests
 
-from .log_utils import configure_logging, set_log_context
-from . import config
-from .create_or_update_jobs import create_or_update_jobs
-from .database import find_where
-from .models import JobRequest, Job
-
+from opensafely._vendor.jobrunner import config
+from opensafely._vendor.jobrunner.create_or_update_jobs import create_or_update_jobs
+from opensafely._vendor.jobrunner.lib.database import find_where
+from opensafely._vendor.jobrunner.lib.log_utils import configure_logging, set_log_context
+from opensafely._vendor.jobrunner.models import Job, JobRequest
 
 session = requests.Session()
 log = logging.getLogger(__name__)
@@ -100,7 +99,7 @@ def job_request_from_remote_format(job_request):
     return JobRequest(
         id=str(job_request["identifier"]),
         repo_url=job_request["workspace"]["repo"],
-        commit=job_request.get("sha"),
+        commit=job_request["sha"],
         branch=job_request["workspace"]["branch"],
         requested_actions=job_request["requested_actions"],
         cancelled_actions=job_request["cancelled_actions"],

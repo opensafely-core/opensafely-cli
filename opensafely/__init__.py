@@ -2,7 +2,7 @@ import argparse
 from pathlib import Path
 import sys
 
-from opensafely._vendor.jobrunner import local_run
+from opensafely._vendor.jobrunner.cli import local_run
 from opensafely import codelists, pull, upgrade
 
 

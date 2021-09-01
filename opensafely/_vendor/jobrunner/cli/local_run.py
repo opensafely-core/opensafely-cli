@@ -19,11 +19,8 @@ temporary database and log directory is created for each run and then thrown
 away afterwards.
 """
 import argparse
-from datetime import datetime, timedelta
 import getpass
-import json
 import os
-from pathlib import Path
 import platform
 import random
 import shlex
@@ -33,24 +30,25 @@ import subprocess
 import sys
 import tempfile
 import textwrap
+from datetime import datetime, timedelta
+from pathlib import Path
 
-from .run import main as run_main
-from . import config
-from . import docker
-from .database import find_where
-from .manage_jobs import METADATA_DIR
-from .models import JobRequest, Job, State, StatusCode
-from .create_or_update_jobs import (
-    create_jobs,
-    ProjectValidationError,
+from opensafely._vendor.jobrunner import config
+from opensafely._vendor.jobrunner.create_or_update_jobs import (
+    RUN_ALL_COMMAND,
     JobRequestError,
     NothingToDoError,
-    RUN_ALL_COMMAND,
+    ProjectValidationError,
+    create_jobs,
 )
-from .log_utils import configure_logging
-from .subprocess_utils import subprocess_run
-from .string_utils import tabulate
-
+from opensafely._vendor.jobrunner.lib import docker
+from opensafely._vendor.jobrunner.lib.database import find_where
+from opensafely._vendor.jobrunner.lib.log_utils import configure_logging
+from opensafely._vendor.jobrunner.lib.string_utils import tabulate
+from opensafely._vendor.jobrunner.lib.subprocess_utils import subprocess_run
+from opensafely._vendor.jobrunner.manage_jobs import METADATA_DIR
+from opensafely._vendor.jobrunner.models import Job, JobRequest, State, StatusCode
+from opensafely._vendor.jobrunner.run import main as run_main
 
 # First paragraph of docstring
 DESCRIPTION = __doc__.partition("\n\n")[0]
@@ -255,15 +253,27 @@ def create_and_run_jobs(
 
     jobs = find_where(Job)
 
-    for image in get_docker_images(jobs):
-        is_stata = "stata-mp" in image
+    docker_images = get_docker_images(jobs)
 
-        if is_stata and config.STATA_LICENSE is None:
-            config.STATA_LICENSE = get_stata_license()
-            if config.STATA_LICENSE is None:
-                # TODO switch this to failing when the stata image requires it
-                print("WARNING: no STATA_LICENSE found")
+    stata_images = [i for i in docker_images if i.startswith("stata-mp")]
+    if stata_images and config.STATA_LICENSE is None:
+        config.STATA_LICENSE = get_stata_license()
+        if config.STATA_LICENSE is None:
+            print(
+                f"The docker image '{stata_images[0]}' requires a license to function.\n"
+                f"\n"
+                f"If you are a member of OpenSAFELY we should have been able to fetch\n"
+                f"the license automatically, so something has gone wrong.  Please open\n"
+                f"a new discussion here so we can help:\n"
+                f"  https://github.com/opensafely/documentation/discussions\n"
+                f"\n"
+                f"If you are not a member of OpenSAFELY you will have to provide your\n"
+                f"own license. See the dicussion here for pointers:\n"
+                f" https://github.com/opensafely/documentation/discussions/299"
+            )
+            return False
 
+    for image in docker_images:
         if not docker.image_exists_locally(image):
             print(f"Fetching missing docker image: docker pull {image}")
             try:
@@ -272,14 +282,9 @@ def create_and_run_jobs(
                 # layer download noise
                 docker.pull(image, quiet=not sys.stdout.isatty())
             except docker.DockerPullError as e:
-                success = False
-                if is_stata:
-                    # best effort retry hack
-                    success = temporary_stata_workaround(image)
-                if not success:
-                    print("Failed with error:")
-                    print(e)
-                    return False
+                print("Failed with error:")
+                print(e)
+                return False
 
     action_names = [job.action for job in jobs]
     print(f"\nRunning actions: {', '.join(action_names)}\n")
@@ -461,44 +466,6 @@ def get_log_file_snippet(log_file, max_lines):
     else:
         truncated = False
     return "\n".join(log_lines).strip(), truncated
-
-
-def temporary_stata_workaround(image):
-    """
-    This is a temporary workaround for the fact that the current crop of Github
-    Actions have credentials for the old docker.opensafely.org registry but not
-    for ghcr.io. These are only needed for the one private image we have
-    (Stata) so we detect when we are in this situation and pull from the old
-    registry instead.
-
-    We'll shortly be updating the Github Actions to use an entirely new set of
-    commands in any case, so this will hopefully be a short-lived hack.
-    """
-    if not os.environ.get("GITHUB_WORKFLOW"):
-        return False
-
-    docker_config = os.environ.get("DOCKER_CONFIG", os.path.expanduser("~/.docker"))
-    config_path = Path(docker_config) / "config.json"
-    try:
-        config = json.loads(config_path.read_text())
-        auths = config["auths"]
-    except Exception:
-        return False
-
-    if "ghcr.io" in auths or "docker.opensafely.org" not in auths:
-        return False
-
-    print("Applying Docker authentication workaround...")
-    alt_image = image.replace("ghcr.io/opensafely-core/", "docker.opensafely.org/")
-
-    try:
-        docker.pull(alt_image, quiet=True)
-        print(f"Retagging '{alt_image}' as '{image}'")
-        subprocess_run(["docker", "tag", alt_image, image])
-    except Exception:
-        return False
-
-    return True
 
 
 def get_stata_license(repo=config.STATA_LICENSE_REPO):
