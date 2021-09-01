@@ -3,10 +3,10 @@ Ops utility for killing jobs and cleaning up containers and volumes
 """
 import argparse
 
-from .database import find_where
-from .models import Job, State
-from .run import mark_job_as_failed
-from .manage_jobs import docker, container_name, volume_name
+from opensafely._vendor.jobrunner.lib.database import find_where
+from opensafely._vendor.jobrunner.manage_jobs import container_name, docker, volume_name
+from opensafely._vendor.jobrunner.models import Job, State
+from opensafely._vendor.jobrunner.run import mark_job_as_failed
 
 
 def main(partial_job_ids, cleanup=False):

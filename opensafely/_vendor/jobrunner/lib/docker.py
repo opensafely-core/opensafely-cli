@@ -2,13 +2,12 @@
 Utility functions for interacting with Docker
 """
 import json
-import re
 import os
+import re
 import subprocess
 
-from . import config
-from .subprocess_utils import subprocess_run
-
+from opensafely._vendor.jobrunner import config
+from opensafely._vendor.jobrunner.lib.subprocess_utils import subprocess_run
 
 # Docker requires a container in order to interact with volumes, but it doesn't
 # much matter what it is for our purposes as long as it has `sh` and `find`
@@ -44,12 +43,25 @@ class DockerTimeoutError(Exception):
     pass
 
 
+class DockerDiskSpaceError(Exception):
+    pass
+
+
 def docker(docker_args, timeout=DEFAULT_TIMEOUT, **kwargs):
     args = ["docker"] + docker_args
     try:
         return subprocess_run(args, timeout=timeout, **kwargs)
     except subprocess.TimeoutExpired as e:
         raise DockerTimeoutError from e
+    except subprocess.CalledProcessError as e:
+        if (
+            e.returncode == 1
+            and e.stderr.startswith(b"Error response from daemon: ")
+            and e.stderr.endswith(b": no space left on device")
+        ):
+            raise DockerDiskSpaceError from e
+        else:
+            raise
 
 
 def create_volume(volume_name):

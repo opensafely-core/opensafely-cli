@@ -10,25 +10,24 @@ import datetime
 import json
 import logging
 import os.path
-from pathlib import Path
 import shlex
 import shutil
 import tempfile
 import time
+from pathlib import Path
 
-from . import config
-from . import docker
-from .database import find_where
-from .git import checkout_commit
-from .models import SavedJobRequest, State, StatusCode
-from .project import (
-    is_generate_cohort_command,
+from opensafely._vendor.jobrunner import config
+from opensafely._vendor.jobrunner.lib import docker
+from opensafely._vendor.jobrunner.lib.database import find_where
+from opensafely._vendor.jobrunner.lib.git import checkout_commit
+from opensafely._vendor.jobrunner.lib.path_utils import list_dir_with_ignore_patterns
+from opensafely._vendor.jobrunner.lib.string_utils import tabulate
+from opensafely._vendor.jobrunner.lib.subprocess_utils import subprocess_run
+from opensafely._vendor.jobrunner.models import SavedJobRequest, State, StatusCode
+from opensafely._vendor.jobrunner.project import (
     get_all_output_patterns_from_project_file,
+    is_generate_cohort_command,
 )
-from .path_utils import list_dir_with_ignore_patterns
-from .string_utils import tabulate
-from .subprocess_utils import subprocess_run
-
 
 log = logging.getLogger(__name__)
 
@@ -37,6 +36,21 @@ METADATA_DIR = "metadata"
 
 # Records details of which action created each file
 MANIFEST_FILE = "manifest.json"
+
+# Keys of fields to log in manifest.json and log file
+KEYS_TO_LOG = [
+    "state",
+    "commit",
+    "docker_image_id",
+    "action_repo_url",
+    "action_commit",
+    "job_id",
+    "run_by_user",
+    "created_at",
+    "completed_at",
+    "exit_code",
+]
+
 
 # This is a Docker label applied in addition to the default label which
 # `docker.py` applies to all containers and volumes it creates. It allows us to
@@ -76,11 +90,16 @@ def start_job(job):
     if docker.container_exists(container_name(job)):
         log.info("Container already created, nothing to do")
         return
-    volume = create_and_populate_volume(job)
+    try:
+        volume = create_and_populate_volume(job)
+    except docker.DockerDiskSpaceError as e:
+        log.exception(str(e))
+        raise JobError("Out of disk space, please try again later")
     action_args = shlex.split(job.run_command)
     allow_network_access = False
     env = {"OPENSAFELY_BACKEND": config.BACKEND}
-    if is_generate_cohort_command(action_args):
+    # Check `is True` so we fail closed if we ever get anything else
+    if is_generate_cohort_command(action_args) is True:
         if not config.USING_DUMMY_DATA_BACKEND:
             allow_network_access = True
             env["DATABASE_URL"] = config.DATABASE_URLS[job.database_name]
@@ -130,12 +149,16 @@ def create_and_populate_volume(job):
     # `docker cp` can't create parent directories for us so we make sure all
     # these directories get created when we copy in the code
     extra_dirs = set(Path(filename).parent for filename in input_files.keys())
-    # If job represents a reusable action, then job.commit will be non-None and we need
-    # to copy it to the volume whether or not we're in local development mode.
-    if config.LOCAL_RUN_MODE and not job.commit:
+    if config.LOCAL_RUN_MODE and not job.action_commit:
+        # We're in local run mode and we're not running a reusable action, so we need to
+        # copy the workspace to a volume.
         copy_local_workspace_to_volume(volume, workspace_dir, extra_dirs)
     else:
-        copy_git_commit_to_volume(volume, job.repo_url, job.commit, extra_dirs)
+        # We're either not in local run mode or we're running a reusable action, so we
+        # need to copy a git commit to a volume.
+        repo_url = job.action_repo_url or job.repo_url
+        commit = job.action_commit or job.commit
+        copy_git_commit_to_volume(volume, repo_url, commit, extra_dirs)
 
     for filename, action in input_files.items():
         log.info(f"Copying input file {action}: {filename}")
@@ -405,17 +428,9 @@ def write_log_file(job, job_metadata, filename):
     outputs = sorted(job_metadata["outputs"].items())
     with open(filename, "a") as f:
         f.write("\n\n")
-        for key in [
-            "state",
-            "commit",
-            "docker_image_id",
-            "exit_code",
-            "job_id",
-            "run_by_user",
-            "created_at",
-            "started_at",
-            "completed_at",
-        ]:
+        for key in KEYS_TO_LOG:
+            if not job_metadata[key]:
+                continue
             f.write(f"{key}: {job_metadata[key]}\n")
         f.write(f"\n{job_metadata['status_message']}\n")
         if job.unmatched_outputs:
@@ -490,25 +505,23 @@ def delete_files(directory, filenames, files_to_keep=()):
             path.unlink()
 
 
-def action_has_successful_outputs(workspace, action):
+def get_states_for_actions(workspace):
     """
-    Returns True if the action ran successfully and all its outputs still exist
-    on disk.
-    Returns False if the action was run and failed.
-    Returns None if the action hasn't been run yet.
-
-    If an action _has_ run, but some of its files have been manually deleted
-    from disk we treat this as equivalent to not being run i.e. there was no
-    explicit failure with the action, but we can't treat it as having
-    successful outputs either.
+    Return a dictionary mapping action IDs to their current state (if any)
     """
-    try:
-        list_outputs_from_action(workspace, action)
-        return True
-    except ActionFailedError:
-        return False
-    except (ActionNotRunError, MissingOutputError):
-        return None
+    directory = get_high_privacy_workspace(workspace)
+    manifest = read_manifest_file(directory)
+    states_by_action = {
+        action_id: State(action_details["state"])
+        for action_id, action_details in manifest["actions"].items()
+    }
+    for filename, file_details in manifest["files"].items():
+        # If the file has been manually deleted from disk...
+        if not directory.joinpath(filename).exists():
+            source_action = file_details["created_by_action"]
+            # ... remove the action's state as if it hadn't been run
+            states_by_action.pop(source_action, None)
+    return states_by_action
 
 
 def list_outputs_from_action(workspace, action, ignore_errors=False):
@@ -577,16 +590,7 @@ def update_manifest(manifest, job_metadata):
     # so actions end up in the order they were run
     manifest["actions"].pop(action, None)
     manifest["actions"][action] = {
-        key: job_metadata[key]
-        for key in [
-            "state",
-            "commit",
-            "docker_image_id",
-            "job_id",
-            "run_by_user",
-            "created_at",
-            "completed_at",
-        ]
+        key: job_metadata[key] for key in KEYS_TO_LOG if job_metadata[key] is not None
     }
 
 

@@ -1,6 +1,6 @@
 import json
 
-from .subprocess_utils import subprocess_run
+from opensafely._vendor.jobrunner.lib.subprocess_utils import subprocess_run
 
 
 def get_volume_and_container_sizes():
