@@ -107,9 +107,6 @@ MAX_WORKERS = int(os.environ.get("MAX_WORKERS") or max(cpu_count() - 1, 1))
 # locally
 RANDOMISE_JOB_ORDER = True
 
-# See `local_run.py` for more detail
-LOCAL_RUN_MODE = False
-
 # Automatically delete containers and volumes after they have been used
 CLEAN_UP_DOCKER_OBJECTS = True
 
@@ -172,3 +169,7 @@ if STATS_DATABASE_FILE:
     STATS_DATABASE_FILE = Path(STATS_DATABASE_FILE)
 
 STATS_POLL_INTERVAL = float(os.environ.get("STATS_POLL_INTERVAL", "10"))
+
+
+# feature flag to enable new API abstraction
+EXECUTION_API = os.environ.get("EXECUTION_API", "false").lower() == "true"

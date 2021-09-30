@@ -79,6 +79,10 @@ class MissingOutputError(JobError):
     pass
 
 
+class BrokenContainerError(JobError):
+    pass
+
+
 def start_job(job):
     """Start the given job.
 
@@ -149,16 +153,20 @@ def create_and_populate_volume(job):
     # `docker cp` can't create parent directories for us so we make sure all
     # these directories get created when we copy in the code
     extra_dirs = set(Path(filename).parent for filename in input_files.keys())
-    if config.LOCAL_RUN_MODE and not job.action_commit:
-        # We're in local run mode and we're not running a reusable action, so we need to
-        # copy the workspace to a volume.
-        copy_local_workspace_to_volume(volume, workspace_dir, extra_dirs)
-    else:
-        # We're either not in local run mode or we're running a reusable action, so we
-        # need to copy a git commit to a volume.
-        repo_url = job.action_repo_url or job.repo_url
-        commit = job.action_commit or job.commit
+
+    # Jobs which are running reusable actions pull their code from the reusable
+    # action repo, all other jobs pull their code from the study repo
+    repo_url = job.action_repo_url or job.repo_url
+    commit = job.action_commit or job.commit
+    # Both of action commit and repo_url should be set if either are
+    assert bool(job.action_commit) == bool(job.action_repo_url)
+
+    if repo_url and commit:
         copy_git_commit_to_volume(volume, repo_url, commit, extra_dirs)
+    else:
+        # We only encounter jobs without a repo or commit when using the
+        # "local_run" command to execute uncommited local code
+        copy_local_workspace_to_volume(volume, workspace_dir, extra_dirs)
 
     for filename, action in input_files.items():
         log.info(f"Copying input file {action}: {filename}")
@@ -194,15 +202,18 @@ def copy_git_commit_to_volume(volume, repo_url, commit, extra_dirs):
             #
             # This means we can end up with jobs where any attempt to start
             # them (by copying in code from git) causes the job-runner to
-            # completely lock up.  To avoid this we use a timeout (60 seconds,
+            # completely lock up. To avoid this we use a timeout (60 seconds,
             # which should be more than enough to copy in a few megabytes of
             # code). The exception this triggers will cause the job to fail
             # with an "internal error" message, which will then stop it
-            # blocking other jobs. It's important that we don't use a subclass
-            # of JobError here because such errors are regarded as "clean"
-            # exits and cause the runner to try to remove the container, which
-            # would also hang.
-            raise RuntimeError("Timed out copying code to volume, see issue #154")
+            # blocking other jobs. We need a specific exception class here as
+            # we need to avoid trying to remove the container, which we would
+            # ordinarily do on error, because that operation will also hang :(
+            log.exception("Timed out copying code to volume, see issue #154")
+            raise BrokenContainerError(
+                "There was a (hopefully temporary) internal Docker error, "
+                "please try the job again"
+            )
 
 
 def copy_local_workspace_to_volume(volume, workspace_dir, extra_dirs):
@@ -258,6 +269,7 @@ def finalise_job(job):
     container_metadata = get_container_metadata(job)
     outputs, unmatched_patterns = find_matching_outputs(job)
     job.outputs = outputs
+    job.image_id = container_metadata["Image"]
 
     # Set the final state of the job
     if container_metadata["State"]["ExitCode"] != 0:

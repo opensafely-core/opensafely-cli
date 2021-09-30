@@ -9,7 +9,6 @@ import dataclasses
 import logging
 import re
 import time
-from pathlib import Path
 
 from opensafely._vendor.jobrunner import config
 from opensafely._vendor.jobrunner.lib.database import (
@@ -33,6 +32,10 @@ from opensafely._vendor.jobrunner.project import (
     get_action_specification,
     get_all_actions,
     parse_and_validate_project_file,
+)
+from opensafely._vendor.jobrunner.reusable_actions import (
+    ReusableActionError,
+    resolve_reusable_action_references,
 )
 
 log = logging.getLogger(__name__)
@@ -72,6 +75,7 @@ def create_or_update_jobs(job_request):
             GitError,
             GithubValidationError,
             ProjectValidationError,
+            ReusableActionError,
             JobRequestError,
         ) as e:
             log.info(f"JobRequest failed:\n{e}")
@@ -90,12 +94,17 @@ def create_or_update_jobs(job_request):
 
 
 def create_jobs(job_request):
+    # NOTE: Similar but non-identical logic is implemented for running jobs
+    # locally in `jobrunner.cli.local_run.create_job_request_and_jobs`. If you
+    # make changes below then consider what the appropriate corresponding
+    # changes are for locally run jobs.
     validate_job_request(job_request)
     project_file = get_project_file(job_request)
     project = parse_and_validate_project_file(project_file)
     current_jobs = get_latest_job_for_each_action(job_request.workspace)
     new_jobs = get_new_jobs_to_run(job_request, project, current_jobs)
     assert_new_jobs_created(new_jobs, current_jobs)
+    resolve_reusable_action_references(new_jobs)
     # There is a delay between getting the current jobs (which we fetch from
     # the database and the disk) and inserting our new jobs below. This means
     # the state of the world may have changed in the meantime. Why is this OK?
@@ -115,22 +124,16 @@ def create_jobs(job_request):
 
 
 def validate_job_request(job_request):
-    if config.ALLOWED_GITHUB_ORGS and not config.LOCAL_RUN_MODE:
+    if config.ALLOWED_GITHUB_ORGS:
         validate_repo_url(job_request.repo_url, config.ALLOWED_GITHUB_ORGS)
-    if not job_request.workspace:
-        raise JobRequestError("Workspace name cannot be blank")
     if not job_request.requested_actions:
         raise JobRequestError("At least one action must be supplied")
-    # In local run mode the workspace name is whatever the user's working
-    # directory happens to be called, which we don't want or need to place any
-    # restrictions on. Otherwise, as these are externally supplied strings that
-    # end up as paths, we want to be much more restrictive.
-    if not config.LOCAL_RUN_MODE:
-        if re.search(r"[^a-zA-Z0-9_\-]", job_request.workspace):
-            raise JobRequestError(
-                "Invalid workspace name (allowed are alphanumeric, dash and underscore)"
-            )
-
+    if not job_request.workspace:
+        raise JobRequestError("Workspace name cannot be blank")
+    if re.search(r"[^a-zA-Z0-9_\-]", job_request.workspace):
+        raise JobRequestError(
+            "Invalid workspace name (allowed are alphanumeric, dash and underscore)"
+        )
     if not config.USING_DUMMY_DATA_BACKEND:
         database_name = job_request.database_name
         valid_names = config.DATABASE_URLS.keys()
@@ -148,7 +151,7 @@ def validate_job_request(job_request):
             )
     # If we're not restricting to specific Github organisations then there's no
     # point in checking the provenance of the supplied commit
-    if config.ALLOWED_GITHUB_ORGS and not config.LOCAL_RUN_MODE:
+    if config.ALLOWED_GITHUB_ORGS:
         # As this involves talking to the remote git server we only do it at
         # the end once all other checks have passed
         validate_branch_and_commit(
@@ -158,15 +161,11 @@ def validate_job_request(job_request):
 
 def get_project_file(job_request):
     try:
-        if not config.LOCAL_RUN_MODE:
-            project_file = read_file_from_repo(
-                job_request.repo_url, job_request.commit, "project.yaml"
-            )
-        else:
-            project_file = (Path(job_request.repo_url) / "project.yaml").read_bytes()
-    except (GitFileNotFoundError, FileNotFoundError):
+        return read_file_from_repo(
+            job_request.repo_url, job_request.commit, "project.yaml"
+        )
+    except GitFileNotFoundError:
         raise JobRequestError(f"No project.yaml file found in {job_request.repo_url}")
-    return project_file
 
 
 def get_latest_job_for_each_action(workspace):
@@ -271,8 +270,6 @@ def recursively_build_jobs(jobs_by_action, job_request, project, action):
         workspace=job_request.workspace,
         database_name=job_request.database_name,
         action=action,
-        action_repo_url=action_spec.repo_url,
-        action_commit=action_spec.commit,
         wait_for_job_ids=wait_for_job_ids,
         requires_outputs_from=action_spec.needs,
         run_command=action_spec.run,
