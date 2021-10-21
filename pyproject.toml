@@ -28,6 +28,7 @@ substitute = [
   # we don't need. See:
   # https://github.com/psf/requests/blob/589c4547338b592b1fb77c65663d8aa6fbb7e38b/requests/packages.py
   { match='from \. import packages', replace='' },
+  { match='jobrunner.executors.local:LocalDockerAPI', replace='opensafely._vendor.jobrunner.executors.local:LocalDockerAPI' },
 ]
 
 drop = [

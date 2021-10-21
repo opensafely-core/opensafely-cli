@@ -35,25 +35,26 @@ import textwrap
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from opensafely._vendor.jobrunner import config
+from opensafely._vendor.jobrunner import config, manifest_to_database_migration
 from opensafely._vendor.jobrunner.create_or_update_jobs import (
     RUN_ALL_COMMAND,
     JobRequestError,
     NothingToDoError,
     ProjectValidationError,
     assert_new_jobs_created,
-    get_latest_job_for_each_action,
     get_new_jobs_to_run,
     insert_into_database,
     parse_and_validate_project_file,
 )
-from opensafely._vendor.jobrunner.lib import docker
+from opensafely._vendor.jobrunner.lib import database, docker
 from opensafely._vendor.jobrunner.lib.database import find_where
 from opensafely._vendor.jobrunner.lib.log_utils import configure_logging
 from opensafely._vendor.jobrunner.lib.string_utils import tabulate
 from opensafely._vendor.jobrunner.lib.subprocess_utils import subprocess_run
 from opensafely._vendor.jobrunner.manage_jobs import METADATA_DIR
-from opensafely._vendor.jobrunner.models import Job, JobRequest, State, StatusCode
+from opensafely._vendor.jobrunner.models import Job, JobRequest, State, StatusCode, random_id
+from opensafely._vendor.jobrunner.project import UnknownActionError, get_all_actions
+from opensafely._vendor.jobrunner.queries import calculate_workspace_state
 from opensafely._vendor.jobrunner.reusable_actions import (
     ReusableActionError,
     resolve_reusable_action_references,
@@ -200,11 +201,7 @@ def create_and_run_jobs(
     # It's more helpful in this context to have things consistent
     config.RANDOMISE_JOB_ORDER = False
     config.HIGH_PRIVACY_WORKSPACES_DIR = project_dir.parent
-    # Append a random value so that multiple runs in the same process will each
-    # get their own unique in-memory database. This is only really relevant
-    # during testing as we never do mutliple runs in the same process
-    # otherwise.
-    config.DATABASE_FILE = f":memory:{random.randrange(sys.maxsize)}"
+    config.DATABASE_FILE = project_dir / "metadata" / "db.sqlite"
     config.TMP_DIR = temp_dir
     config.JOB_LOG_DIR = temp_dir / "logs"
     config.BACKEND = "expectations"
@@ -226,6 +223,24 @@ def create_and_run_jobs(
     config.HIGH_PRIVACY_STORAGE_BASE = None
     config.MEDIUM_PRIVACY_STORAGE_BASE = None
     config.MEDIUM_PRIVACY_WORKSPACES_DIR = None
+
+    # This is a temporary migration step to avoid unnecessarily re-running actions as we migrate away from the manifest.
+    manifest_to_database_migration.migrate_one(
+        project_dir, write_medium_privacy_manifest=False, batch_size=1000, log=False
+    )
+
+    # Any jobs that are running or pending must be left over from a previous run that was aborted either by an
+    # unexpected and unhandled exception or by the researcher abruptly terminating the process. We can't reasonably
+    # recover them (and the researcher may not want to -- maybe that's why they terminated), so we mark them as
+    # cancelled. This causes the rest of the system to effectively ignore them.
+    #
+    # We do this here at the beginning rather than trying to catch these cases when the process exits because the
+    # latter couldn't ever completely guarantee to catch every possible termination case correctly.
+    database.update_where(
+        Job,
+        {"cancelled": True, "state": State.FAILED},
+        state__in=[State.RUNNING, State.PENDING],
+    )
 
     try:
         job_request, jobs = create_job_request_and_jobs(
@@ -317,7 +332,9 @@ def create_and_run_jobs(
         if format_output_for_github:
             print("::endgroup::")
 
-    final_jobs = find_where(Job, state__in=[State.FAILED, State.SUCCEEDED])
+    final_jobs = find_where(
+        Job, state__in=[State.FAILED, State.SUCCEEDED], job_request_id=job_request.id
+    )
     # Always show failed jobs last, otherwise show in order run
     final_jobs.sort(
         key=lambda job: (
@@ -384,7 +401,7 @@ def create_and_run_jobs(
 
 def create_job_request_and_jobs(project_dir, actions, force_run_dependencies):
     job_request = JobRequest(
-        id="local",
+        id=random_id(),
         repo_url=str(project_dir),
         commit=None,
         requested_actions=actions,
@@ -398,6 +415,7 @@ def create_job_request_and_jobs(project_dir, actions, force_run_dependencies):
         branch="",
         original={"created_by": getpass.getuser()},
     )
+
     project_file_path = project_dir / "project.yaml"
     if not project_file_path.exists():
         raise ProjectValidationError(f"No project.yaml file found in {project_dir}")
@@ -406,12 +424,36 @@ def create_job_request_and_jobs(project_dir, actions, force_run_dependencies):
     # changes below then consider what, if any, the appropriate corresponding
     # changes might be for production jobs.
     project = parse_and_validate_project_file(project_file_path.read_bytes())
-    current_jobs = get_latest_job_for_each_action(job_request.workspace)
-    new_jobs = get_new_jobs_to_run(job_request, project, current_jobs)
-    assert_new_jobs_created(new_jobs, current_jobs)
+    latest_jobs = calculate_workspace_state(job_request.workspace)
+
+    # On the server out-of-band deletion of an existing output is considered an error, so we ignore that case when
+    # scheduling and allow jobs with missing dependencies to fail loudly when they are actually run. However for local
+    # running we should allow researchers to delete outputs on disk and automatically rerun the actions that create
+    # if they are needed. So here we check whether any files are missing for completed actions and, if so, treat them
+    # as though they had not been run -- this will automatically trigger a rerun.
+    latest_jobs_with_files_present = [
+        job for job in latest_jobs if all_output_files_present(project_dir, job)
+    ]
+
+    try:
+        if not actions:
+            raise UnknownActionError("At least one action must be supplied")
+        new_jobs = get_new_jobs_to_run(
+            job_request, project, latest_jobs_with_files_present
+        )
+    except UnknownActionError as e:
+        # Annotate the exception with a list of valid action names so we can
+        # show them to the user
+        e.valid_actions = [RUN_ALL_COMMAND] + get_all_actions(project)
+        raise e
+    assert_new_jobs_created(new_jobs, latest_jobs_with_files_present)
     resolve_reusable_action_references(new_jobs)
     insert_into_database(job_request, new_jobs)
     return job_request, new_jobs
+
+
+def all_output_files_present(project_dir, job):
+    return all(project_dir.joinpath(f).exists() for f in job.output_files)
 
 
 def no_jobs_remaining(active_jobs):
@@ -504,7 +546,7 @@ def get_stata_license(repo=config.STATA_LICENSE_REPO):
     def git_clone(repo_url, cwd):
         cmd = ["git", "clone", "--depth=1", repo_url, "repo"]
         # GIT_TERMINAL_PROMPT=0 means it will fail if it requires auth. This
-        # alows us to retry with an ssh url on linux/mac, as they would
+        # allows us to retry with an ssh url on linux/mac, as they would
         # generally prompt given an https url.
         result = subprocess_run(
             cmd,

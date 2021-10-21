@@ -6,7 +6,6 @@ from opensafely._vendor.jobrunner.lib.docker import (
 
 __all__ = ["get_system_stats", "DockerDiskSpaceError"]
 
-
 # Populated by calls to `register_command` below
 COMMANDS = []
 PARSERS = []

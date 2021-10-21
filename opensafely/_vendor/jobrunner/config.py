@@ -9,6 +9,10 @@ class ConfigException(Exception):
     pass
 
 
+def _is_valid_backend_name(name):
+    return bool(re.match(r"^[A-Za-z0-9][A-Za-z0-9_\-]*[A-Za-z0-9]$", name))
+
+
 default_work_dir = Path(__file__) / "../../workdir"
 
 WORK_DIR = Path(os.environ.get("WORK_DIR", default_work_dir)).resolve()
@@ -43,6 +47,8 @@ POLL_INTERVAL = float(os.environ.get("POLL_INTERVAL", "5"))
 JOB_LOOP_INTERVAL = float(os.environ.get("JOB_LOOP_INTERVAL", "1.0"))
 
 BACKEND = os.environ.get("BACKEND", "expectations")
+if not _is_valid_backend_name(BACKEND):
+    raise RuntimeError(f"BACKEND not in valid format: '{BACKEND}'")
 
 truthy = ("true", "1", "yes")
 
@@ -173,3 +179,4 @@ STATS_POLL_INTERVAL = float(os.environ.get("STATS_POLL_INTERVAL", "10"))
 
 # feature flag to enable new API abstraction
 EXECUTION_API = os.environ.get("EXECUTION_API", "false").lower() == "true"
+EXECUTOR = os.environ.get("EXECUTOR", "opensafely._vendor.jobrunner.executors.local:LocalDockerAPI")
