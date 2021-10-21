@@ -5,26 +5,18 @@ It handles all logic connected with creating or updating Jobs in response to
 JobRequests. This includes fetching the code with git, validating the project
 and doing the necessary dependency resolution.
 """
-import dataclasses
 import logging
 import re
 import time
 
 from opensafely._vendor.jobrunner import config
-from opensafely._vendor.jobrunner.lib.database import (
-    exists_where,
-    find_where,
-    insert,
-    transaction,
-    update_where,
-)
+from opensafely._vendor.jobrunner.lib.database import exists_where, insert, transaction, update_where
 from opensafely._vendor.jobrunner.lib.git import GitError, GitFileNotFoundError, read_file_from_repo
 from opensafely._vendor.jobrunner.lib.github_validators import (
     GithubValidationError,
     validate_branch_and_commit,
     validate_repo_url,
 )
-from opensafely._vendor.jobrunner.manage_jobs import get_states_for_actions
 from opensafely._vendor.jobrunner.models import Job, SavedJobRequest, State
 from opensafely._vendor.jobrunner.project import (
     RUN_ALL_COMMAND,
@@ -33,20 +25,13 @@ from opensafely._vendor.jobrunner.project import (
     get_all_actions,
     parse_and_validate_project_file,
 )
+from opensafely._vendor.jobrunner.queries import calculate_workspace_state
 from opensafely._vendor.jobrunner.reusable_actions import (
     ReusableActionError,
     resolve_reusable_action_references,
 )
 
 log = logging.getLogger(__name__)
-
-
-# Minimal representation of a Job, containing just the fields necessary for the
-# dependency resolution algorithm (see `get_completed_jobs_from_disk`).
-@dataclasses.dataclass
-class JobPlaceholder:
-    action: str
-    state: State
 
 
 class JobRequestError(Exception):
@@ -101,9 +86,9 @@ def create_jobs(job_request):
     validate_job_request(job_request)
     project_file = get_project_file(job_request)
     project = parse_and_validate_project_file(project_file)
-    current_jobs = get_latest_job_for_each_action(job_request.workspace)
-    new_jobs = get_new_jobs_to_run(job_request, project, current_jobs)
-    assert_new_jobs_created(new_jobs, current_jobs)
+    latest_jobs = get_latest_jobs_for_actions_in_project(job_request.workspace, project)
+    new_jobs = get_new_jobs_to_run(job_request, project, latest_jobs)
+    assert_new_jobs_created(new_jobs, latest_jobs)
     resolve_reusable_action_references(new_jobs)
     # There is a delay between getting the current jobs (which we fetch from
     # the database and the disk) and inserting our new jobs below. This means
@@ -168,43 +153,11 @@ def get_project_file(job_request):
         raise JobRequestError(f"No project.yaml file found in {job_request.repo_url}")
 
 
-def get_latest_job_for_each_action(workspace):
-    """
-    Return a list containing the most recent job (if any) for each action in
-    the workspace
-    """
-    # We treat the files on disk as the canonical source for the state of
-    # completed jobs.
-    completed_jobs = get_completed_jobs_from_disk(workspace)
-    # However active jobs aren't represented on disk so if we want to know what
-    # jobs are currently running we have to ask the database.
-    active_jobs = get_active_jobs_from_database(workspace)
-    # Combine the two sources of jobs. Where there is an active job and a
-    # completed job for the same action we prefer the active job as that is
-    # necessarily the more recent.
-    combined = {job.action: job for job in completed_jobs + active_jobs}
-    return list(combined.values())
-
-
-def get_active_jobs_from_database(workspace):
-    return find_where(
-        Job,
-        workspace=workspace,
-        state__in=[State.PENDING, State.RUNNING],
-    )
-
-
-def get_completed_jobs_from_disk(workspace):
-    # This is slightly inelegant but helps keep the rest of the code simple:
-    # the `manifest.json` file in the workspace directory on disk stores the
-    # final state of completed jobs, but doesn't store the full set of Job
-    # object fields because they aren't generally needed. This means we can't
-    # reconstruct Job instances to return so instead we create a JobPlaceholder
-    # containing just the two fields we care about in this context: the action
-    # and the final state.
+def get_latest_jobs_for_actions_in_project(workspace, project):
     return [
-        JobPlaceholder(action=action, state=state)
-        for action, state in get_states_for_actions(workspace).items()
+        job
+        for job in calculate_workspace_state(workspace)
+        if job.action in get_all_actions(project)
     ]
 
 
@@ -314,15 +267,33 @@ def job_should_be_rerun(job_request, job):
 
 
 def assert_new_jobs_created(new_jobs, current_jobs):
-    if not new_jobs:
-        # There are two reasons we can end up with no new jobs to run: one is
-        # that the "run all" action was requested but everything has already
-        # run successfully
-        if all(job.state == State.SUCCEEDED for job in current_jobs):
-            raise NothingToDoError()
-        # The other is that every requested action is already running or pending
-        else:
-            raise JobRequestError("All requested actions were already scheduled to run")
+    if new_jobs:
+        return
+
+    pending = [job.action for job in current_jobs if job.state == State.PENDING]
+    running = [job.action for job in current_jobs if job.state == State.RUNNING]
+    succeeded = [job.action for job in current_jobs if job.state == State.SUCCEEDED]
+    failed = [job.action for job in current_jobs if job.state == State.FAILED]
+
+    # There are two legitimate reasons we can end up with no new jobs to run...
+    if len(succeeded) == len(current_jobs):
+        #  ...one is that the "run all" action was requested but everything has already run successfully
+        log.info(
+            f"run_all requested, but all jobs are already successful: {', '.join(succeeded)}"
+        )
+        raise NothingToDoError()
+
+    if len(pending) + len(running) == len(current_jobs):
+        # ...the other is that every requested action is already running or pending, this is considered a user error
+        statuses = ", ".join(f"{job.action}({job.state.name})" for job in current_jobs)
+        log.info(f"All requested actions were already scheduled to run: {statuses}")
+        raise JobRequestError("All requested actions were already scheduled to run")
+
+    # But if we get here then we've somehow failed to schedule new jobs despite the fact that some of the actions we
+    # depend on have failed, which is a bug.
+    raise Exception(
+        f"Unexpected failed jobs in dependency graph after scheduling: {', '.join(failed)}"
+    )
 
 
 def create_failed_job(job_request, exception):
@@ -374,6 +345,9 @@ def related_jobs_exist(job_request):
 
 
 def set_cancelled_flag_for_actions(job_request_id, actions):
+    # It's important that we modify the Jobs in-place in the database rather than retrieving, updating and re-writing
+    # them. If we did the latter then we would risk dirty writes if the run thread modified a Job while we were
+    # working.
     update_where(
         Job,
         {"cancelled": True},
