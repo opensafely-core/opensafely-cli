@@ -63,8 +63,18 @@ from opensafely._vendor.jobrunner.run import main as run_main
 
 # First paragraph of docstring
 DESCRIPTION = __doc__.partition("\n\n")[0]
+
 # local run logging format
 LOCAL_RUN_FORMAT = "{action}{message}"
+
+# None of these status messages are particularly useful in local run
+# mode, and they can generate a lot of clutter in large dependency
+# trees
+STATUS_CODES_NOT_TO_LOG = {
+    StatusCode.WAITING_ON_DEPENDENCIES,
+    StatusCode.DEPENDENCY_FAILED,
+    StatusCode.WAITING_ON_WORKERS,
+}
 
 
 # Super-crude support for colourised/formatted output inside Github Actions. It
@@ -208,6 +218,9 @@ def create_and_run_jobs(
     config.USING_DUMMY_DATA_BACKEND = True
     config.CLEAN_UP_DOCKER_OBJECTS = clean_up_docker_objects
 
+    # We want to fetch any reusable actions code directly from Github so as to
+    # avoid pushing unnecessary traffic through the proxy
+    config.GIT_PROXY_DOMAIN = "github.com"
     # Rather than using the throwaway `temp_dir` to store git repos in we use a
     # consistent directory within the system tempdir. This means we don't have
     # to keep refetching commits and also avoids the complexity of deleting
@@ -223,6 +236,15 @@ def create_and_run_jobs(
     config.HIGH_PRIVACY_STORAGE_BASE = None
     config.MEDIUM_PRIVACY_STORAGE_BASE = None
     config.MEDIUM_PRIVACY_WORKSPACES_DIR = None
+
+    configure_logging(
+        fmt=log_format,
+        # All the other output we produce goes to stdout and it's a bit
+        # confusing if the log messages end up on a separate stream
+        stream=sys.stdout,
+        # Filter out log messages in the local run context
+        extra_filter=filter_log_messages,
+    )
 
     # This is a temporary migration step to avoid unnecessarily re-running actions as we migrate away from the manifest.
     manifest_to_database_migration.migrate_one(
@@ -299,21 +321,6 @@ def create_and_run_jobs(
 
     action_names = [job.action for job in jobs]
     print(f"\nRunning actions: {', '.join(action_names)}\n")
-
-    configure_logging(
-        fmt=log_format,
-        # None of these status messages are particularly useful in local run
-        # mode, and they can generate a lot of clutter in large dependency
-        # trees
-        status_codes_to_ignore=[
-            StatusCode.WAITING_ON_DEPENDENCIES,
-            StatusCode.DEPENDENCY_FAILED,
-            StatusCode.WAITING_ON_WORKERS,
-        ],
-        # All the other output we produce goes to stdout and it's a bit
-        # confusing if the log messages end up on a separate stream
-        stream=sys.stdout,
-    )
 
     # Wrap all the log output inside an expandable block when running inside
     # Github Actions
@@ -464,6 +471,21 @@ def job_failed_or_none_remaining(active_jobs):
     if any(job.state == State.FAILED for job in active_jobs):
         return True
     return len(active_jobs) == 0
+
+
+def filter_log_messages(record):
+    """
+    Not all log messages are useful in the local run context so to avoid noise
+    and make things clearer for the user we filter them out here
+    """
+    status_code = getattr(record, "status_code", None)
+    if status_code in STATUS_CODES_NOT_TO_LOG:
+        return False
+    # We sometimes log caught exceptions for debugging purposes in production,
+    # but we don't want to show these to the user when running locally
+    if getattr(record, "exc_info", None):
+        return False
+    return True
 
 
 # Copied from test/conftest.py to avoid a more complex dependency tree
