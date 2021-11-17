@@ -3,7 +3,7 @@ from pathlib import Path
 import sys
 
 from opensafely._vendor.jobrunner.cli import local_run
-from opensafely import codelists, pull, upgrade
+from opensafely import codelists, pull, upgrade, check
 
 
 __version__ = Path(__file__).parent.joinpath("VERSION").read_text().strip()
@@ -47,6 +47,11 @@ def main():
     parser_upgrade = subparsers.add_parser("upgrade", help=upgrade.DESCRIPTION)
     parser_upgrade.set_defaults(function=upgrade.main)
     upgrade.add_arguments(parser_upgrade)
+
+    # Add `check` subcommand
+    parser_check = subparsers.add_parser("check", help=check.DESCRIPTION)
+    parser_check.set_defaults(function=check.main)
+    check.add_arguments(parser_check)
 
     # we version check before parse_args is called so that if a user is
     # following recent documentation but has an old opensafely installed,
