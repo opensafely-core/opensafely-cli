@@ -85,7 +85,6 @@ def test_specific_image(run, capsys):
     ]
 
 
-
 def test_project(run, capsys):
 
     run.expect(["docker", "info"])
@@ -121,11 +120,14 @@ def test_remove_deprecated_images(run):
     pull.remove_deprecated_images(local_images)
 
 
-@pytest.mark.parametrize("project_yaml,exc_msg", [
-    ("doesnotexist.yaml", "Could not find"),
-    ("bad.yaml", "Could not parse"),
-    ("noactions.yaml", "No actions found"),
-])
+@pytest.mark.parametrize(
+    "project_yaml,exc_msg",
+    [
+        ("doesnotexist.yaml", "Could not find"),
+        ("bad.yaml", "Could not parse"),
+        ("noactions.yaml", "No actions found"),
+    ],
+)
 def test_get_actions_from_project_yaml_errors(project_yaml, exc_msg):
     path = project_fixture_path / project_yaml
     with pytest.raises(RuntimeError) as exc_info:
@@ -143,7 +145,10 @@ def test_get_actions_from_project_yaml_errors(project_yaml, exc_msg):
         (["--force"], argparse.Namespace(image="all", force=True, project=None)),
         (["r"], argparse.Namespace(image="r", force=False, project=None)),
         (["r", "--force"], argparse.Namespace(image="r", force=True, project=None)),
-        (["--project", "project.yaml"], argparse.Namespace(image="all", force=False, project="project.yaml")),
+        (
+            ["--project", "project.yaml"],
+            argparse.Namespace(image="all", force=False, project="project.yaml"),
+        ),
         (["invalid"], SystemExit()),
     ],
 )

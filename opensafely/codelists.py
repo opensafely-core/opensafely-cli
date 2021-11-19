@@ -170,7 +170,7 @@ def parse_codelist_file(codelists_dir):
         exit_with_error(f"No file found at '{CODELISTS_DIR}/{CODELISTS_FILE}'")
     codelists = []
     for line in codelists_file.read_text().splitlines():
-        line = line.strip()
+        line = line.strip().rstrip("/")
         if not line or line.startswith("#"):
             continue
         tokens = line.split("/")
