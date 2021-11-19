@@ -5,7 +5,12 @@ import sys
 from opensafely._vendor.jobrunner import config
 from opensafely._vendor.jobrunner.cli.local_run import docker_preflight_check
 from opensafely._vendor.ruamel.yaml import YAML
-from opensafely._vendor.ruamel.yaml.error import YAMLError, YAMLStreamError, YAMLWarning, YAMLFutureWarning
+from opensafely._vendor.ruamel.yaml.error import (
+    YAMLError,
+    YAMLStreamError,
+    YAMLWarning,
+    YAMLFutureWarning,
+)
 
 
 DESCRIPTION = (
