@@ -31,6 +31,7 @@ def main():
     found_datasets = {
         dataset: check_dataset(functions, files_to_check)
         for dataset, functions in datasets_to_check.items()
+        if check_dataset(functions, files_to_check)
     }
 
     if found_datasets:
