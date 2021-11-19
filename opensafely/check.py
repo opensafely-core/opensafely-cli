@@ -1,8 +1,9 @@
 from opensafely._vendor import requests
 from opensafely._vendor.ruamel.yaml import YAML
-from os import environ, popen, walk, path
+import os
 import re
-
+import glob
+import subprocess
 
 DESCRIPTION = "Check the opensafely project for correctness"
 
@@ -33,19 +34,17 @@ def main():
     }
 
     if found_datasets:
-        print_violations(found_datasets)
-        exit(1)
+        exit(print_violations(found_datasets))
     else:
         print("Success")
-        exit(0)
 
 
 def print_violations(found_datasets):
-    print('Usage of restricted datasets found:')
-    for d,files in found_datasets.items():
-        print(f'{d}:')
-        for f,lines in files.items():
-            print(f'\t {f} :')
+    print("Usage of restricted datasets found:")
+    for d, files in found_datasets.items():
+        print(f"{d}:")
+        for f, lines in files.items():
+            print(f"\t {f} :")
             for ln, line in lines:
                 print(f"\t\t line {ln}: {line}")
 
@@ -74,13 +73,7 @@ def check_file(filename, regex):
 
 
 def get_local_py_files():
-    out_files = []
-    for root, dirs, files in walk(".", topdown=False):
-        for name in files:
-            out_files.append(path.join(root, name))
-        for name in dirs:
-            out_files.append(path.join(root, name))
-    return [r for r in out_files if r.endswith(".py")]
+    return glob.glob("**/*.py")
 
 
 def get_datasource_permissions(permissions_url):
@@ -95,20 +88,24 @@ def get_datasource_permissions(permissions_url):
 
 
 def get_repository_name():
-    if "GITHUB_REPOSITORY" in environ:
-        return environ["GITHUB_REPOSITORY"]
+    if "GITHUB_REPOSITORY" in os.environ:
+        return os.environ["GITHUB_REPOSITORY"]
     else:
-        s = popen("git config --get remote.origin.url")
-        url = s.read()
-        if url.startswith("https://github.com/"):
-            return url.replace("https://github.com/", "")
-        if url.startswith("git@github.com:"):
-            return url.replace("git@github.com:", "").replace(".git", "")
-        return None
+
+        url = subprocess.run(
+            args=["git", "config", "--get remote.origin.url"],
+            capture_output=True,
+            text=True,
+        )
+        return (
+            url.replace("https://github.com/", "")
+            .replace("git@github.com:")
+            .replace(".git", "")
+            .strip()
+        )
 
 
 def get_allowed_datasets(respository_name, permissions):
-    if respository_name not in permissions:
+    if not respository_name or respository_name not in permissions:
         return []
     return permissions[respository_name]["allow"]
-
