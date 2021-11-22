@@ -42,12 +42,14 @@ def main():
 
 def print_violations(found_datasets):
     print("Usage of restricted datasets found:")
-    for d, files in found_datasets.items():
+    for d, functions in found_datasets.items():
         print(f"{d}:")
-        for f, lines in files.items():
-            print(f"\t {f} :")
-            for ln, line in lines:
-                print(f"\t\t line {ln}: {line}")
+        for fn, files in functions.items():
+            print(f"{fn}")
+            for f, lines in files.items():
+                print(f"\t\t {f} :")
+                for ln, line in lines.items():
+                    print(f"\t\t\t line {ln}: {line}")
 
 
 def check_dataset(functions, files_to_check):
@@ -68,7 +70,7 @@ def check_file(filename, regex):
     found_lines = {}
     with open(filename, "r") as f:
         for ln, line in enumerate(f.readlines(), start=1):
-            if regex.search(line):
+            if regex.search(line) and not line.lstrip().startswith("#"):
                 found_lines[ln] = line
     return found_lines
 
