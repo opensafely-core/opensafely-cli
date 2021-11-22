@@ -41,15 +41,15 @@ def main():
 
 
 def print_violations(found_datasets):
-    s =("Usage of restricted datasets found:\n")
+    s = "Usage of restricted datasets found:\n"
     for d, functions in found_datasets.items():
-        s= s+(f"{d}:\n")
+        s = s + (f"{d}:\n")
         for fn, files in functions.items():
-            s= s+(f"- {fn}\n")
+            s = s + (f"- {fn}\n")
             for f, lines in files.items():
-                s=s+(f"  - {f}:\n")
+                s = s + (f"  - {f}:\n")
                 for ln, line in lines.items():
-                    s=s+(f"    line {ln}: {line}\n")
+                    s = s + (f"    line {ln}: {line}\n")
     return s
 
 
@@ -77,7 +77,7 @@ def check_file(filename, regex):
 
 
 def get_local_py_files():
-    return glob.glob("**/*.py",recursive=True)
+    return glob.glob("**/*.py", recursive=True)
 
 
 def get_datasource_permissions(permissions_url):
@@ -97,13 +97,13 @@ def get_repository_name():
     else:
 
         url = subprocess.run(
-            args=["git", "config", "--get","remote.origin.url"],
+            args=["git", "config", "--get", "remote.origin.url"],
             capture_output=True,
             text=True,
         ).stdout
         return (
             url.replace("https://github.com/", "")
-            .replace("git@github.com:","")
+            .replace("git@github.com:", "")
             .replace(".git", "")
             .strip()
         )
