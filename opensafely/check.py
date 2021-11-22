@@ -7,7 +7,7 @@ import subprocess
 
 DESCRIPTION = "Check the opensafely project for correctness"
 
-RESTRICTED_DATASETS = {"ICNARC": ["admitted_to_icu"]}
+RESTRICTED_DATASETS = {"icnarc": ["admitted_to_icu"]}
 
 # todo: dummy location and data
 PERMISSIONS_URL = "https://raw.githubusercontent.com/Jongmassey/research_repository_permissions/main/repository_permissions.yaml"
