@@ -53,7 +53,7 @@ def print_violations(found_datasets):
 def check_dataset(functions, files_to_check):
     found_functions = {}
     for function in functions:
-        regex = re.compile(f"\.{function}\(")
+        regex = re.compile(rf"\.{function}\(")
         found_files = {}
         for f in files_to_check:
             matches = check_file(f, regex)
@@ -68,13 +68,13 @@ def check_file(filename, regex):
     found_lines = {}
     with open(filename, "r") as f:
         for ln, line in enumerate(f.readlines(), start=1):
-            if regex.match(line):
+            if regex.search(line):
                 found_lines[ln] = line
     return found_lines
 
 
 def get_local_py_files():
-    return glob.glob("**/*.py")
+    return glob.glob("**/*.py",recursive=True)
 
 
 def get_datasource_permissions(permissions_url):
@@ -94,13 +94,13 @@ def get_repository_name():
     else:
 
         url = subprocess.run(
-            args=["git", "config", "--get remote.origin.url"],
+            args=["git", "config", "--get","remote.origin.url"],
             capture_output=True,
             text=True,
-        )
+        ).stdout
         return (
             url.replace("https://github.com/", "")
-            .replace("git@github.com:")
+            .replace("git@github.com:","")
             .replace(".git", "")
             .strip()
         )
