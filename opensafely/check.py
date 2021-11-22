@@ -41,15 +41,16 @@ def main():
 
 
 def print_violations(found_datasets):
-    print("Usage of restricted datasets found:")
+    s =("Usage of restricted datasets found:\n")
     for d, functions in found_datasets.items():
-        print(f"{d}:")
+        s= s+(f"{d}:\n")
         for fn, files in functions.items():
-            print(f"{fn}")
+            s= s+(f"- {fn}\n")
             for f, lines in files.items():
-                print(f"\t\t {f} :")
+                s=s+(f"  - {f}:\n")
                 for ln, line in lines.items():
-                    print(f"\t\t\t line {ln}: {line}")
+                    s=s+(f"    line {ln}: {line}\n")
+    return s
 
 
 def check_dataset(functions, files_to_check):
