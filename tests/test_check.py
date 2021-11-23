@@ -4,6 +4,7 @@ from opensafely._vendor import requests
 from opensafely import check
 import os
 import subprocess
+import textwrap
 
 # Because we're using a vendored version of requests we need to monkeypatch the
 # requests_mock library so it references our vendored library instead
@@ -59,28 +60,33 @@ study = StudyDefinition ("""
 
 def write_restricted_files(path):
     for a in [1, 2]:
-        with open(
-            os.path.join(str(path), f"study_definition_restricted_{a}.py"), "w"
-        ) as f:
-            f.write(f"{STUDY_DEF_HEADER}\n")
-            f.write(f"a={RESTRICTED_FUNCTION_CALL},\n")
-            f.write(f"#b={RESTRICTED_FUNCTION_CALL},\n")
-            f.write(f"c={UNRESTRICTED_FUNCTION_CALL},\n")
-            f.write(f"#d={UNRESTRICTED_FUNCTION_CALL},\n")
-            f.write(")")
+        f = path / f"study_definition_restricted_{a}.py"
+        f.write_text(
+            textwrap.dedent(
+                f"""\
+                {STUDY_DEF_HEADER}
+                a={RESTRICTED_FUNCTION_CALL},
+                #b={RESTRICTED_FUNCTION_CALL},
+                c={UNRESTRICTED_FUNCTION_CALL},
+                #d={UNRESTRICTED_FUNCTION_CALL},
+                )"""
+            )
+        )
 
 
 def write_unrestricted_files(path):
     for a in [1, 2]:
-        with open(
-            os.path.join(str(path), f"study_definition_unrestricted_{a}.py"),
-            "w",
-        ) as f:
-            f.write(f"{STUDY_DEF_HEADER}\n")
-            f.write(f"#a={RESTRICTED_FUNCTION_CALL}\n")
-            f.write(f"b={UNRESTRICTED_FUNCTION_CALL}\n")
-            f.write(f"#c={UNRESTRICTED_FUNCTION_CALL}\n")
-            f.write(")")
+        f = path / f"study_definition_unrestricted_{a}.py"
+        f.write_text(
+            textwrap.dedent(
+                f"""\
+                {STUDY_DEF_HEADER}
+                #a={RESTRICTED_FUNCTION_CALL},
+                b={UNRESTRICTED_FUNCTION_CALL},
+                #c={UNRESTRICTED_FUNCTION_CALL},
+                )"""
+            )
+        )
 
 
 def git_init(url):
@@ -113,279 +119,271 @@ def validate_fail(capsys):
         assert "study_definition_restricted_2.py" in stderr
 
 
-def test_unrestricted_local_norepo(tmp_path, capsys, monkeypatch):
-    if "GITHUB_REPOSITORY" in os.environ:
-        monkeypatch.delenv("GITHUB_REPOSITORY")
+@pytest.fixture
+def repo_path(tmp_path):
     prev_dir = os.getcwd()
     os.chdir(tmp_path)
-    write_unrestricted_files(tmp_path)
+    yield tmp_path
+    os.chdir(prev_dir)
+
+
+def test_unrestricted_local_norepo(repo_path, capsys, monkeypatch):
+    if "GITHUB_REPOSITORY" in os.environ:
+        monkeypatch.delenv("GITHUB_REPOSITORY")
+    write_unrestricted_files(repo_path)
     validate_pass(capsys)
-    os.chdir(prev_dir)
 
 
-def test_restricted_local_norepo(tmp_path, capsys, monkeypatch):
+def test_restricted_local_norepo(repo_path, capsys, monkeypatch):
     if "GITHUB_REPOSITORY" in os.environ:
         monkeypatch.delenv("GITHUB_REPOSITORY")
-    prev_dir = os.getcwd()
-    os.chdir(tmp_path)
-    write_restricted_files(tmp_path)
+    write_restricted_files(repo_path)
     validate_fail(capsys)
-    os.chdir(prev_dir)
 
 
-def test_unrestricted_nonexistant_local_https(tmp_path, capsys, monkeypatch):
+def test_unrestricted_nonexistant_local_https(repo_path, capsys, monkeypatch):
     if "GITHUB_REPOSITORY" in os.environ:
         monkeypatch.delenv("GITHUB_REPOSITORY")
-    prev_dir = os.getcwd()
-    os.chdir(tmp_path)
-    write_unrestricted_files(tmp_path)
+    write_unrestricted_files(repo_path)
     git_init(NONEXISTENT_HTTPS_ORIGIN)
     validate_pass(capsys)
-    os.chdir(prev_dir)
 
 
-def test_unrestricted_nonexistant_local_ssh(tmp_path, capsys, monkeypatch):
+def test_unrestricted_nonexistant_local_ssh(repo_path, capsys, monkeypatch):
     if "GITHUB_REPOSITORY" in os.environ:
         monkeypatch.delenv("GITHUB_REPOSITORY")
-    prev_dir = os.getcwd()
-    os.chdir(tmp_path)
-    write_unrestricted_files(tmp_path)
+    write_unrestricted_files(repo_path)
     git_init(NONEXISTENT_SSH_ORIGIN)
     validate_pass(capsys)
-    os.chdir(prev_dir)
 
 
 def test_unrestricted_permitted_multiple_local_https(
-    tmp_path, capsys, monkeypatch
+    repo_path, capsys, monkeypatch
 ):
     if "GITHUB_REPOSITORY" in os.environ:
         monkeypatch.delenv("GITHUB_REPOSITORY")
-    prev_dir = os.getcwd()
-    os.chdir(tmp_path)
-    write_unrestricted_files(tmp_path)
+    write_unrestricted_files(repo_path)
     git_init(PERMITTED_MULTIPLE_HTTPS_ORIGIN)
     validate_pass(capsys)
-    os.chdir(prev_dir)
 
 
 def test_unrestricted_permitted_multiple_local_ssh(
-    tmp_path, capsys, monkeypatch
+    repo_path, capsys, monkeypatch
 ):
     if "GITHUB_REPOSITORY" in os.environ:
         monkeypatch.delenv("GITHUB_REPOSITORY")
-    prev_dir = os.getcwd()
-    os.chdir(tmp_path)
-    write_unrestricted_files(tmp_path)
+    write_unrestricted_files(repo_path)
     git_init(PERMITTED_MULTIPLE_SSH_ORIGIN)
     validate_pass(capsys)
-    os.chdir(prev_dir)
 
 
-def test_restricted_nonexistant_local_https(tmp_path, capsys, monkeypatch):
+def test_restricted_nonexistant_local_https(repo_path, capsys, monkeypatch):
     if "GITHUB_REPOSITORY" in os.environ:
         monkeypatch.delenv("GITHUB_REPOSITORY")
     prev_dir = os.getcwd()
     os.chdir(tmp_path)
-    write_restricted_files(tmp_path)
+    write_restricted_files(repo_path)
     git_init(NONEXISTENT_HTTPS_ORIGIN)
     validate_fail(capsys)
     os.chdir(prev_dir)
 
 
-def test_restricted_nonexistant_local_ssh(tmp_path, capsys, monkeypatch):
+def test_restricted_nonexistant_local_ssh(repo_path, capsys, monkeypatch):
     if "GITHUB_REPOSITORY" in os.environ:
         monkeypatch.delenv("GITHUB_REPOSITORY")
     prev_dir = os.getcwd()
     os.chdir(tmp_path)
-    write_restricted_files(tmp_path)
+    write_restricted_files(repo_path)
     git_init(NONEXISTENT_SSH_ORIGIN)
     validate_fail(capsys)
     os.chdir(prev_dir)
 
 
 def test_restricted_permitted_multiple_local_https(
-    tmp_path, capsys, monkeypatch
+    repo_path, capsys, monkeypatch
 ):
     if "GITHUB_REPOSITORY" in os.environ:
         monkeypatch.delenv("GITHUB_REPOSITORY")
     prev_dir = os.getcwd()
     os.chdir(tmp_path)
-    write_restricted_files(tmp_path)
+    write_restricted_files(repo_path)
     git_init(PERMITTED_MULTIPLE_HTTPS_ORIGIN)
     validate_pass(capsys)
     os.chdir(prev_dir)
 
 
 def test_restricted_permitted_multiple_local_ssh(
-    tmp_path, capsys, monkeypatch
+    repo_path, capsys, monkeypatch
 ):
     if "GITHUB_REPOSITORY" in os.environ:
         monkeypatch.delenv("GITHUB_REPOSITORY")
     prev_dir = os.getcwd()
     os.chdir(tmp_path)
-    write_restricted_files(tmp_path)
+    write_restricted_files(repo_path)
     git_init(PERMITTED_MULTIPLE_SSH_ORIGIN)
     validate_pass(capsys)
     os.chdir(prev_dir)
 
 
-def test_restricted_permitted_local_https(tmp_path, capsys, monkeypatch):
+def test_restricted_permitted_local_https(repo_path, capsys, monkeypatch):
     if "GITHUB_REPOSITORY" in os.environ:
         monkeypatch.delenv("GITHUB_REPOSITORY")
     prev_dir = os.getcwd()
     os.chdir(tmp_path)
-    write_restricted_files(tmp_path)
+    write_restricted_files(repo_path)
     git_init(PERMITTED_HTTPS_ORIGIN)
     validate_pass(capsys)
     os.chdir(prev_dir)
 
 
-def test_restricted_permitted_local_ssh(tmp_path, capsys, monkeypatch):
+def test_restricted_permitted_local_ssh(repo_path, capsys, monkeypatch):
     if "GITHUB_REPOSITORY" in os.environ:
         monkeypatch.delenv("GITHUB_REPOSITORY")
     prev_dir = os.getcwd()
     os.chdir(tmp_path)
-    write_restricted_files(tmp_path)
+    write_restricted_files(repo_path)
     git_init(PERMITTED_SSH_ORIGIN)
     validate_pass(capsys)
     os.chdir(prev_dir)
 
 
-def test_unrestricted_permitted_local_https(tmp_path, capsys, monkeypatch):
+def test_unrestricted_permitted_local_https(repo_path, capsys, monkeypatch):
     if "GITHUB_REPOSITORY" in os.environ:
         monkeypatch.delenv("GITHUB_REPOSITORY")
     prev_dir = os.getcwd()
     os.chdir(tmp_path)
-    write_unrestricted_files(tmp_path)
+    write_unrestricted_files(repo_path)
     git_init(PERMITTED_HTTPS_ORIGIN)
     validate_pass(capsys)
     os.chdir(prev_dir)
 
 
-def test_unrestricted_permitted_local_ssh(tmp_path, capsys, monkeypatch):
+def test_unrestricted_permitted_local_ssh(repo_path, capsys, monkeypatch):
     if "GITHUB_REPOSITORY" in os.environ:
         monkeypatch.delenv("GITHUB_REPOSITORY")
     prev_dir = os.getcwd()
     os.chdir(tmp_path)
-    write_unrestricted_files(tmp_path)
+    write_unrestricted_files(repo_path)
     git_init(PERMITTED_SSH_ORIGIN)
     validate_pass(capsys)
     os.chdir(prev_dir)
 
 
-def test_restricted_unpermitted_local_https(tmp_path, capsys, monkeypatch):
+def test_restricted_unpermitted_local_https(repo_path, capsys, monkeypatch):
     if "GITHUB_REPOSITORY" in os.environ:
         monkeypatch.delenv("GITHUB_REPOSITORY")
     prev_dir = os.getcwd()
     os.chdir(tmp_path)
-    write_restricted_files(tmp_path)
+    write_restricted_files(repo_path)
     git_init(UNPERMITTED_HTTPS_ORIGIN)
     validate_fail(capsys)
     os.chdir(prev_dir)
 
 
-def test_restricted_unpermitted_local_ssh(tmp_path, capsys, monkeypatch):
+def test_restricted_unpermitted_local_ssh(repo_path, capsys, monkeypatch):
     if "GITHUB_REPOSITORY" in os.environ:
         monkeypatch.delenv("GITHUB_REPOSITORY")
     prev_dir = os.getcwd()
     os.chdir(tmp_path)
-    write_restricted_files(tmp_path)
+    write_restricted_files(repo_path)
     git_init(UNPERMITTED_SSH_ORIGIN)
     validate_fail(capsys)
     os.chdir(prev_dir)
 
 
-def test_unrestricted_unpermitted_local_https(tmp_path, capsys, monkeypatch):
+def test_unrestricted_unpermitted_local_https(repo_path, capsys, monkeypatch):
     if "GITHUB_REPOSITORY" in os.environ:
         monkeypatch.delenv("GITHUB_REPOSITORY")
     prev_dir = os.getcwd()
     os.chdir(tmp_path)
-    write_unrestricted_files(tmp_path)
+    write_unrestricted_files(repo_path)
     git_init(UNPERMITTED_HTTPS_ORIGIN)
     validate_pass(capsys)
     os.chdir(prev_dir)
 
 
-def test_unrestricted_unpermitted_local_ssh(tmp_path, capsys, monkeypatch):
+def test_unrestricted_unpermitted_local_ssh(repo_path, capsys, monkeypatch):
     if "GITHUB_REPOSITORY" in os.environ:
         monkeypatch.delenv("GITHUB_REPOSITORY")
     prev_dir = os.getcwd()
     os.chdir(tmp_path)
-    write_unrestricted_files(tmp_path)
+    write_unrestricted_files(repo_path)
     git_init(UNPERMITTED_SSH_ORIGIN)
     validate_pass(capsys)
     os.chdir(prev_dir)
 
 
-def test_unrestricted_unpermitted_action(monkeypatch, tmp_path, capsys):
+def test_unrestricted_unpermitted_action(monkeypatch, repo_path, capsys):
     prev_dir = os.getcwd()
     os.chdir(tmp_path)
-    write_unrestricted_files(tmp_path)
+    write_unrestricted_files(repo_path)
     monkeypatch.setenv("GITHUB_REPOSITORY", UNPERMITTED_REPO)
     validate_pass(capsys)
     os.chdir(prev_dir)
 
 
-def test_unrestricted_permitted_action(monkeypatch, tmp_path, capsys):
+def test_unrestricted_permitted_action(monkeypatch, repo_path, capsys):
     prev_dir = os.getcwd()
     os.chdir(tmp_path)
-    write_unrestricted_files(tmp_path)
+    write_unrestricted_files(repo_path)
     monkeypatch.setenv("GITHUB_REPOSITORY", PERMITTED_REPO)
     validate_pass(capsys)
     os.chdir(prev_dir)
 
 
-def test_restricted_permitted_action(monkeypatch, tmp_path, capsys):
+def test_restricted_permitted_action(monkeypatch, repo_path, capsys):
     prev_dir = os.getcwd()
     os.chdir(tmp_path)
-    write_restricted_files(tmp_path)
+    write_restricted_files(repo_path)
     monkeypatch.setenv("GITHUB_REPOSITORY", PERMITTED_REPO)
     validate_pass(capsys)
     os.chdir(prev_dir)
 
 
-def test_restricted_unpermitted_action(monkeypatch, tmp_path, capsys):
+def test_restricted_unpermitted_action(monkeypatch, repo_path, capsys):
     prev_dir = os.getcwd()
     os.chdir(tmp_path)
-    write_restricted_files(tmp_path)
+    write_restricted_files(repo_path)
     monkeypatch.setenv("GITHUB_REPOSITORY", UNPERMITTED_REPO)
     validate_fail(capsys)
     os.chdir(prev_dir)
 
 
-def test_restricted_permitted_multiple_action(monkeypatch, tmp_path, capsys):
+def test_restricted_permitted_multiple_action(monkeypatch, repo_path, capsys):
     prev_dir = os.getcwd()
     os.chdir(tmp_path)
-    write_restricted_files(tmp_path)
+    write_restricted_files(repo_path)
     monkeypatch.setenv("GITHUB_REPOSITORY", PERMITTED_MULTIPLE_REPO)
     validate_pass(capsys)
     os.chdir(prev_dir)
 
 
-def test_unrestricted_permitted_multiple_action(monkeypatch, tmp_path, capsys):
+def test_unrestricted_permitted_multiple_action(
+    monkeypatch, repo_path, capsys
+):
     prev_dir = os.getcwd()
     os.chdir(tmp_path)
-    write_unrestricted_files(tmp_path)
+    write_unrestricted_files(repo_path)
     monkeypatch.setenv("GITHUB_REPOSITORY", PERMITTED_MULTIPLE_REPO)
     validate_pass(capsys)
     os.chdir(prev_dir)
 
 
-def test_restricted_nonexistant_action(monkeypatch, tmp_path, capsys):
+def test_restricted_nonexistant_action(monkeypatch, repo_path, capsys):
     prev_dir = os.getcwd()
     os.chdir(tmp_path)
-    write_restricted_files(tmp_path)
+    write_restricted_files(repo_path)
     monkeypatch.setenv("GITHUB_REPOSITORY", NONEXISTENT_REPO)
     validate_fail(capsys)
     os.chdir(prev_dir)
 
 
 def test_unrestricted_nonexistent_multiple_action(
-    monkeypatch, tmp_path, capsys
+    monkeypatch, repo_path, capsys
 ):
     prev_dir = os.getcwd()
     os.chdir(tmp_path)
-    write_unrestricted_files(tmp_path)
+    write_unrestricted_files(repo_path)
     monkeypatch.setenv("GITHUB_REPOSITORY", NONEXISTENT_REPO)
     validate_pass(capsys)
     os.chdir(prev_dir)

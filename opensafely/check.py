@@ -4,6 +4,7 @@ import os
 import re
 import glob
 import subprocess
+import sys
 
 DESCRIPTION = "Check the opensafely project for correctness"
 
@@ -26,7 +27,7 @@ def main():
         for k, v in RESTRICTED_DATASETS.items()
         if k not in allowed_datasets
     }
-    files_to_check = get_local_py_files()
+    files_to_check = glob.glob("**/*.py", recursive=True)
 
     found_datasets = {
         dataset: check_dataset(functions, files_to_check)
@@ -35,22 +36,22 @@ def main():
     }
 
     if found_datasets:
-        exit(print_violations(found_datasets))
+        violations = "\n".join(format_violations(found_datasets))
+        sys.exit(violations)
     else:
         print("Success")
 
 
-def print_violations(found_datasets):
-    s = "Usage of restricted datasets found:\n"
+def format_violations(found_datasets):
+    yield "Usage of restricted datasets found:\n"
     for d, functions in found_datasets.items():
-        s = s + (f"{d}:\n")
+        yield f"{d}:"
         for fn, files in functions.items():
-            s = s + (f"- {fn}\n")
+            yield f"- {fn}"
             for f, lines in files.items():
-                s = s + (f"  - {f}:\n")
+                yield f"  - {f}:"
                 for ln, line in lines.items():
-                    s = s + (f"    line {ln}: {line}\n")
-    return s
+                    yield f"    line {ln}: {line}"
 
 
 def check_dataset(functions, files_to_check):
@@ -71,13 +72,11 @@ def check_file(filename, regex):
     found_lines = {}
     with open(filename, "r") as f:
         for ln, line in enumerate(f.readlines(), start=1):
-            if regex.search(line) and not line.lstrip().startswith("#"):
+            if line.lstrip().startswith("#"):
+                continue
+            if regex.search(line):
                 found_lines[ln] = line
     return found_lines
-
-
-def get_local_py_files():
-    return glob.glob("**/*.py", recursive=True)
 
 
 def get_datasource_permissions(permissions_url):
