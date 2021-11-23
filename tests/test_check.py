@@ -142,7 +142,10 @@ def test_check(repo_path, capsys, monkeypatch, repo, protocol, dataset):
                 url = ""
             git_init(url)
 
-    if dataset.value and repo not in [Repo.PERMITTED, Repo.PERMITTED_MULTIPLE]:
+    if dataset == Dataset.RESTRICTED and repo not in [
+        Repo.PERMITTED,
+        Repo.PERMITTED_MULTIPLE,
+    ]:
         validate_fail(capsys)
     else:
         validate_pass(capsys)
