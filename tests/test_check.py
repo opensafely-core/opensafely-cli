@@ -36,26 +36,30 @@ class Protocol(Enum):
     ENVIRON = 3
 
 
+class Dataset(Enum):
+    RESTRICTED = True
+    UNRESTRICTED = False
+
+
 STUDY_DEF_HEADER = """from cohortextractor import (StudyDefinition, patients)
 study = StudyDefinition ("""
 
 
-RESTRICTED_FUNCTION_CALL = (
-    "patients.admitted_to_icu("
-    "between=['2021-01-01','2022-02-02'], "
-    "find_first_match_in_period=True, "
-    "returning='binary_flag')"
-)
-
-UNRESTRICTED_FUNCTION_CALL = (
-    "patients.with_these_medications("
-    "between=['2021-01-01','2022-02-02'], "
-    "find_first_match_in_period=True, "
-    "returning='binary_flag')"
-)
+UNRESTRICTED_FUNCTION = "with_these_medications"
+RESTRICTED_FUNCTION = "admitted_to_icu"
 
 
-def write_study_def(path, restricted):
+def format_function_call(func):
+    return (
+        f"patients.{func}("
+        "between=['2021-01-01','2022-02-02'], "
+        "find_first_match_in_period=True, "
+        "returning='binary_flag')"
+    )
+
+
+def write_study_def(path, dataset):
+    restricted = dataset.value
     for a in [1, 2]:
         f = (
             path
@@ -65,10 +69,10 @@ def write_study_def(path, restricted):
             textwrap.dedent(
                 f"""\
                 {STUDY_DEF_HEADER}
-                {'' if restricted else '#'}a={RESTRICTED_FUNCTION_CALL},
-                #b={RESTRICTED_FUNCTION_CALL},
-                c={UNRESTRICTED_FUNCTION_CALL},
-                #d={UNRESTRICTED_FUNCTION_CALL},
+                {'a='+format_function_call(RESTRICTED_FUNCTION)+',' if restricted else ''}
+                #b={format_function_call(RESTRICTED_FUNCTION)},
+                c={format_function_call(UNRESTRICTED_FUNCTION)},
+                #d={format_function_call(UNRESTRICTED_FUNCTION)},
                 )"""
             )
         )
@@ -113,31 +117,32 @@ def repo_path(tmp_path):
 
 
 @pytest.mark.parametrize(
-    "repo, protocol, restricted",
+    "repo, protocol, dataset",
     itertools.chain(
-        itertools.product(list(Repo), list(Protocol), [True, False]),
-        itertools.product([None], [None], [True, False]),
+        itertools.product(list(Repo), list(Protocol), list(Dataset)),
+        itertools.product([None], [None], list(Dataset)),
     ),
 )
-def test_check(repo_path, capsys, monkeypatch, repo, protocol, restricted):
+def test_check(repo_path, capsys, monkeypatch, repo, protocol, dataset):
     if "GITHUB_REPOSITORY" in os.environ:
         monkeypatch.delenv("GITHUB_REPOSITORY")
 
-    write_study_def(repo_path, restricted)
+    write_study_def(repo_path, dataset)
 
     if repo:
+        repo_name = repo.value
         if protocol == Protocol.ENVIRON:
-            monkeypatch.setenv("GITHUB_REPOSITORY", repo.value)
+            monkeypatch.setenv("GITHUB_REPOSITORY", repo_name)
         else:
             if protocol == Protocol.SSH:
-                url = f"git@github.com:{repo.value}.git"
+                url = f"git@github.com:{repo_name}.git"
             elif protocol == Protocol.HTTPS:
-                url = f"https://github.com/{repo.value}"
+                url = f"https://github.com/{repo_name}"
             else:
                 url = ""
             git_init(url)
 
-    if restricted and repo not in [Repo.PERMITTED, Repo.PERMITTED_MULTIPLE]:
+    if dataset.value and repo not in [Repo.PERMITTED, Repo.PERMITTED_MULTIPLE]:
         validate_fail(capsys)
     else:
         validate_pass(capsys)
