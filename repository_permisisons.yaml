@@ -1,0 +1,6 @@
+opensafely/risk-factors-research:
+  allow: ['icnarc']
+opensafely/immunosuppressant-meds-research:
+  allow: ['icnarc']
+opensafely/school-age-children-and-covid:
+  allow: ['icnarc']
