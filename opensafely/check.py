@@ -10,17 +10,19 @@ DESCRIPTION = "Check the opensafely project for correctness"
 
 RESTRICTED_DATASETS = {"icnarc": ["admitted_to_icu"]}
 
-# todo: dummy location and data
-PERMISSIONS_URL = "https://raw.githubusercontent.com/Jongmassey/research_repository_permissions/main/repository_permissions.yaml"
-
+PERMISSIONS_URL = "https://raw.githubusercontent.com/opensafely-core/opensafely-cli/main/repository_permisisons.yaml"
 
 def add_arguments(parser):
     pass
 
 
 def main():
+    permissions_url = (
+        os.environ.get("OPENSAFELY_PERMISSIONS_URL")
+        or PERMISSIONS_URL
+    )
     repo_name = get_repository_name()
-    permissions = get_datasource_permissions(PERMISSIONS_URL)
+    permissions = get_datasource_permissions(permissions_url)
     allowed_datasets = get_allowed_datasets(repo_name, permissions)
     datasets_to_check = {
         k: v

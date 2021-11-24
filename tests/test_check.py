@@ -7,6 +7,7 @@ import subprocess
 import textwrap
 from enum import Enum
 import itertools
+from opensafely._vendor.ruamel.yaml.comments import CommentedMap
 
 # Because we're using a vendored version of requests we need to monkeypatch the
 # requests_mock library so it references our vendored library instead
@@ -22,6 +23,7 @@ opensafely/dummy_icnarc_ons:
     allow: ['icnarc','ons']
 """
 
+PERMISSIONS_URL = "https://raw.githubusercontent.com/Jongmassey/research_repository_permissions/main/repository_permissions.yaml"
 
 class Repo(Enum):
     PERMITTED = "opensafely/dummy_icnarc"
@@ -127,6 +129,8 @@ def test_check(repo_path, capsys, monkeypatch, repo, protocol, dataset):
     if "GITHUB_REPOSITORY" in os.environ:
         monkeypatch.delenv("GITHUB_REPOSITORY")
 
+    monkeypatch.setenv("OPENSAFELY_PERMISSIONS_URL",PERMISSIONS_URL)
+
     write_study_def(repo_path, dataset)
 
     if repo:
@@ -149,3 +153,11 @@ def test_check(repo_path, capsys, monkeypatch, repo, protocol, dataset):
         validate_fail(capsys)
     else:
         validate_pass(capsys)
+
+def test_repository_permissions_yaml():
+    permissions = check.get_datasource_permissions(check.PERMISSIONS_URL)
+    assert permissions, "empty permissions file"
+    assert type(permissions) == CommentedMap , "invalid permissions file"
+    for k,v in permissions.items():
+        assert len(v.keys()) == 1, f"multiple keys specified for {k}"
+        assert "allow" in v.keys(), f"allow key not present for {k}"
