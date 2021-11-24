@@ -23,7 +23,7 @@ opensafely/dummy_icnarc_ons:
     allow: ['icnarc','ons']
 """
 
-PERMISSIONS_URL = "https://raw.githubusercontent.com/Jongmassey/research_repository_permissions/main/repository_permissions.yaml"
+PERMISSIONS_URL = "https://raw.githubusercontent.com/opensafely-core/opensafely-cli/main/tests/fixtures/permissions/repository_permisisons.yaml"
 
 class Repo(Enum):
     PERMITTED = "opensafely/dummy_icnarc"
