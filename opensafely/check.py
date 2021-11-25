@@ -12,14 +12,14 @@ RESTRICTED_DATASETS = {"icnarc": ["admitted_to_icu"]}
 
 PERMISSIONS_URL = "https://raw.githubusercontent.com/opensafely-core/opensafely-cli/main/repository_permisisons.yaml"
 
+
 def add_arguments(parser):
     pass
 
 
 def main():
     permissions_url = (
-        os.environ.get("OPENSAFELY_PERMISSIONS_URL")
-        or PERMISSIONS_URL
+        os.environ.get("OPENSAFELY_PERMISSIONS_URL") or PERMISSIONS_URL
     )
     repo_name = get_repository_name()
     permissions = get_datasource_permissions(permissions_url)
@@ -47,7 +47,7 @@ def main():
 def format_violations(found_datasets):
     yield "Usage of restricted datasets found:\n"
     for d, functions in found_datasets.items():
-        yield f"{d}:"
+        yield f"{d}: https://docs.opensafely.org/study-def-variables/#{d}"
         for fn, files in functions.items():
             yield f"- {fn}"
             for f, lines in files.items():
