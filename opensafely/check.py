@@ -14,10 +14,14 @@ PERMISSIONS_URL = "https://raw.githubusercontent.com/opensafely-core/opensafely-
 
 
 def add_arguments(parser):
-    pass
+    parser.add_argument(
+        "--error",
+        help="Error (exit 1) if restricted datasets found",
+        action="store_true",
+    )
 
 
-def main():
+def main(error=False):
     permissions_url = (
         os.environ.get("OPENSAFELY_PERMISSIONS_URL") or PERMISSIONS_URL
     )
@@ -39,9 +43,13 @@ def main():
 
     if found_datasets:
         violations = "\n".join(format_violations(found_datasets))
-        sys.exit(violations)
+        if error:
+            sys.exit(violations)
+        print("*** WARNING ***\n")
+        print(violations)
     else:
-        print("Success")
+        if error:
+            print("Success")
 
 
 def format_violations(found_datasets):
