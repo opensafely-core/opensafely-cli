@@ -71,7 +71,7 @@ def main():
 
     # if `run`ning locally, run `check` in warn mode
     if function == local_run.main and "format-output-for-github" not in kwargs:
-        check.main(error=False)
+        check.main(continue_on_error=True)
 
     sys.exit(0 if success is not False else 1)
 
