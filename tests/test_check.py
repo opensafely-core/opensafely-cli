@@ -25,6 +25,7 @@ opensafely/dummy_icnarc_ons:
 
 PERMISSIONS_URL = "https://raw.githubusercontent.com/opensafely-core/opensafely-cli/main/tests/fixtures/permissions/repository_permisisons.yaml"
 
+
 class Repo(Enum):
     PERMITTED = "opensafely/dummy_icnarc"
     PERMITTED_MULTIPLE = "opensafely/dummy_icnarc_ons"
@@ -85,19 +86,20 @@ def git_init(url):
     subprocess.run(["git", "remote", "add", "origin", url])
 
 
-def validate_pass(capsys):
-    check.main()
+def validate_pass(capsys, continue_on_error):
+    check.main(continue_on_error)
     stdout, stderr = capsys.readouterr()
-    assert stderr == ""
-    assert stdout == "Success\n"
+    if not continue_on_error:
+        assert stderr == ""
+        assert stdout == "Success\n"
+    else:
+        assert stdout == ""
 
 
-def validate_fail(capsys):
-    with pytest.raises(SystemExit):
-        check.main()
-        stdout, stderr = capsys.readouterr()
+def validate_fail(capsys, continue_on_error):
+    def validate_fail_output(stdout, stderr):
         assert stdout != "Success\n"
-        assert stderr.startswith("Usage of restricted datasets found:")
+        assert "Usage of restricted datasets found:" in stderr
         assert "icnarc" in stderr
         assert "admitted_to_icu" in stderr
         assert "3:" in stderr
@@ -109,6 +111,17 @@ def validate_fail(capsys):
         assert "study_definition_restricted_1.py" in stderr
         assert "study_definition_restricted_2.py" in stderr
 
+    if not continue_on_error:
+        with pytest.raises(SystemExit):
+            check.main(continue_on_error)
+            stdout, stderr = capsys.readouterr()
+            validate_fail_output(stdout, stderr)
+
+    else:
+        check.main(continue_on_error)
+        stdout, stderr = capsys.readouterr()
+        validate_fail_output(stdout, stdout)
+
 
 @pytest.fixture
 def repo_path(tmp_path):
@@ -119,17 +132,21 @@ def repo_path(tmp_path):
 
 
 @pytest.mark.parametrize(
-    "repo, protocol, dataset",
+    "repo, protocol, dataset, continue_on_error",
     itertools.chain(
-        itertools.product(list(Repo), list(Protocol), list(Dataset)),
-        itertools.product([None], [None], list(Dataset)),
+        itertools.product(
+            list(Repo), list(Protocol), list(Dataset), [True, False]
+        ),
+        itertools.product([None], [None], list(Dataset), [True, False]),
     ),
 )
-def test_check(repo_path, capsys, monkeypatch, repo, protocol, dataset):
+def test_check(
+    repo_path, capsys, monkeypatch, repo, protocol, dataset, continue_on_error
+):
     if "GITHUB_REPOSITORY" in os.environ:
         monkeypatch.delenv("GITHUB_REPOSITORY")
 
-    monkeypatch.setenv("OPENSAFELY_PERMISSIONS_URL",PERMISSIONS_URL)
+    monkeypatch.setenv("OPENSAFELY_PERMISSIONS_URL", PERMISSIONS_URL)
 
     write_study_def(repo_path, dataset)
 
@@ -150,14 +167,15 @@ def test_check(repo_path, capsys, monkeypatch, repo, protocol, dataset):
         Repo.PERMITTED,
         Repo.PERMITTED_MULTIPLE,
     ]:
-        validate_fail(capsys)
+        validate_fail(capsys, continue_on_error)
     else:
-        validate_pass(capsys)
+        validate_pass(capsys, continue_on_error)
+
 
 def test_repository_permissions_yaml():
     permissions = check.get_datasource_permissions(check.PERMISSIONS_URL)
     assert permissions, "empty permissions file"
-    assert type(permissions) == CommentedMap , "invalid permissions file"
-    for k,v in permissions.items():
+    assert type(permissions) == CommentedMap, "invalid permissions file"
+    for k, v in permissions.items():
         assert len(v.keys()) == 1, f"multiple keys specified for {k}"
         assert "allow" in v.keys(), f"allow key not present for {k}"

@@ -17,7 +17,7 @@ def add_arguments(parser):
     pass
 
 
-def main():
+def main(continue_on_error=False):
     permissions_url = (
         os.environ.get("OPENSAFELY_PERMISSIONS_URL") or PERMISSIONS_URL
     )
@@ -39,9 +39,13 @@ def main():
 
     if found_datasets:
         violations = "\n".join(format_violations(found_datasets))
-        sys.exit(violations)
+        if not continue_on_error:
+            sys.exit(violations)
+        print("*** WARNING ***\n")
+        print(violations)
     else:
-        print("Success")
+        if not continue_on_error:
+            print("Success")
 
 
 def format_violations(found_datasets):

@@ -25,7 +25,9 @@ def main():
         title="available commands", description="", metavar="COMMAND"
     )
 
-    parser_help = subparsers.add_parser("help", help="Show this help message and exit")
+    parser_help = subparsers.add_parser(
+        "help", help="Show this help message and exit"
+    )
     parser_help.set_defaults(function=show_help)
 
     # Add `run` subcommand
@@ -34,7 +36,9 @@ def main():
     local_run.add_arguments(parser_run)
 
     # Add `codelists` subcommand
-    parser_codelists = subparsers.add_parser("codelists", help=codelists.DESCRIPTION)
+    parser_codelists = subparsers.add_parser(
+        "codelists", help=codelists.DESCRIPTION
+    )
     parser_codelists.set_defaults(function=codelists.main)
     codelists.add_arguments(parser_codelists)
 
@@ -64,6 +68,11 @@ def main():
     kwargs = vars(args)
     function = kwargs.pop("function")
     success = function(**kwargs)
+
+    # if `run`ning locally, run `check` in warn mode
+    if function == local_run.main and "format-output-for-github" not in kwargs:
+        check.main(continue_on_error=True)
+
     sys.exit(0 if success is not False else 1)
 
 
