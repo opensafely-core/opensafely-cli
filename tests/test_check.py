@@ -86,17 +86,17 @@ def git_init(url):
     subprocess.run(["git", "remote", "add", "origin", url])
 
 
-def validate_pass(capsys, error):
-    check.main(error)
+def validate_pass(capsys, continue_on_error):
+    check.main(continue_on_error)
     stdout, stderr = capsys.readouterr()
-    if error:
+    if not continue_on_error:
         assert stderr == ""
         assert stdout == "Success\n"
     else:
         assert stdout == ""
 
 
-def validate_fail(capsys, error):
+def validate_fail(capsys, continue_on_error):
     def validate_fail_output(stdout, stderr):
         assert stdout != "Success\n"
         assert "Usage of restricted datasets found:" in stderr
@@ -111,14 +111,14 @@ def validate_fail(capsys, error):
         assert "study_definition_restricted_1.py" in stderr
         assert "study_definition_restricted_2.py" in stderr
 
-    if error:
+    if not continue_on_error:
         with pytest.raises(SystemExit):
-            check.main(error)
+            check.main(continue_on_error)
             stdout, stderr = capsys.readouterr()
             validate_fail_output(stdout, stderr)
 
     else:
-        check.main(error)
+        check.main(continue_on_error)
         stdout, stderr = capsys.readouterr()
         validate_fail_output(stdout, stdout)
 
@@ -132,7 +132,7 @@ def repo_path(tmp_path):
 
 
 @pytest.mark.parametrize(
-    "repo, protocol, dataset, error",
+    "repo, protocol, dataset, continue_on_error",
     itertools.chain(
         itertools.product(
             list(Repo), list(Protocol), list(Dataset), [True, False]
@@ -140,7 +140,9 @@ def repo_path(tmp_path):
         itertools.product([None], [None], list(Dataset), [True, False]),
     ),
 )
-def test_check(repo_path, capsys, monkeypatch, repo, protocol, dataset, error):
+def test_check(
+    repo_path, capsys, monkeypatch, repo, protocol, dataset, continue_on_error
+):
     if "GITHUB_REPOSITORY" in os.environ:
         monkeypatch.delenv("GITHUB_REPOSITORY")
 
@@ -165,9 +167,9 @@ def test_check(repo_path, capsys, monkeypatch, repo, protocol, dataset, error):
         Repo.PERMITTED,
         Repo.PERMITTED_MULTIPLE,
     ]:
-        validate_fail(capsys, error)
+        validate_fail(capsys, continue_on_error)
     else:
-        validate_pass(capsys, error)
+        validate_pass(capsys, continue_on_error)
 
 
 def test_repository_permissions_yaml():
