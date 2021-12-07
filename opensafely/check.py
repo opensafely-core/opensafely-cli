@@ -100,18 +100,20 @@ def get_repository_name():
     if "GITHUB_REPOSITORY" in os.environ:
         return os.environ["GITHUB_REPOSITORY"]
     else:
-
-        url = subprocess.run(
-            args=["git", "config", "--get", "remote.origin.url"],
-            capture_output=True,
-            text=True,
-        ).stdout
-        return (
-            url.replace("https://github.com/", "")
-            .replace("git@github.com:", "")
-            .replace(".git", "")
-            .strip()
-        )
+        try:
+            url = subprocess.run(
+                args=["git", "config", "--get", "remote.origin.url"],
+                capture_output=True,
+                text=True,
+            ).stdout
+            return (
+                url.replace("https://github.com/", "")
+                .replace("git@github.com:", "")
+                .replace(".git", "")
+                .strip()
+            )
+        except FileNotFoundError:
+            return None
 
 
 def get_allowed_datasets(respository_name, permissions):
