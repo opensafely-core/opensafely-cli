@@ -1,10 +1,9 @@
 import argparse
-from pathlib import Path
 import sys
+from pathlib import Path
 
+from opensafely import check, codelists, jupyter, pull, upgrade
 from opensafely._vendor.jobrunner.cli import local_run
-from opensafely import codelists, pull, upgrade, check
-
 
 __version__ = Path(__file__).parent.joinpath("VERSION").read_text().strip()
 
@@ -25,9 +24,7 @@ def main():
         title="available commands", description="", metavar="COMMAND"
     )
 
-    parser_help = subparsers.add_parser(
-        "help", help="Show this help message and exit"
-    )
+    parser_help = subparsers.add_parser("help", help="Show this help message and exit")
     parser_help.set_defaults(function=show_help)
 
     # Add `run` subcommand
@@ -36,9 +33,7 @@ def main():
     local_run.add_arguments(parser_run)
 
     # Add `codelists` subcommand
-    parser_codelists = subparsers.add_parser(
-        "codelists", help=codelists.DESCRIPTION
-    )
+    parser_codelists = subparsers.add_parser("codelists", help=codelists.DESCRIPTION)
     parser_codelists.set_defaults(function=codelists.main)
     codelists.add_arguments(parser_codelists)
 
@@ -56,6 +51,11 @@ def main():
     parser_check = subparsers.add_parser("check", help=check.DESCRIPTION)
     parser_check.set_defaults(function=check.main)
     check.add_arguments(parser_check)
+
+    # Add `jupyter` subcommand
+    parser_jupyter = subparsers.add_parser("jupyter", help=jupyter.DESCRIPTION)
+    parser_jupyter.set_defaults(function=jupyter.main)
+    jupyter.add_arguments(parser_jupyter)
 
     # we version check before parse_args is called so that if a user is
     # following recent documentation but has an old opensafely installed,
