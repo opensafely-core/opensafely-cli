@@ -10,6 +10,7 @@ __version__ = Path(__file__).parent.joinpath("VERSION").read_text().strip()
 
 def main():
     parser = argparse.ArgumentParser()
+    supports_unknown_args = set()
 
     def show_help(**kwargs):
         parser.print_help()
@@ -27,35 +28,19 @@ def main():
     parser_help = subparsers.add_parser("help", help="Show this help message and exit")
     parser_help.set_defaults(function=show_help)
 
-    # Add `run` subcommand
-    parser_run = subparsers.add_parser("run", help=local_run.DESCRIPTION)
-    parser_run.set_defaults(function=local_run.main)
-    local_run.add_arguments(parser_run)
+    def add_subcommand(cmd, module):
+        subparser = subparsers.add_parser(cmd, help=local_run.DESCRIPTION)
+        subparser.set_defaults(function=module.main)
+        handles_unknown = module.add_arguments(subparser)
+        if handles_unknown:
+            supports_unknown_args.add(module.main)
 
-    # Add `codelists` subcommand
-    parser_codelists = subparsers.add_parser("codelists", help=codelists.DESCRIPTION)
-    parser_codelists.set_defaults(function=codelists.main)
-    codelists.add_arguments(parser_codelists)
-
-    # Add `pull` subcommand
-    parser_pull = subparsers.add_parser("pull", help=pull.DESCRIPTION)
-    parser_pull.set_defaults(function=pull.main)
-    pull.add_arguments(parser_pull)
-
-    # Add `upgrade` subcommand
-    parser_upgrade = subparsers.add_parser("upgrade", help=upgrade.DESCRIPTION)
-    parser_upgrade.set_defaults(function=upgrade.main)
-    upgrade.add_arguments(parser_upgrade)
-
-    # Add `check` subcommand
-    parser_check = subparsers.add_parser("check", help=check.DESCRIPTION)
-    parser_check.set_defaults(function=check.main)
-    check.add_arguments(parser_check)
-
-    # Add `jupyter` subcommand
-    parser_jupyter = subparsers.add_parser("jupyter", help=jupyter.DESCRIPTION)
-    parser_jupyter.set_defaults(function=jupyter.main)
-    jupyter.add_arguments(parser_jupyter)
+    add_subcommand("run", local_run)
+    add_subcommand("codelists", codelists)
+    add_subcommand("pull", pull)
+    add_subcommand("upgrade", upgrade)
+    add_subcommand("check", check)
+    add_subcommand("jupyter", jupyter)
 
     # we version check before parse_args is called so that if a user is
     # following recent documentation but has an old opensafely installed,
@@ -64,8 +49,19 @@ def main():
     if len(sys.argv) == 1 or sys.argv[1] != "upgrade":
         upgrade.check_version()
 
-    args = parser.parse_args()
-    kwargs = vars(args)
+    # start by using looser parsing only known args, so we can get the sub command
+    args, unknown = parser.parse_known_args()
+
+    #
+    if args.function in supports_unknown_args:
+        kwargs = vars(args)
+        kwargs["unknown_args"] = unknown
+    # allow supparsers to opt out of looser parser_known_args parsing
+    else:
+        # reparse args with stricter semantics
+        args = parser.parse_args()
+        kwargs = vars(args)
+
     function = kwargs.pop("function")
     success = function(**kwargs)
 
