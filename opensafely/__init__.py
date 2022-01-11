@@ -15,7 +15,7 @@ def main():
         parser.print_help()
         parser.exit()
 
-    parser.set_defaults(function=show_help)
+    parser.set_defaults(function=show_help, handles_unknown_args=False)
     parser.add_argument(
         "--version", action="version", version=f"opensafely {__version__}"
     )
@@ -30,7 +30,7 @@ def main():
     def add_subcommand(cmd, module):
         subparser = subparsers.add_parser(cmd, help=module.DESCRIPTION)
         subparser.set_defaults(
-            handles_unknown_args=False, 
+            handles_unknown_args=False,
             function=module.main,
         )
         module.add_arguments(subparser)

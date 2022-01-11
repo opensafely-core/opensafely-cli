@@ -13,15 +13,29 @@ DESCRIPTION = "Run a jupyter lab notebook using the OpenSAFELY environment"
 
 
 def add_arguments(parser):
+    parser.add_argument(
+        "--directory",
+        "-d",
+        default=os.getcwd(),
+        type=Path,
+        help="Directory to run the jupyter server in (default is current dir)",
+    )
+    parser.add_argument(
+        "--name",
+        help="Name of docker image (defaults to use directory name)",
+    )
+
     # we copy a number of standard jupyter lab arguments, and capture them to handle them ourselves
     parser.add_argument(
         "--no-browser",
+        "-n",
         default=False,
         action="store_true",
         help="Do not attempt to open a browser",
     )
     parser.add_argument(
         "--port",
+        "-p",
         default="8888",
         help="Port to run on",
     )
@@ -64,10 +78,10 @@ def open_browser(name, port):
         print(exc)
 
 
-def main(port, no_browser, unknown_args):
+def main(directory, name, port, no_browser, unknown_args):
     container = None
-    pwd = Path(os.getcwd())
-    name = f"opensafely-notebook-{pwd.name}"
+    if name is None:
+        name = f"os-jupyter-{directory.name}"
 
     if not no_browser:
         # start thread to open web browser
@@ -75,11 +89,11 @@ def main(port, no_browser, unknown_args):
         thread.name = "browser thread"
         thread.start()
 
-    base_cmd = f"jupyter lab --ip 0.0.0.0 --port={port} --allow-root --no-browser --LabApp.token= --LabApp.custom_display_url=http://$(hostname -i):{port}"
+    base_cmd = f"jupyter lab --ip 0.0.0.0 --port={port} --allow-root --no-browser"
+    extra_args = (
+        " --LabApp.token= --LabApp.custom_display_url=http://$(hostname -i):{port}"
+    )
     jupyter_cmd = base_cmd + " " + " ".join(unknown_args)
-
-    print("Running jupyter with OpenSAFELY python image:")
-    print(jupyter_cmd)
 
     docker_args = [
         "docker",
@@ -90,15 +104,19 @@ def main(port, no_browser, unknown_args):
         f"--name={name}",
         f"--hostname={name}",
         "--label=opensafely",
-        f"-v=/{pwd}:/workspace",
+        # extra leading / is for git-bash
+        f"-v=/{directory.resolve()}:/workspace",
         "ghcr.io/opensafely-core/python",
         # we wrap the jupyter command in a bash invocation, so we can use
         # hostname -i to find out the containers IP address, which allows us to
         # set the correct url to show in the output.
         "bash",
         "-c",
-        "exec " + jupyter_cmd,
+        "exec " + jupyter_cmd + extra_args,
     ]
+
+    print(f"Running following jupyter cmd in OpenSAFELY container {name}...")
+    print(jupyter_cmd)
 
     ps = subprocess.Popen(docker_args)
     ps.wait()
