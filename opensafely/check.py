@@ -76,8 +76,8 @@ def check_dataset(functions, files_to_check):
 
 def check_file(filename, regex):
     found_lines = {}
-    with open(filename, "r") as f:
-        for ln, line in enumerate(f.readlines(), start=1):
+    with open(filename, "r", encoding="utf8", errors="ignore") as f:
+        for ln, line in enumerate(f, start=1):
             if line.lstrip().startswith("#"):
                 continue
             if regex.search(line):
