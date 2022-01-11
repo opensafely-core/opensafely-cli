@@ -10,7 +10,6 @@ __version__ = Path(__file__).parent.joinpath("VERSION").read_text().strip()
 
 def main():
     parser = argparse.ArgumentParser()
-    supports_unknown_args = set()
 
     def show_help(**kwargs):
         parser.print_help()
@@ -29,11 +28,12 @@ def main():
     parser_help.set_defaults(function=show_help)
 
     def add_subcommand(cmd, module):
-        subparser = subparsers.add_parser(cmd, help=local_run.DESCRIPTION)
-        subparser.set_defaults(function=module.main)
-        handles_unknown = module.add_arguments(subparser)
-        if handles_unknown:
-            supports_unknown_args.add(module.main)
+        subparser = subparsers.add_parser(cmd, help=module.DESCRIPTION)
+        subparser.set_defaults(
+            handles_unknown_args=False, 
+            function=module.main,
+        )
+        module.add_arguments(subparser)
 
     add_subcommand("run", local_run)
     add_subcommand("codelists", codelists)
@@ -52,8 +52,7 @@ def main():
     # start by using looser parsing only known args, so we can get the sub command
     args, unknown = parser.parse_known_args()
 
-    #
-    if args.function in supports_unknown_args:
+    if args.handles_unknown_args:
         kwargs = vars(args)
         kwargs["unknown_args"] = unknown
     # allow supparsers to opt out of looser parser_known_args parsing
@@ -63,6 +62,7 @@ def main():
         kwargs = vars(args)
 
     function = kwargs.pop("function")
+    kwargs.pop("handles_unknown_args")
     success = function(**kwargs)
 
     # if `run`ning locally, run `check` in warn mode

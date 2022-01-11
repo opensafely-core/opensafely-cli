@@ -26,7 +26,7 @@ def add_arguments(parser):
         help="Port to run on",
     )
     # opt into looser argument parsing
-    return True
+    parser.set_defaults(handles_unknown_args=True)
 
 
 def open_browser(name, port):
@@ -37,7 +37,7 @@ def open_browser(name, port):
             ps = subprocess.run(
                 ["docker", "inspect", name],
                 capture_output=True,
-                universal_newlines=True,
+                text=True,
             )
             if ps.returncode == 0:
                 break
