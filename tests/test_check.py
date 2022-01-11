@@ -1,12 +1,14 @@
-import pytest
-from requests_mock import mocker
-from opensafely._vendor import requests
-from opensafely import check
+import itertools
 import os
 import subprocess
 import textwrap
 from enum import Enum
-import itertools
+
+import pytest
+from requests_mock import mocker
+
+from opensafely import check
+from opensafely._vendor import requests
 from opensafely._vendor.ruamel.yaml.comments import CommentedMap
 
 # Because we're using a vendored version of requests we need to monkeypatch the
@@ -64,10 +66,7 @@ def format_function_call(func):
 def write_study_def(path, dataset):
     restricted = dataset.value
     for a in [1, 2]:
-        f = (
-            path
-            / f"study_definition_{'' if restricted else 'un'}restricted_{a}.py"
-        )
+        f = path / f"study_definition_{'' if restricted else 'un'}restricted_{a}.py"
         f.write_text(
             textwrap.dedent(
                 f"""\
@@ -134,9 +133,7 @@ def repo_path(tmp_path):
 @pytest.mark.parametrize(
     "repo, protocol, dataset, continue_on_error",
     itertools.chain(
-        itertools.product(
-            list(Repo), list(Protocol), list(Dataset), [True, False]
-        ),
+        itertools.product(list(Repo), list(Protocol), list(Dataset), [True, False]),
         itertools.product([None], [None], list(Dataset), [True, False]),
     ),
 )

@@ -1,13 +1,13 @@
 import json
 import os
-from pathlib import Path
 import shutil
+from pathlib import Path
 
 import pytest
 from requests_mock import mocker
 
-from opensafely._vendor import requests
 from opensafely import codelists
+from opensafely._vendor import requests
 
 # Because we're using a vendored version of requests we need to monkeypatch the
 # requests_mock library so it references our vendored library instead
