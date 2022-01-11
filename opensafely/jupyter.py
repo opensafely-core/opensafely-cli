@@ -1,3 +1,4 @@
+import argparse
 import json
 import os
 import subprocess
@@ -8,14 +9,27 @@ import webbrowser
 from pathlib import Path
 from urllib import request
 
-DESCRIPTION = "Run a jupyter notebook using the OpenSAFELY environment"
+DESCRIPTION = "Run a jupyter lab notebook using the OpenSAFELY environment"
 
 
 def add_arguments(parser):
-    pass
+    # we copy a number of standard jupyter lab arguments, and capture them to handle them ourselves
+    parser.add_argument(
+        "--no-browser",
+        default=False,
+        action="store_true",
+        help="Do not attempt to open a browser",
+    )
+    parser.add_argument(
+        "--port",
+        default="8888",
+        help="Port to run on",
+    )
+    # opt into looser argument parsing
+    return True
 
 
-def open_browser(name):
+def open_browser(name, port):
 
     try:
         # wait for container to be up
@@ -32,7 +46,7 @@ def open_browser(name):
         # figure out the url
         metadata = json.loads(ps.stdout)[0]
         ip = metadata["NetworkSettings"]["IPAddress"]
-        url = f"http://{ip}:8888"
+        url = f"http://{ip}:{port}"
 
         # wait for port to be open
         while True:
@@ -50,14 +64,22 @@ def open_browser(name):
         print(exc)
 
 
-def main():
+def main(port, no_browser, unknown_args):
     container = None
     pwd = Path(os.getcwd())
     name = f"opensafely-notebook-{pwd.name}"
 
-    # start thread to open web browser
-    thread = threading.Thread(target=open_browser, args=(name,), daemon=True)
-    thread.start()
+    if not no_browser:
+        # start thread to open web browser
+        thread = threading.Thread(target=open_browser, args=(name, port), daemon=True)
+        thread.name = "browser thread"
+        thread.start()
+
+    base_cmd = f"jupyter lab --ip 0.0.0.0 --port={port} --allow-root --no-browser --LabApp.token= --LabApp.custom_display_url=http://$(hostname -i):{port}"
+    jupyter_cmd = base_cmd + " " + " ".join(unknown_args)
+
+    print("Running jupyter with OpenSAFELY python image:")
+    print(jupyter_cmd)
 
     docker_args = [
         "docker",
@@ -75,7 +97,7 @@ def main():
         # set the correct url to show in the output.
         "bash",
         "-c",
-        "exec jupyter lab --ip 0.0.0.0 --allow-root --no-browser --LabApp.token= --LabApp.custom_display_url=http:/$(hostname -i):8888",
+        "exec " + jupyter_cmd,
     ]
 
     ps = subprocess.Popen(docker_args)
