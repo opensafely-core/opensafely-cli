@@ -1,16 +1,5 @@
 # Developer docs
 
-**Note on Python versions:** We currently need to support Python 3.7 and
-up as, historically, some researchers had 3.7 easily available but not
-3.8. Further down the line we'll probably aim to ship our own
-self-contained executable so we'll be able to use whatever Python
-version we want.
-
-However, the [vendoring](https://pypi.org/project/vendoring/) tool (see
-below) needs 3.8+ so we have to use 3.8 for developing with. The tests
-run under 3.7 in CI which should guard against accidental 3.8isms
-creeping in.
-
 ## Vendoring
 
 To minimise the possibility for installation issues this package vendors
