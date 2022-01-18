@@ -53,33 +53,48 @@ def open_browser(name, port):
 
     # because debugging threads is hard
     if os.environ.get("DEBUG", False):
+
         def debug(msg):
-            sys.stderr.write(msg + "\r\n")
+            # threaded output for some reason needs the carriage return or else
+            # it doesn't reset the cursor.
+            msg = msg.replace("\n", "\r\n")
+            sys.stderr.write(f"open_browser: {msg}" + "\r\n")
             sys.stderr.flush()
+
     else:
+
         def debug(msg):
             pass
 
     try:
-        # wait for container to be up
-        debug("open_browser: waiting for container")
-        while True:
+        metadata = None
+        metadata_path = "/root/.local/share/jupyter/runtime/nbserver-7.json"
+
+        # wait for jupyter to be set up
+        start = time.time()
+        while metadata is None and time.time() - start < 30.0:
             ps = subprocess.run(
-                ["docker", "inspect", name],
-                capture_output=True,
+                ["docker", "exec", name, "cat", metadata_path],
                 text=True,
+                capture_output=True,
             )
             if ps.returncode == 0:
-                break
-            time.sleep(0.5)
+                debug(ps.stdout)
+                metadata = json.loads(ps.stdout)
+            else:
+                time.sleep(0.5)
 
-        # figure out the url
-        url = f"http://localhost:{port}"
-        debug(f"open_browser: url={url}")
+        if metadata is None:
+            debug("Could not get metadata")
+            return
+
+        url = f"http://localhost:{port}/?token={metadata['token']}"
+        debug(f"url={url}")
 
         # wait for port to be open
-        debug("open_browser: waiting for port")
-        while True:
+        debug("waiting for port")
+        start = time.time()
+        while time.time() - start < 30.0:
             try:
                 response = request.urlopen(url, timeout=0.5)
             except (request.URLError, socket.error):
@@ -87,14 +102,22 @@ def open_browser(name, port):
             else:
                 break
 
+        if not response:
+            debug("open_browser: could not get response")
+            return
+
         # open a webbrowser pointing to the docker container
         debug("open_browser: opening browser window")
         webbrowser.open(url, new=2)
 
     except Exception as exc:
-        print(exc)
+        # reformat exception printing to work from thread
+        import traceback
 
-    debug("open_browser: done")
+        sys.stderr.write(f"Error in open browser thread:\r\n")
+        tb = traceback.format_exc().replace("\n", "\r\n")
+        sys.stderr.write(tb)
+        sys.stderr.flush()
 
 
 def get_free_port():
@@ -123,9 +146,8 @@ def main(directory, name, port, no_browser, unknown_args):
         f"--port={port}",
         "--allow-root",
         "--no-browser",
-        "--LabApp.token=",
         # display the url from the hosts perspective
-        f"--LabApp.custom_display_url=http://localhost:{port}",
+        f"--LabApp.custom_display_url=http://localhost:{port}/",
     ]
 
     print(f"Running following jupyter cmd in OpenSAFELY docker container {name}...")
