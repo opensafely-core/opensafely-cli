@@ -1,8 +1,10 @@
 import argparse
 import json
 import os
+import socket
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import webbrowser
@@ -14,6 +16,7 @@ DESCRIPTION = "Run a jupyter lab notebook using the OpenSAFELY environment"
 
 # quick and directy debugging hack, as due to threads and windos this is tricky
 # to debug
+
 
 def add_arguments(parser):
     parser.add_argument(
@@ -39,7 +42,7 @@ def add_arguments(parser):
     parser.add_argument(
         "--port",
         "-p",
-        default="8888",
+        default=None,
         help="Port to run on",
     )
     # opt into looser argument parsing
@@ -48,6 +51,7 @@ def add_arguments(parser):
 
 def open_browser(name, port):
 
+    # because debugging threads is hard
     if os.environ.get("DEBUG", False):
         def debug(msg):
             sys.stderr.write(msg + "\r\n")
@@ -70,10 +74,7 @@ def open_browser(name, port):
             time.sleep(0.5)
 
         # figure out the url
-        metadata = json.loads(ps.stdout)[0]
-        debug(json.dumps(metadata, indent=2).replace("\n", "\r\n"))
-        ip = metadata["NetworkSettings"]["IPAddress"]
-        url = f"http://{ip}:{port}"
+        url = f"http://localhost:{port}"
         debug(f"open_browser: url={url}")
 
         # wait for port to be open
@@ -81,7 +82,7 @@ def open_browser(name, port):
         while True:
             try:
                 response = request.urlopen(url, timeout=0.5)
-            except request.URLError:
+            except (request.URLError, socket.error):
                 pass
             else:
                 break
@@ -96,10 +97,39 @@ def open_browser(name, port):
     debug("open_browser: done")
 
 
+def get_free_port():
+    sock = socket.socket()
+    sock.bind(("", 0))
+    port = sock.getsockname()[1]
+    sock.close()
+    return port
+
+
 def main(directory, name, port, no_browser, unknown_args):
     container = None
     if name is None:
         name = f"os-jupyter-{directory.name}"
+
+    if port is None:
+        # this is a race condition, as something else could consume the socket
+        # before docker binds to it, but the chance of that on a user's
+        # personal machine is very small.
+        port = str(get_free_port())
+
+    jupyter_cmd = [
+        "jupyter",
+        "lab",
+        "--ip=0.0.0.0",
+        f"--port={port}",
+        "--allow-root",
+        "--no-browser",
+        "--LabApp.token=",
+        # display the url from the hosts perspective
+        f"--LabApp.custom_display_url=http://localhost:{port}",
+    ]
+
+    print(f"Running following jupyter cmd in OpenSAFELY docker container {name}...")
+    print(" ".join(jupyter_cmd))
 
     if not no_browser:
         # start thread to open web browser
@@ -107,18 +137,15 @@ def main(directory, name, port, no_browser, unknown_args):
         thread.name = "browser thread"
         thread.start()
 
-    base_cmd = f"jupyter lab --ip 0.0.0.0 --port={port} --allow-root --no-browser"
-    extra_args = (
-        f" --LabApp.token= --LabApp.custom_display_url=http://$(hostname -i):{port}"
-    )
-    jupyter_cmd = base_cmd + " " + " ".join(unknown_args)
-
     docker_args = [
         "docker",
         "run",
         "--rm",
         "--init",
         "-it",
+        # we use our port on both sides of the docker port mapping so that
+        # jupyter has all the info
+        f"-p={port}:{port}",
         f"--name={name}",
         f"--hostname={name}",
         "--label=opensafely",
@@ -126,16 +153,7 @@ def main(directory, name, port, no_browser, unknown_args):
         # separators, which is what docker understands
         f"-v={directory.resolve().as_posix()}:/workspace",
         "ghcr.io/opensafely-core/python",
-        # we wrap the jupyter command in a bash invocation, so we can use
-        # hostname -i to find out the containers IP address, which allows us to
-        # set the correct url to show in the output.
-        "bash",
-        "-c",
-        "exec " + jupyter_cmd + extra_args,
     ]
 
-    print(f"Running following jupyter cmd in OpenSAFELY docker container {name}...")
-    print(jupyter_cmd)
-
-    ps = subprocess.Popen(docker_args)
+    ps = subprocess.Popen(docker_args + jupyter_cmd)
     ps.wait()
