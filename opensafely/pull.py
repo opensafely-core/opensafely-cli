@@ -1,17 +1,12 @@
-from pathlib import Path
 import subprocess
 import sys
+from pathlib import Path
 
 from opensafely._vendor.jobrunner import config
 from opensafely._vendor.jobrunner.cli.local_run import docker_preflight_check
 from opensafely._vendor.ruamel.yaml import YAML
-from opensafely._vendor.ruamel.yaml.error import (
-    YAMLError,
-    YAMLStreamError,
-    YAMLWarning,
-    YAMLFutureWarning,
-)
-
+from opensafely._vendor.ruamel.yaml.error import (YAMLError, YAMLFutureWarning,
+                                                  YAMLStreamError, YAMLWarning)
 
 DESCRIPTION = (
     "Command for updating the docker images used to run OpenSAFELY studies locally"

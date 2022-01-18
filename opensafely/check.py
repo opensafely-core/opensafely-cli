@@ -1,10 +1,11 @@
-from opensafely._vendor import requests
-from opensafely._vendor.ruamel.yaml import YAML
+import glob
 import os
 import re
-import glob
 import subprocess
 import sys
+
+from opensafely._vendor import requests
+from opensafely._vendor.ruamel.yaml import YAML
 
 DESCRIPTION = "Check the opensafely project for correctness"
 
@@ -18,16 +19,12 @@ def add_arguments(parser):
 
 
 def main(continue_on_error=False):
-    permissions_url = (
-        os.environ.get("OPENSAFELY_PERMISSIONS_URL") or PERMISSIONS_URL
-    )
+    permissions_url = os.environ.get("OPENSAFELY_PERMISSIONS_URL") or PERMISSIONS_URL
     repo_name = get_repository_name()
     permissions = get_datasource_permissions(permissions_url)
     allowed_datasets = get_allowed_datasets(repo_name, permissions)
     datasets_to_check = {
-        k: v
-        for k, v in RESTRICTED_DATASETS.items()
-        if k not in allowed_datasets
+        k: v for k, v in RESTRICTED_DATASETS.items() if k not in allowed_datasets
     }
     files_to_check = glob.glob("**/*.py", recursive=True)
 

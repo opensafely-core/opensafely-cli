@@ -3,12 +3,11 @@ import datetime
 import hashlib
 import json
 import os
-from pathlib import Path
 import sys
 import tempfile
+from pathlib import Path
 
 from opensafely._vendor import requests
-
 
 DESCRIPTION = "Commands for interacting with https://codelists.opensafely.org/"
 

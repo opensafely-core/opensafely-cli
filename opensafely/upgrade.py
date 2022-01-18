@@ -1,14 +1,13 @@
-from datetime import datetime, timedelta
 import os
-from pathlib import Path
 import shutil
 import subprocess
 import sys
 import tempfile
+from datetime import datetime, timedelta
+from pathlib import Path
 
 import opensafely
 from opensafely._vendor import requests
-
 
 DESCRIPTION = "Upgrade the opensafely cli tool."
 

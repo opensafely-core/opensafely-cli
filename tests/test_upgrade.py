@@ -1,14 +1,13 @@
 import argparse
-from datetime import datetime, timedelta
 import os
 import sys
+from datetime import datetime, timedelta
 
 import pytest
+from requests_mock import mocker
 
 import opensafely
 from opensafely import upgrade
-
-from requests_mock import mocker
 from opensafely._vendor import requests
 
 # Because we're using a vendored version of requests we need to monkeypatch the

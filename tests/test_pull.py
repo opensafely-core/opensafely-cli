@@ -5,7 +5,6 @@ import pytest
 
 from opensafely import pull
 
-
 project_fixture_path = Path(__file__).parent / "fixtures" / "projects"
 
 

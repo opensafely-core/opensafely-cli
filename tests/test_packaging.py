@@ -1,11 +1,10 @@
 import os
-from pathlib import Path, PurePath
 import shutil
 import subprocess
 import sys
+from pathlib import Path, PurePath
 
 import pytest
-
 
 BIN_DIR = "bin" if os.name != "nt" else "Scripts"
 
