@@ -1,10 +1,8 @@
-import argparse
 import json
 import os
 import socket
 import subprocess
 import sys
-import tempfile
 import threading
 import time
 import webbrowser
@@ -12,10 +10,6 @@ from pathlib import Path
 from urllib import request
 
 DESCRIPTION = "Run a jupyter lab notebook using the OpenSAFELY environment"
-
-
-# quick and directy debugging hack, as due to threads and windos this is tricky
-# to debug
 
 
 def add_arguments(parser):
@@ -110,11 +104,11 @@ def open_browser(name, port):
         debug("open_browser: opening browser window")
         webbrowser.open(url, new=2)
 
-    except Exception as exc:
+    except Exception:
         # reformat exception printing to work from thread
         import traceback
 
-        sys.stderr.write(f"Error in open browser thread:\r\n")
+        sys.stderr.write("Error in open browser thread:\r\n")
         tb = traceback.format_exc().replace("\n", "\r\n")
         sys.stderr.write(tb)
         sys.stderr.flush()
@@ -129,7 +123,6 @@ def get_free_port():
 
 
 def main(directory, name, port, no_browser, unknown_args):
-    container = None
     if name is None:
         name = f"os-jupyter-{directory.name}"
 
@@ -171,7 +164,7 @@ def main(directory, name, port, no_browser, unknown_args):
         f"--name={name}",
         f"--hostname={name}",
         "--label=opensafely",
-        # note: on windows this will preserve drive letter, but swtitch to unix
+        # note: on windows this will preserve drive letter, but switch to unix
         # separators, which is what docker understands
         f"-v={directory.resolve().as_posix()}:/workspace",
         "ghcr.io/opensafely-core/python",
