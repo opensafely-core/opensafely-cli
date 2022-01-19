@@ -62,13 +62,13 @@ def open_browser(name, port):
 
     try:
         metadata = None
-        metadata_path = "/root/.local/share/jupyter/runtime/nbserver-7.json"
+        metadata_path = "/root/.local/share/jupyter/runtime/nbserver-*.json"
 
         # wait for jupyter to be set up
         start = time.time()
         while metadata is None and time.time() - start < 30.0:
             ps = subprocess.run(
-                ["docker", "exec", name, "cat", metadata_path],
+                ["docker", "exec", name, "bash", "-c", f"cat {metadata_path}"],
                 text=True,
                 capture_output=True,
             )
