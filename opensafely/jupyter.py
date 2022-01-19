@@ -175,7 +175,7 @@ def main(directory, name, port, no_browser, unknown_args):
     # on windows, we need to wrap command in winpty to for docker run -it
     winpty = shutil.which("winpty")
     if winpty:
-        docker_args = winpty + docker_args
+        docker_args = [winpty] + docker_args
 
     ps = subprocess.Popen(docker_args + jupyter_cmd)
     ps.wait()
