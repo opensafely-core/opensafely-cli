@@ -1,5 +1,6 @@
 import json
 import os
+import shutil
 import socket
 import subprocess
 import sys
@@ -132,6 +133,7 @@ def main(directory, name, port, no_browser, unknown_args):
         # personal machine is very small.
         port = str(get_free_port())
 
+
     jupyter_cmd = [
         "jupyter",
         "lab",
@@ -155,9 +157,9 @@ def main(directory, name, port, no_browser, unknown_args):
     docker_args = [
         "docker",
         "run",
+        "-it",
         "--rm",
         "--init",
-        "-it",
         # we use our port on both sides of the docker port mapping so that
         # jupyter has all the info
         f"-p={port}:{port}",
@@ -169,6 +171,11 @@ def main(directory, name, port, no_browser, unknown_args):
         f"-v={directory.resolve().as_posix()}:/workspace",
         "ghcr.io/opensafely-core/python",
     ]
+
+    # on windows, we need to wrap command in winpty to for docker run -it
+    winpty = shutil.which("winpty")
+    if winpty:
+        docker_args = winpty + docker_args
 
     ps = subprocess.Popen(docker_args + jupyter_cmd)
     ps.wait()
