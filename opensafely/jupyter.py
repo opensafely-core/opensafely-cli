@@ -1,5 +1,6 @@
 import json
 import os
+import platform
 import shutil
 import socket
 import subprocess
@@ -15,12 +16,16 @@ DESCRIPTION = "Run a jupyter lab notebook using the OpenSAFELY environment"
 
 # poor mans debugging because debugging threads on windows is hard
 if os.environ.get("DEBUG", False):
+
     def debug(msg):
         # threaded output for some reason needs the carriage return or else
         # it doesn't reset the cursor.
         sys.stderr.write("DEBUG: " + msg.replace("\n", "\r\n") + "\r\n")
         sys.stderr.flush()
+
+
 else:
+
     def debug(msg):
         pass
 
@@ -54,6 +59,38 @@ def add_arguments(parser):
     )
     # opt into looser argument parsing
     parser.set_defaults(handles_unknown_args=True)
+
+
+def ensure_tty(docker_cmd):
+    """Ensure that we have a valid tty to use to run docker.
+
+    This is needed as we want the user to be able to kill jupyter with Ctrl-C
+    as normal, which requires a tty on their end.
+
+    Nearly every terminal under the sun gives you a valid tty. Except
+    git-bash's default terminal, which happens to be the one a lot of our users
+    use.
+
+    git-bash provides the `wintpy` tool as a workaround, so detect we are in
+    that situation and use it if so.
+    
+    """
+    if platform.system() != "Windows":
+        return docker_cmd
+
+    winpty = shutil.which("winpty")
+    
+    if winpty is None:
+        # not git-bash
+        return docker_md
+
+    if sys.stdin.isatty() and sys.stdout.isatty():
+        # already sorted, possibly user already ran us with winpty
+        return docker_cmd
+
+    debug(f"detected no tty, found winpty at {winpty}, wrapping docker with it")
+    # avoid using explicit path, as it can trip things up.
+    return ["winpty", "--"] + docker_cmd
 
 
 def open_browser(name, port):
@@ -130,7 +167,6 @@ def main(directory, name, port, no_browser, unknown_args):
         # personal machine is very small.
         port = str(get_free_port())
 
-
     jupyter_cmd = [
         "jupyter",
         "lab",
@@ -149,11 +185,13 @@ def main(directory, name, port, no_browser, unknown_args):
         # start thread to open web browser
         thread = threading.Thread(target=open_browser, args=(name, port), daemon=True)
         thread.name = "browser thread"
+        debug("starting open_browser thread")
         thread.start()
 
     docker_cmd = [
         "docker",
         "run",
+        # running with -t gives us colors and Ctrl-C interupts.
         "-it",
         "--rm",
         "--init",
@@ -163,19 +201,12 @@ def main(directory, name, port, no_browser, unknown_args):
         f"--name={name}",
         f"--hostname={name}",
         "--label=opensafely",
-        # note: on windows this will preserve drive letter, but switch to unix
-        # separators, which is what docker understands
-        f"-v={directory.resolve().as_posix()}:/workspace",
+        # note: // is to avoid git-bash path translation
+        f"-v={directory.resolve()}://workspace",
         "ghcr.io/opensafely-core/python",
     ]
 
-    # on windows, we need to wrap command in winpty to for docker run -it
-    winpty = shutil.which("winpty")
-    if winpty is not None:
-        debug(f"found winpty at {winpty}")
-        # note: we do not use the full path to winpty as paths on
-        # windows/git-bash is tricky
-        docker_cmd = ["winpty"] + docker_cmd
+    docker_cmd = ensure_tty(docker_cmd)
 
     debug("docker: " + " ".join(docker_cmd))
     ps = subprocess.Popen(docker_cmd + jupyter_cmd)
