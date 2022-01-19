@@ -102,16 +102,19 @@ def get_repository_name():
         return os.environ["GITHUB_REPOSITORY"]
     else:
         git_config_path = Path(".git", "config")
+        if not git_config_path.is_file():
+            return
         config = configparser.ConfigParser()
         config.read(git_config_path)
-        if 'remote "origin"' in config.sections():
-            url = config['remote "origin"']["url"]
-            return (
-                url.replace("https://github.com/", "")
-                .replace("git@github.com:", "")
-                .replace(".git", "")
-                .strip()
-            )
+        if 'remote "origin"' not in config.sections():
+            return
+        url = config['remote "origin"']["url"]
+        return (
+            url.replace("https://github.com/", "")
+            .replace("git@github.com:", "")
+            .replace(".git", "")
+            .strip()
+        )
 
 
 def get_allowed_datasets(respository_name, permissions):
