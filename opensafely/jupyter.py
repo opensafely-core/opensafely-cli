@@ -171,10 +171,13 @@ def main(directory, name, port, no_browser, unknown_args):
 
     # on windows, we need to wrap command in winpty to for docker run -it
     winpty = shutil.which("winpty")
-    if winpty:
-        debug(f"adding wintpy at {winpty}")
-        docker_cmd = [winpty] + docker_cmd
+    if winpty is not None:
+        debug(f"found winpty at {winpty}")
+        # note: we do not use the full path to winpty as paths on
+        # windows/git-bash is tricky
+        docker_cmd = ["winpty"] + docker_cmd
 
     debug("docker: " + " ".join(docker_cmd))
     ps = subprocess.Popen(docker_cmd + jupyter_cmd)
     ps.wait()
+    sys.exit(ps.returncode)
