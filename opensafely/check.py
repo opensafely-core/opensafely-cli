@@ -1,9 +1,9 @@
 import glob
 import os
 import re
-import subprocess
 import sys
-
+from pathlib import Path
+import configparser
 from opensafely._vendor import requests
 from opensafely._vendor.ruamel.yaml import YAML
 
@@ -19,12 +19,16 @@ def add_arguments(parser):
 
 
 def main(continue_on_error=False):
-    permissions_url = os.environ.get("OPENSAFELY_PERMISSIONS_URL") or PERMISSIONS_URL
+    permissions_url = (
+        os.environ.get("OPENSAFELY_PERMISSIONS_URL") or PERMISSIONS_URL
+    )
     repo_name = get_repository_name()
     permissions = get_datasource_permissions(permissions_url)
     allowed_datasets = get_allowed_datasets(repo_name, permissions)
     datasets_to_check = {
-        k: v for k, v in RESTRICTED_DATASETS.items() if k not in allowed_datasets
+        k: v
+        for k, v in RESTRICTED_DATASETS.items()
+        if k not in allowed_datasets
     }
     files_to_check = glob.glob("**/*.py", recursive=True)
 
@@ -97,18 +101,17 @@ def get_repository_name():
     if "GITHUB_REPOSITORY" in os.environ:
         return os.environ["GITHUB_REPOSITORY"]
     else:
-
-        url = subprocess.run(
-            args=["git", "config", "--get", "remote.origin.url"],
-            capture_output=True,
-            text=True,
-        ).stdout
-        return (
-            url.replace("https://github.com/", "")
-            .replace("git@github.com:", "")
-            .replace(".git", "")
-            .strip()
-        )
+        git_config_path = Path(".git", "config")
+        config = configparser.ConfigParser()
+        config.read(git_config_path)
+        if 'remote "origin"' in config.sections():
+            url = config['remote "origin"']["url"]
+            return (
+                url.replace("https://github.com/", "")
+                .replace("git@github.com:", "")
+                .replace(".git", "")
+                .strip()
+            )
 
 
 def get_allowed_datasets(respository_name, permissions):
