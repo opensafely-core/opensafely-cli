@@ -13,6 +13,18 @@ from urllib import request
 DESCRIPTION = "Run a jupyter lab notebook using the OpenSAFELY environment"
 
 
+# poor mans debugging because debugging threads on windows is hard
+if os.environ.get("DEBUG", False):
+    def debug(msg):
+        # threaded output for some reason needs the carriage return or else
+        # it doesn't reset the cursor.
+        sys.stderr.write("DEBUG: " + msg.replace("\n", "\r\n") + "\r\n")
+        sys.stderr.flush()
+else:
+    def debug(msg):
+        pass
+
+
 def add_arguments(parser):
     parser.add_argument(
         "--directory",
@@ -46,28 +58,13 @@ def add_arguments(parser):
 
 def open_browser(name, port):
 
-    # because debugging threads is hard
-    if os.environ.get("DEBUG", False):
-
-        def debug(msg):
-            # threaded output for some reason needs the carriage return or else
-            # it doesn't reset the cursor.
-            msg = msg.replace("\n", "\r\n")
-            sys.stderr.write(f"open_browser: {msg}" + "\r\n")
-            sys.stderr.flush()
-
-    else:
-
-        def debug(msg):
-            pass
-
     try:
         metadata = None
         metadata_path = "/root/.local/share/jupyter/runtime/nbserver-*.json"
 
         # wait for jupyter to be set up
         start = time.time()
-        while metadata is None and time.time() - start < 30.0:
+        while metadata is None and time.time() - start < 120.0:
             ps = subprocess.run(
                 ["docker", "exec", name, "bash", "-c", f"cat {metadata_path}"],
                 text=True,
@@ -77,32 +74,32 @@ def open_browser(name, port):
                 debug(ps.stdout)
                 metadata = json.loads(ps.stdout)
             else:
-                time.sleep(0.5)
+                time.sleep(1)
 
         if metadata is None:
-            debug("Could not get metadata")
+            debug("open_browser: Could not get metadata")
             return
 
         url = f"http://localhost:{port}/?token={metadata['token']}"
-        debug(f"url={url}")
+        debug(f"open_browser: url={url}")
 
         # wait for port to be open
-        debug("waiting for port")
+        debug("open_browser: waiting for port")
         start = time.time()
-        while time.time() - start < 30.0:
+        while time.time() - start < 60.0:
             try:
-                response = request.urlopen(url, timeout=0.5)
+                response = request.urlopen(url, timeout=1)
             except (request.URLError, socket.error):
                 pass
             else:
                 break
 
         if not response:
-            debug("open_browser: could not get response")
+            debug("open_browser: open_browser: could not get response")
             return
 
         # open a webbrowser pointing to the docker container
-        debug("open_browser: opening browser window")
+        debug("open_browser: open_browser: opening browser window")
         webbrowser.open(url, new=2)
 
     except Exception:
@@ -154,7 +151,7 @@ def main(directory, name, port, no_browser, unknown_args):
         thread.name = "browser thread"
         thread.start()
 
-    docker_args = [
+    docker_cmd = [
         "docker",
         "run",
         "-it",
@@ -175,7 +172,9 @@ def main(directory, name, port, no_browser, unknown_args):
     # on windows, we need to wrap command in winpty to for docker run -it
     winpty = shutil.which("winpty")
     if winpty:
-        docker_args = [winpty] + docker_args
+        debug(f"adding wintpy at {winpty}")
+        docker_cmd = [winpty] + docker_cmd
 
-    ps = subprocess.Popen(docker_args + jupyter_cmd)
+    debug("docker: " + " ".join(docker_cmd))
+    ps = subprocess.Popen(docker_cmd + jupyter_cmd)
     ps.wait()
