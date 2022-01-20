@@ -23,6 +23,8 @@ def main(continue_on_error=False):
         os.environ.get("OPENSAFELY_PERMISSIONS_URL") or PERMISSIONS_URL
     )
     repo_name = get_repository_name()
+    if not repo_name and not continue_on_error:
+        sys.exit("Unable to find repository name")
     permissions = get_datasource_permissions(permissions_url)
     allowed_datasets = get_allowed_datasets(repo_name, permissions)
     datasets_to_check = {
@@ -103,10 +105,16 @@ def get_repository_name():
     else:
         git_config_path = Path(".git", "config")
         if not git_config_path.is_file():
+            print("Git config file not found")
             return
         config = configparser.ConfigParser()
-        config.read(git_config_path)
+        try:
+            config.read(git_config_path)
+        except Exception as e:
+            print(f"Unable to read git config.\n{str(e)}")
+            return
         if 'remote "origin"' not in config.sections():
+            print("Remote 'origin' not defined in git config.")
             return
         url = config['remote "origin"']["url"]
         return (
