@@ -47,6 +47,14 @@ class DockerDiskSpaceError(Exception):
     pass
 
 
+def add_docker_labels(cmd, labels):
+    """Add labels to a docker cmd."""
+    if not labels:
+        return
+    for name, value in labels.items():
+        cmd.extend(["--label", f"{name}={value}"])
+
+
 def docker(docker_args, timeout=DEFAULT_TIMEOUT, **kwargs):
     args = ["docker"] + docker_args
     try:
@@ -54,56 +62,52 @@ def docker(docker_args, timeout=DEFAULT_TIMEOUT, **kwargs):
     except subprocess.TimeoutExpired as e:
         raise DockerTimeoutError from e
     except subprocess.CalledProcessError as e:
-        stderr = e.stderr
-        if isinstance(e.stderr, bytes):
-            stderr = stderr.decode("utf8")
+        output = e.stderr
+        if output is None:
+            output = e.stdout
+        if isinstance(output, bytes):
+            output = output.decode("utf8", "ignore")
         if (
-            e.returncode == 1
-            and stderr.startswith("Error response from daemon: ")
-            and stderr.endswith(": no space left on device")
+            output is not None
+            and e.returncode == 1
+            and "Error response from daemon:" in output
+            and ": no space left on device" in output
         ):
             raise DockerDiskSpaceError from e
         else:
             raise
 
 
-def create_volume(volume_name):
+def create_volume(volume_name, labels=None):
     """
     Creates the named volume and also creates (but does not start) a "manager"
     container which we can use to copy files in and out of the volume. Note
     that in order to interact with the volume a container with that volume
     mounted must exist, but it doesn't need to be running.
     """
-    docker(
-        ["volume", "create", "--label", LABEL, "--name", volume_name],
-        check=True,
-        capture_output=True,
-    )
+    cmd = ["volume", "create", "--label", LABEL, "--name", volume_name]
+    add_docker_labels(cmd, labels)
+    docker(cmd, check=True, capture_output=True)
+    # Run a basic container that mounts this image.  Having the volume mounted
+    # allows us to copy from/to it, and having the container running protects
+    # it from rogue `docker container prune` commands.
     try:
-        docker(
-            [
-                "container",
-                "create",
-                "--label",
-                LABEL,
-                "--name",
-                manager_name(volume_name),
-                "--volume",
-                f"{volume_name}:{VOLUME_MOUNT_POINT}",
-                "--entrypoint",
-                "sh",
+        run(
+            manager_name(volume_name),
+            [MANAGEMENT_CONTAINER_IMAGE, "sh"],
+            volume=(volume_name, VOLUME_MOUNT_POINT),
+            label=LABEL,
+            labels=labels,
+            extra_args=[
                 "--interactive",
-                "--init",
-                MANAGEMENT_CONTAINER_IMAGE,
+                "--restart=unless-stopped",
             ],
-            check=True,
-            capture_output=True,
         )
     except subprocess.CalledProcessError as e:
         # If a volume and its manager already exist we don't want to throw an
         # error. `docker volume create` is naturally idempotent, but we have to
         # handle this manually here.
-        if e.returncode != 1 or b"is already in use by container" not in e.stderr:
+        if e.returncode != 125 or b"is already in use by container" not in e.stderr:
             raise
 
 
@@ -123,7 +127,7 @@ def delete_volume(volume_name):
     """
     try:
         docker(
-            ["container", "rm", "--force", manager_name(volume_name)],
+            ["rm", "--force", manager_name(volume_name)],
             check=True,
             capture_output=True,
         )
@@ -215,14 +219,6 @@ def glob_volume_files(volume_name, glob_patterns):
         )
     # Replace final OR flag with a closing bracket
     args[-1] = ")"
-    # We can't use `exec` unless the container is running, even though it won't
-    # actually do anything other than sit waiting for input. This will get
-    # stopped when we `--force rm` the container while removing the volume.
-    docker(
-        ["container", "start", manager_name(volume_name)],
-        check=True,
-        capture_output=True,
-    )
     response = docker(
         ["container", "exec", manager_name(volume_name)] + args,
         check=True,
@@ -262,14 +258,6 @@ def find_newer_files(volume_name, reference_file):
         "-newer",
         f"{VOLUME_MOUNT_POINT}/{reference_file}",
     ]
-    # We can't use `exec` unless the container is running, even though it won't
-    # actually do anything other than sit waiting for input. This will get
-    # stopped when we `--force rm` the container while removing the volume.
-    docker(
-        ["container", "start", manager_name(volume_name)],
-        check=True,
-        capture_output=True,
-    )
     response = docker(
         ["container", "exec", manager_name(volume_name)] + args,
         check=True,
@@ -330,8 +318,12 @@ def run(
     allow_network_access=False,
     label=None,
     labels=None,
+    extra_args=None,
 ):
     run_args = ["run", "--init", "--detach", "--label", LABEL, "--name", name]
+    if extra_args is not None:
+        run_args.extend(extra_args)
+
     if not allow_network_access:
         run_args.extend(["--network", "none"])
     if volume:
@@ -340,10 +332,8 @@ def run(
     # Single unary label
     if label is not None:
         run_args.extend(["--label", label])
-    # multiple labels
-    if labels is not None:
-        for k, v in labels.items():
-            run_args.extend(["--label", f"{k}={v}"])
+    if labels:
+        add_docker_labels(run_args, labels)
     # To avoid leaking the values into the command line arguments we set them
     # in the evnironment and tell Docker to fetch them from there
     if env is None:

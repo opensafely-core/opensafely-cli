@@ -9,10 +9,17 @@ import random
 import shlex
 import sys
 import time
+from typing import Optional
 
 from opensafely._vendor.jobrunner import config
 from opensafely._vendor.jobrunner.executors import get_executor_api
-from opensafely._vendor.jobrunner.job_executor import ExecutorState, JobDefinition, Privacy, Study
+from opensafely._vendor.jobrunner.job_executor import (
+    ExecutorAPI,
+    ExecutorState,
+    JobDefinition,
+    Privacy,
+    Study,
+)
 from opensafely._vendor.jobrunner.lib.database import find_where, select_values, update
 from opensafely._vendor.jobrunner.lib.log_utils import configure_logging, set_log_context
 from opensafely._vendor.jobrunner.manage_jobs import (
@@ -20,7 +27,6 @@ from opensafely._vendor.jobrunner.manage_jobs import (
     JobError,
     cleanup_job,
     finalise_job,
-    get_job_metadata,
     job_still_running,
     kill_job,
     list_outputs_from_action,
@@ -39,18 +45,20 @@ class InvalidTransition(Exception):
 def main(exit_callback=lambda _: False):
     log.info("jobrunner.run loop started")
 
+    api = None
     if config.EXECUTION_API:
         log.info("using new EXECUTION_API")
+        api = get_executor_api()
 
     while True:
-        active_jobs = handle_jobs()
+        active_jobs = handle_jobs(api)
 
         if exit_callback(active_jobs):
             break
         time.sleep(config.JOB_LOOP_INTERVAL)
 
 
-def handle_jobs():
+def handle_jobs(api: Optional[ExecutorAPI]):
     log.debug("Querying database for active jobs")
     active_jobs = find_where(Job, state__in=[State.PENDING, State.RUNNING])
     log.debug("Done query")
@@ -61,19 +69,14 @@ def handle_jobs():
     if config.RANDOMISE_JOB_ORDER:
         random.shuffle(active_jobs)
 
-    api = None
-    if config.EXECUTION_API:
-        api = get_executor_api()
-
     for job in active_jobs:
         # `set_log_context` ensures that all log messages triggered anywhere
         # further down the stack will have `job` set on them
         with set_log_context(job=job):
-            # new way
-            if config.EXECUTION_API:
-                handle_job_api(job, api)
-            # old way
+            if api:
+                handle_active_job_api(job, api)
             else:
+                # old way
                 if job.state == State.PENDING:
                     handle_pending_job(job)
                 elif job.state == State.RUNNING:
@@ -162,30 +165,26 @@ def handle_running_job(job):
             cleanup_job(job)
 
 
-def handle_active_jobs_api(api, active_jobs):
-    for job in active_jobs:
-        # `set_log_context` ensures that all log messages triggered anywhere
-        # further down the stack will have `job` set on them
-        with set_log_context(job=job):
-            try:
-                handle_job_api(job, api)
-            except Exception:
-                mark_job_as_failed(job, "Internal error")
-                # Do not clean up, as we may want to debug
-                #
-                # Raising will kill the main loop, by design. The service manager
-                # will restart, and this job will be ignored when it does, as
-                # it has failed. If we have an internal error, a full restart
-                # might recover better.
-                raise
-
-
 # we do not control the tranisition from these states, the executor does
 STABLE_STATES = [
     ExecutorState.PREPARING,
     ExecutorState.EXECUTING,
     ExecutorState.FINALIZING,
 ]
+
+
+def handle_active_job_api(job, api):
+    try:
+        handle_job_api(job, api)
+    except Exception:
+        mark_job_as_failed(job, "Internal error")
+        # Do not clean up, as we may want to debug
+        #
+        # Raising will kill the main loop, by design. The service manager
+        # will restart, and this job will be ignored when it does, as
+        # it has failed. If we have an internal error, a full restart
+        # might recover better.
+        raise
 
 
 def handle_job_api(job, api):
@@ -240,7 +239,9 @@ def handle_job_api(job, api):
 
         if any(state != State.SUCCEEDED for state in awaited_states):
             set_message(
-                job, "Waiting on dependencies", code=StatusCode.WAITING_ON_DEPENDENCIES
+                job,
+                "Waiting on dependencies",
+                code=StatusCode.WAITING_ON_DEPENDENCIES,
             )
             return
 
@@ -281,13 +282,16 @@ def handle_job_api(job, api):
     if new_status.state == initial_status.state:
         # no change in state, i.e. back pressure
         set_message(
-            job, "Waiting on available resources", code=StatusCode.WAITING_ON_WORKERS
+            job,
+            "Waiting on available resources",
+            code=StatusCode.WAITING_ON_WORKERS,
         )
 
     elif new_status.state == expected_state:
         # successful state change to the expected next state
         if new_status.state == ExecutorState.PREPARING:
             job.state = State.RUNNING
+            job.started_at = int(time.time())
         elif job.state != State.RUNNING:
             # got an ExecutorState that should mean the job.state is RUNNING, but it is not
             log.warning(
@@ -311,8 +315,10 @@ def save_results(job, results):
     # set the final state of the job
     if results.exit_code != 0:
         job.state = State.FAILED
-        job.status_message = "Job exited with an error code"
+        job.status_message = f"Job exited with error code {results.exit_code}"
         job.status_code = StatusCode.NONZERO_EXIT
+        if results.message:
+            job.status_message += f": {results.message}"
     elif results.unmatched_patterns:
         job.state = State.FAILED
         job.status_message = "No outputs found matching patterns:\n - {}".format(
