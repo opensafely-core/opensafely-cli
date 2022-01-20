@@ -82,7 +82,7 @@ def ensure_tty(docker_cmd):
     
     if winpty is None:
         # not git-bash
-        return docker_md
+        return docker_cmd
 
     if sys.stdin.isatty() and sys.stdout.isatty():
         # already sorted, possibly user already ran us with winpty
