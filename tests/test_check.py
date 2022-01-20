@@ -66,7 +66,10 @@ def format_function_call(func):
 def write_study_def(path, dataset):
     restricted = dataset.value
     for a in [1, 2]:
-        f = path / f"study_definition_{'' if restricted else 'un'}restricted_{a}.py"
+        f = (
+            path
+            / f"study_definition_{'' if restricted else 'un'}restricted_{a}.py"
+        )
         f.write_text(
             textwrap.dedent(
                 f"""\
@@ -98,7 +101,10 @@ def validate_pass(capsys, continue_on_error):
 def validate_fail(capsys, continue_on_error):
     def validate_fail_output(stdout, stderr):
         assert stdout != "Success\n"
-        assert "Usage of restricted datasets found:" in stderr or "git config" in stderr.lower()
+        assert (
+            "Usage of restricted datasets found:" in stderr
+            or "git config" in stderr.lower()
+        )
         if "Usage of restricted datasets found:" in stderr:
             assert "icnarc" in stderr
             assert "admitted_to_icu" in stderr
@@ -134,7 +140,9 @@ def repo_path(tmp_path):
 @pytest.mark.parametrize(
     "repo, protocol, dataset, continue_on_error",
     itertools.chain(
-        itertools.product(list(Repo), list(Protocol), list(Dataset), [True, False]),
+        itertools.product(
+            list(Repo), list(Protocol), list(Dataset), [True, False]
+        ),
         itertools.product([None], [None], list(Dataset), [True, False]),
     ),
 )
@@ -161,10 +169,14 @@ def test_check(
                 url = ""
             git_init(url)
 
-    if not repo or (dataset == Dataset.RESTRICTED and repo not in [
-        Repo.PERMITTED,
-        Repo.PERMITTED_MULTIPLE,
-    ]):
+    if not repo or (
+        dataset == Dataset.RESTRICTED
+        and repo
+        not in [
+            Repo.PERMITTED,
+            Repo.PERMITTED_MULTIPLE,
+        ]
+    ):
         validate_fail(capsys, continue_on_error)
     else:
         validate_pass(capsys, continue_on_error)
