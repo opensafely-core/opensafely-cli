@@ -23,7 +23,6 @@ away afterwards.
 import argparse
 import getpass
 import os
-import platform
 import random
 import shlex
 import shutil
@@ -35,7 +34,7 @@ import textwrap
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from opensafely._vendor.jobrunner import config, manifest_to_database_migration
+from opensafely._vendor.jobrunner import config, executors, manifest_to_database_migration
 from opensafely._vendor.jobrunner.create_or_update_jobs import (
     RUN_ALL_COMMAND,
     JobRequestError,
@@ -66,15 +65,6 @@ DESCRIPTION = __doc__.partition("\n\n")[0]
 
 # local run logging format
 LOCAL_RUN_FORMAT = "{action}{message}"
-
-# None of these status messages are particularly useful in local run
-# mode, and they can generate a lot of clutter in large dependency
-# trees
-STATUS_CODES_NOT_TO_LOG = {
-    StatusCode.WAITING_ON_DEPENDENCIES,
-    StatusCode.DEPENDENCY_FAILED,
-    StatusCode.WAITING_ON_WORKERS,
-}
 
 
 # Super-crude support for colourised/formatted output inside Github Actions. It
@@ -232,7 +222,7 @@ def create_and_run_jobs(
     )
 
     # None of the below should be used when running locally
-    config.WORK_DIR = None
+    config.WORKDIR = None
     config.HIGH_PRIVACY_STORAGE_BASE = None
     config.MEDIUM_PRIVACY_STORAGE_BASE = None
     config.MEDIUM_PRIVACY_WORKSPACES_DIR = None
@@ -478,13 +468,25 @@ def filter_log_messages(record):
     Not all log messages are useful in the local run context so to avoid noise
     and make things clearer for the user we filter them out here
     """
-    status_code = getattr(record, "status_code", None)
-    if status_code in STATUS_CODES_NOT_TO_LOG:
+    # None of these status messages are particularly useful in local run
+    # mode, and they can generate a lot of clutter in large dependency
+    # trees
+    if getattr(record, "status_code", None) in {
+        StatusCode.WAITING_ON_DEPENDENCIES,
+        StatusCode.DEPENDENCY_FAILED,
+        StatusCode.WAITING_ON_WORKERS,
+    }:
         return False
+
     # We sometimes log caught exceptions for debugging purposes in production,
     # but we don't want to show these to the user when running locally
     if getattr(record, "exc_info", None):
         return False
+
+    # Executor state logging is pretty verbose and unlikely to be useful for local running
+    if record.name == executors.logging.LOGGER_NAME:
+        return False
+
     return True
 
 
@@ -600,10 +602,7 @@ def get_stata_license(repo=config.STATA_LICENSE_REPO):
         except Exception:
             pass
         finally:
-            # py3.7 on windows can't clean up TemporaryDirectory with git's read only
-            # files in them, so just don't bother.
-            if platform.system() != "Windows" or sys.version_info[:2] > (3, 7):
-                tmp.cleanup()
+            tmp.cleanup()
 
     if cached.exists():
         # if the refresh failed for some reason, update the last time it was

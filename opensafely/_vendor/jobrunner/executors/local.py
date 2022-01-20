@@ -4,6 +4,7 @@ import subprocess
 from pathlib import Path
 
 from opensafely._vendor.jobrunner.job_executor import (
+    ExecutorAPI,
     ExecutorState,
     JobDefinition,
     JobResults,
@@ -42,7 +43,15 @@ class LocalDockerError(Exception):
     pass
 
 
-class LocalDockerAPI:
+def get_job_labels(job: JobDefinition):
+    """Useful metadata to label docker objects with."""
+    return {
+        "workspace": job.workspace,
+        "action": job.action,
+    }
+
+
+class LocalDockerAPI(ExecutorAPI):
     """ExecutorAPI implementation using local docker service."""
 
     def prepare(self, job):
@@ -88,11 +97,7 @@ class LocalDockerAPI:
                 env=job.env,
                 allow_network_access=job.allow_database_access,
                 label=LABEL,
-                labels={
-                    # make it easier to find stuff
-                    "workspace": job.workspace,
-                    "action": job.action,
-                },
+                labels=get_job_labels(job),
             )
         except Exception as exc:
             return JobStatus(
@@ -102,6 +107,7 @@ class LocalDockerAPI:
         return JobStatus(ExecutorState.EXECUTING)
 
     def finalize(self, job):
+
         current = self.get_status(job)
         if current.state != ExecutorState.EXECUTED:
             return current
@@ -120,6 +126,7 @@ class LocalDockerAPI:
     def cleanup(self, job):
         cleanup_job(job)
         RESULTS.pop(job.id, None)
+        return JobStatus(ExecutorState.UNKNOWN)
 
     def get_status(self, job):
         name = container_name(job)
@@ -173,7 +180,7 @@ def prepare_job(job):
     workspace_dir = get_high_privacy_workspace(job.workspace)
 
     volume = volume_name(job)
-    docker.create_volume(volume)
+    docker.create_volume(volume, get_job_labels(job))
 
     # `docker cp` can't create parent directories for us so we make sure all
     # these directories get created when we copy in the code
@@ -211,11 +218,18 @@ def prepare_job(job):
 def finalize_job(job):
     container_metadata = get_container_metadata(job)
     outputs, unmatched_patterns = find_matching_outputs(job)
+    exit_code = container_metadata["State"]["ExitCode"]
+    message = None
+    if exit_code == 137:
+        # 137 = 128+9, which means was killed by signal 9, SIGKILL
+        # This usually happens because of OOM killer, or else manually
+        message = "likely means it ran out of memory"
     results = JobResults(
-        outputs,
-        unmatched_patterns,
-        container_metadata["State"]["ExitCode"],
-        container_metadata["Image"],
+        outputs=outputs,
+        unmatched_patterns=unmatched_patterns,
+        exit_code=container_metadata["State"]["ExitCode"],
+        image_id=container_metadata["Image"],
+        message=message,
     )
     persist_outputs(job, results.outputs, container_metadata)
     RESULTS[job.id] = results
