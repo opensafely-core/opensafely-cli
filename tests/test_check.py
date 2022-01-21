@@ -101,21 +101,17 @@ def validate_pass(capsys, continue_on_error):
 def validate_fail(capsys, continue_on_error):
     def validate_fail_output(stdout, stderr):
         assert stdout != "Success\n"
-        assert (
-            "Usage of restricted datasets found:" in stderr
-            or "git config" in stderr.lower()
-        )
-        if "Usage of restricted datasets found:" in stderr:
-            assert "icnarc" in stderr
-            assert "admitted_to_icu" in stderr
-            assert "3:" in stderr
-            assert "4:" not in stderr
-            assert "5:" not in stderr
-            assert "#b=" not in stderr
-            assert "#d=" not in stderr
-            assert "unrestricted" not in stderr
-            assert "study_definition_restricted_1.py" in stderr
-            assert "study_definition_restricted_2.py" in stderr
+        assert "Usage of restricted datasets found:" in stderr
+        assert "icnarc" in stderr
+        assert "admitted_to_icu" in stderr
+        assert "3:" in stderr
+        assert "4:" not in stderr
+        assert "5:" not in stderr
+        assert "#b=" not in stderr
+        assert "#d=" not in stderr
+        assert "unrestricted" not in stderr
+        assert "study_definition_restricted_1.py" in stderr
+        assert "study_definition_restricted_2.py" in stderr
 
     if not continue_on_error:
         with pytest.raises(SystemExit):
@@ -127,6 +123,20 @@ def validate_fail(capsys, continue_on_error):
         check.main(continue_on_error)
         stdout, stderr = capsys.readouterr()
         validate_fail_output(stdout, stdout)
+
+
+def validate_norepo(capsys, continue_on_error):
+    if not continue_on_error:
+        with pytest.raises(SystemExit):
+            check.main(continue_on_error)
+            stdout, stderr = capsys.readouterr()
+            assert "git config" in stdout.lower()
+            assert "Unable to find repository name" in stderr
+    else:
+        check.main(continue_on_error)
+        stdout, stderr = capsys.readouterr()
+        assert stderr == ""
+        assert stdout == ""
 
 
 @pytest.fixture
@@ -169,14 +179,12 @@ def test_check(
                 url = ""
             git_init(url)
 
-    if not repo or (
-        dataset == Dataset.RESTRICTED
-        and repo
-        not in [
-            Repo.PERMITTED,
-            Repo.PERMITTED_MULTIPLE,
-        ]
-    ):
+    if not repo and dataset != Dataset.RESTRICTED:
+        validate_norepo(capsys, continue_on_error)
+    elif dataset == Dataset.RESTRICTED and repo not in [
+        Repo.PERMITTED,
+        Repo.PERMITTED_MULTIPLE,
+    ]:
         validate_fail(capsys, continue_on_error)
     else:
         validate_pass(capsys, continue_on_error)
