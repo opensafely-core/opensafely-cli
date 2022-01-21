@@ -66,7 +66,10 @@ def format_function_call(func):
 def write_study_def(path, dataset):
     restricted = dataset.value
     for a in [1, 2]:
-        f = path / f"study_definition_{'' if restricted else 'un'}restricted_{a}.py"
+        f = (
+            path
+            / f"study_definition_{'' if restricted else 'un'}restricted_{a}.py"
+        )
         f.write_text(
             textwrap.dedent(
                 f"""\
@@ -122,6 +125,20 @@ def validate_fail(capsys, continue_on_error):
         validate_fail_output(stdout, stdout)
 
 
+def validate_norepo(capsys, continue_on_error):
+    if not continue_on_error:
+        with pytest.raises(SystemExit):
+            check.main(continue_on_error)
+            stdout, stderr = capsys.readouterr()
+            assert "git config" in stdout.lower()
+            assert "Unable to find repository name" in stderr
+    else:
+        check.main(continue_on_error)
+        stdout, stderr = capsys.readouterr()
+        assert stderr == ""
+        assert stdout == ""
+
+
 @pytest.fixture
 def repo_path(tmp_path):
     prev_dir = os.getcwd()
@@ -133,7 +150,9 @@ def repo_path(tmp_path):
 @pytest.mark.parametrize(
     "repo, protocol, dataset, continue_on_error",
     itertools.chain(
-        itertools.product(list(Repo), list(Protocol), list(Dataset), [True, False]),
+        itertools.product(
+            list(Repo), list(Protocol), list(Dataset), [True, False]
+        ),
         itertools.product([None], [None], list(Dataset), [True, False]),
     ),
 )
@@ -160,7 +179,9 @@ def test_check(
                 url = ""
             git_init(url)
 
-    if dataset == Dataset.RESTRICTED and repo not in [
+    if not repo and dataset != Dataset.RESTRICTED:
+        validate_norepo(capsys, continue_on_error)
+    elif dataset == Dataset.RESTRICTED and repo not in [
         Repo.PERMITTED,
         Repo.PERMITTED_MULTIPLE,
     ]:
