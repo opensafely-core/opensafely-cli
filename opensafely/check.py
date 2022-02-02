@@ -9,7 +9,10 @@ from opensafely._vendor.ruamel.yaml import YAML
 
 DESCRIPTION = "Check the opensafely project for correctness"
 
-RESTRICTED_DATASETS = {"icnarc": ["admitted_to_icu"]}
+RESTRICTED_DATASETS = {
+    "icnarc": ["admitted_to_icu"],
+    "therapeutics": ["with_covid_therapeutics"],    
+}
 
 PERMISSIONS_URL = "https://raw.githubusercontent.com/opensafely-core/opensafely-cli/main/repository_permisisons.yaml"
 
