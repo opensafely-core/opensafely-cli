@@ -3,6 +3,7 @@ import os
 import subprocess
 import textwrap
 from enum import Enum
+from pathlib import Path
 
 import pytest
 from requests_mock import mocker
@@ -28,8 +29,6 @@ opensafely/dummy_therapeutics:
 opensafely/dummy_icnarc_ons_therapeutics:
     allow: ['icnarc','ons','therapeutics']
 """
-
-PERMISSIONS_URL = "https://raw.githubusercontent.com/opensafely-core/opensafely-cli/main/tests/fixtures/permissions/repository_permisisons.yaml"
 
 
 class Repo(Enum):
@@ -170,13 +169,15 @@ def repo_path(tmp_path):
     ),
 )
 def test_check(
-    repo_path, capsys, monkeypatch, repo, protocol, dataset, continue_on_error
+    repo_path, capsys, monkeypatch, requests_mock, repo, protocol, dataset, continue_on_error
 ):
     if "GITHUB_REPOSITORY" in os.environ:
         monkeypatch.delenv("GITHUB_REPOSITORY")
 
-    monkeypatch.setenv("OPENSAFELY_PERMISSIONS_URL", PERMISSIONS_URL)
-
+    # Mock the call to the permissions URL to return the contents of our test permissions file
+    permissions_file = Path(__file__).parent / "fixtures" / "permissions" / "repository_permissions.yaml"
+    requests_mock.get(check.PERMISSIONS_URL, text=permissions_file.read_text())   
+    
     write_study_def(repo_path, dataset)
 
     if repo:
