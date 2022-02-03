@@ -3,6 +3,7 @@ import os
 import subprocess
 import textwrap
 from enum import Enum
+from pathlib import Path
 
 import pytest
 from requests_mock import mocker
@@ -10,6 +11,7 @@ from requests_mock import mocker
 from opensafely import check
 from opensafely._vendor import requests
 from opensafely._vendor.ruamel.yaml.comments import CommentedMap
+from opensafely._vendor.requests.exceptions import RequestException
 
 # Because we're using a vendored version of requests we need to monkeypatch the
 # requests_mock library so it references our vendored library instead
@@ -23,14 +25,18 @@ opensafely/dummy_ons:
     allow: ['ons']
 opensafely/dummy_icnarc_ons:
     allow: ['icnarc','ons']
+opensafely/dummy_therapeutics:
+    allow: ['therapeutics']
+opensafely/dummy_icnarc_ons_therapeutics:
+    allow: ['icnarc','ons','therapeutics']
 """
-
-PERMISSIONS_URL = "https://raw.githubusercontent.com/opensafely-core/opensafely-cli/main/tests/fixtures/permissions/repository_permisisons.yaml"
 
 
 class Repo(Enum):
-    PERMITTED = "opensafely/dummy_icnarc"
+    PERMITTED_ICNARC = "opensafely/dummy_icnarc"
+    PERMITTED_THERAPEUTICS = "opensafely/dummy_therapeutics"
     PERMITTED_MULTIPLE = "opensafely/dummy_icnarc_ons"
+    PERMITTED_ALL = "opensafely/dummy_icnarc_ons_therapeutics"
     UNPERMITTED = "opensafely/dummy_ons"
     UNKNOWN = "opensafely/dummy"
 
@@ -51,7 +57,7 @@ study = StudyDefinition ("""
 
 
 UNRESTRICTED_FUNCTION = "with_these_medications"
-RESTRICTED_FUNCTION = "admitted_to_icu"
+RESTRICTED_FUNCTIONS = ["admitted_to_icu", "with_covid_therapeutics"]
 
 
 def format_function_call(func):
@@ -74,10 +80,12 @@ def write_study_def(path, dataset):
             textwrap.dedent(
                 f"""\
                 {STUDY_DEF_HEADER}
-                {'a='+format_function_call(RESTRICTED_FUNCTION)+',' if restricted else ''}
-                #b={format_function_call(RESTRICTED_FUNCTION)},
-                c={format_function_call(UNRESTRICTED_FUNCTION)},
-                #d={format_function_call(UNRESTRICTED_FUNCTION)},
+                a={format_function_call(RESTRICTED_FUNCTIONS[0])+',' if restricted else ''}
+                #b={format_function_call(RESTRICTED_FUNCTIONS[0])},
+                c={format_function_call(RESTRICTED_FUNCTIONS[1])+',' if restricted else ''},
+                #d={format_function_call(RESTRICTED_FUNCTIONS[1])},
+                e={format_function_call(UNRESTRICTED_FUNCTION)},
+                #f={format_function_call(UNRESTRICTED_FUNCTION)},
                 )"""
             )
         )
@@ -98,17 +106,22 @@ def validate_pass(capsys, continue_on_error):
         assert stdout == ""
 
 
-def validate_fail(capsys, continue_on_error):
+def validate_fail(capsys, continue_on_error, not_permitted, permitted):
     def validate_fail_output(stdout, stderr):
         assert stdout != "Success\n"
         assert "Usage of restricted datasets found:" in stderr
-        assert "icnarc" in stderr
-        assert "admitted_to_icu" in stderr
-        assert "3:" in stderr
+        np_name, np_function, np_error_line = not_permitted
+        p_name, p_function, p_error_line = permitted
+        assert np_name in stderr
+        assert np_function in stderr
+        assert np_error_line in stderr
+        assert p_name not in stderr
+        assert p_function not in stderr
+        assert p_error_line not in stderr
         assert "4:" not in stderr
-        assert "5:" not in stderr
         assert "#b=" not in stderr
         assert "#d=" not in stderr
+        assert "#e=" not in stderr
         assert "unrestricted" not in stderr
         assert "study_definition_restricted_1.py" in stderr
         assert "study_definition_restricted_2.py" in stderr
@@ -157,13 +170,15 @@ def repo_path(tmp_path):
     ),
 )
 def test_check(
-    repo_path, capsys, monkeypatch, repo, protocol, dataset, continue_on_error
+    repo_path, capsys, monkeypatch, requests_mock, repo, protocol, dataset, continue_on_error
 ):
     if "GITHUB_REPOSITORY" in os.environ:
         monkeypatch.delenv("GITHUB_REPOSITORY")
 
-    monkeypatch.setenv("OPENSAFELY_PERMISSIONS_URL", PERMISSIONS_URL)
-
+    # Mock the call to the permissions URL to return the contents of our test permissions file
+    permissions_file = Path(__file__).parent / "fixtures" / "permissions" / "repository_permissions.yaml"
+    requests_mock.get(check.PERMISSIONS_URL, text=permissions_file.read_text())   
+    
     write_study_def(repo_path, dataset)
 
     if repo:
@@ -181,17 +196,27 @@ def test_check(
 
     if not repo and dataset != Dataset.RESTRICTED:
         validate_norepo(capsys, continue_on_error)
-    elif dataset == Dataset.RESTRICTED and repo not in [
-        Repo.PERMITTED,
-        Repo.PERMITTED_MULTIPLE,
-    ]:
-        validate_fail(capsys, continue_on_error)
+    elif dataset == Dataset.RESTRICTED and repo != Repo.PERMITTED_ALL:
+        theraputics = ("therapeutics", "with_covid_therapeutics", "5")
+        icnarc = ("icnarc", "admitted_to_icu", "3")
+        if repo in [Repo.PERMITTED_ICNARC, Repo.PERMITTED_MULTIPLE]:
+            validate_fail(capsys, continue_on_error, not_permitted=theraputics, permitted=icnarc)
+        elif repo == Repo.PERMITTED_THERAPEUTICS:
+            validate_fail(capsys, continue_on_error, not_permitted=icnarc, permitted=theraputics)
     else:
         validate_pass(capsys, continue_on_error)
 
 
 def test_repository_permissions_yaml():
-    permissions = check.get_datasource_permissions(check.PERMISSIONS_URL)
+    try:
+        permissions = check.get_datasource_permissions(check.PERMISSIONS_URL)
+    except RequestException as e:
+        # This test should always pass on main, but if we've renamed the file
+        # on the branch, it will fail before it's merged
+        branch = subprocess.run(["git", "rev-parse", "--abbrev-ref", "HEAD"])
+        if branch != "main" and "Error 404" in str(e):
+            pytest.xfail("Permissions file does not exist on main yet") 
+
     assert permissions, "empty permissions file"
     assert type(permissions) == CommentedMap, "invalid permissions file"
     for k, v in permissions.items():

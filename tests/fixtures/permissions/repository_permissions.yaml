@@ -1,0 +1,10 @@
+opensafely/dummy_icnarc:
+  allow: ['icnarc']
+opensafely/dummy_ons:
+  allow: ['ons']
+opensafely/dummy_icnarc_ons:
+  allow: ['icnarc','ons']
+opensafely/dummy_therapeutics:
+    allow: ['therapeutics']
+opensafely/dummy_icnarc_ons_therapeutics:
+  allow: ['icnarc','ons','therapeutics']

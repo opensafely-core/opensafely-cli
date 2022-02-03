@@ -1,6 +1,0 @@
-opensafely/dummy_icnarc:
-  allow: ['icnarc']
-opensafely/dummy_ons:
-  allow: ['ons']
-opensafely/dummy_icnarc_ons:
-  allow: ['icnarc','ons']
