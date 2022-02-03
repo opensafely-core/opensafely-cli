@@ -11,6 +11,7 @@ from requests_mock import mocker
 from opensafely import check
 from opensafely._vendor import requests
 from opensafely._vendor.ruamel.yaml.comments import CommentedMap
+from opensafely._vendor.requests.exceptions import RequestException
 
 # Because we're using a vendored version of requests we need to monkeypatch the
 # requests_mock library so it references our vendored library instead
@@ -207,7 +208,15 @@ def test_check(
 
 
 def test_repository_permissions_yaml():
-    permissions = check.get_datasource_permissions(check.PERMISSIONS_URL)
+    try:
+        permissions = check.get_datasource_permissions(check.PERMISSIONS_URL)
+    except RequestException as e:
+        # This test should always pass on main, but if we've renamed the file
+        # on the branch, it will fail before it's merged
+        branch = subprocess.run(["git", "rev-parse", "--abbrev-ref", "HEAD"])
+        if branch != "main" and "Error 404" in str(e):
+            pytest.xfail("Permissions file does not exist on main yet") 
+
     assert permissions, "empty permissions file"
     assert type(permissions) == CommentedMap, "invalid permissions file"
     for k, v in permissions.items():
