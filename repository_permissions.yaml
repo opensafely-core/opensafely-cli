@@ -6,3 +6,5 @@ opensafely/school-age-children-and-covid:
   allow: ['icnarc']
 opensafely/antibody-and-antiviral-deployment:
   allow: ['therapeutics']
+opensafely/hdruk-os-covid-paeds:
+  allow: ['isaric']

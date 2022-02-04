@@ -27,16 +27,19 @@ opensafely/dummy_icnarc_ons:
     allow: ['icnarc','ons']
 opensafely/dummy_therapeutics:
     allow: ['therapeutics']
-opensafely/dummy_icnarc_ons_therapeutics:
-    allow: ['icnarc','ons','therapeutics']
+opensafely/dummy_isaric:
+    allow: ['isaric']
+opensafely/dummy_all:
+    allow: ['icnarc','ons','therapeutics', 'isaric]
 """
 
 
 class Repo(Enum):
     PERMITTED_ICNARC = "opensafely/dummy_icnarc"
     PERMITTED_THERAPEUTICS = "opensafely/dummy_therapeutics"
+    PERMITTED_ISARIC = "opensafely/dummy_isaric"
     PERMITTED_MULTIPLE = "opensafely/dummy_icnarc_ons"
-    PERMITTED_ALL = "opensafely/dummy_icnarc_ons_therapeutics"
+    PERMITTED_ALL = "opensafely/dummy_all"
     UNPERMITTED = "opensafely/dummy_ons"
     UNKNOWN = "opensafely/dummy"
 
@@ -57,7 +60,7 @@ study = StudyDefinition ("""
 
 
 UNRESTRICTED_FUNCTION = "with_these_medications"
-RESTRICTED_FUNCTIONS = ["admitted_to_icu", "with_covid_therapeutics"]
+RESTRICTED_FUNCTIONS = ["admitted_to_icu", "with_covid_therapeutics", "with_an_isaric_record"]
 
 
 def format_function_call(func):
@@ -84,8 +87,10 @@ def write_study_def(path, dataset):
                 #b={format_function_call(RESTRICTED_FUNCTIONS[0])},
                 c={format_function_call(RESTRICTED_FUNCTIONS[1])+',' if restricted else ''},
                 #d={format_function_call(RESTRICTED_FUNCTIONS[1])},
-                e={format_function_call(UNRESTRICTED_FUNCTION)},
-                #f={format_function_call(UNRESTRICTED_FUNCTION)},
+                e={format_function_call(RESTRICTED_FUNCTIONS[2])+',' if restricted else ''},
+                #f={format_function_call(RESTRICTED_FUNCTIONS[2])},
+                y={format_function_call(UNRESTRICTED_FUNCTION)},
+                #z={format_function_call(UNRESTRICTED_FUNCTION)},
                 )"""
             )
         )
@@ -110,18 +115,21 @@ def validate_fail(capsys, continue_on_error, not_permitted, permitted):
     def validate_fail_output(stdout, stderr):
         assert stdout != "Success\n"
         assert "Usage of restricted datasets found:" in stderr
-        np_name, np_function, np_error_line = not_permitted
-        p_name, p_function, p_error_line = permitted
-        assert np_name in stderr
-        assert np_function in stderr
-        assert np_error_line in stderr
-        assert p_name not in stderr
-        assert p_function not in stderr
-        assert p_error_line not in stderr
+        for not_permitted_dataset_values in not_permitted:
+            np_name, np_function, np_error_line = not_permitted_dataset_values
+            assert np_name in stderr
+            assert np_function in stderr
+            assert np_error_line in stderr
+        
+        for permitted_dataset_values in permitted:
+            p_name, p_function, p_error_line = permitted_dataset_values
+            assert p_name not in stderr
+            assert p_function not in stderr
+            assert p_error_line not in stderr
         assert "4:" not in stderr
         assert "#b=" not in stderr
-        assert "#d=" not in stderr
-        assert "#e=" not in stderr
+        assert "#y=" not in stderr
+        assert "#z=" not in stderr
         assert "unrestricted" not in stderr
         assert "study_definition_restricted_1.py" in stderr
         assert "study_definition_restricted_2.py" in stderr
@@ -197,12 +205,36 @@ def test_check(
     if not repo and dataset != Dataset.RESTRICTED:
         validate_norepo(capsys, continue_on_error)
     elif dataset == Dataset.RESTRICTED and repo != Repo.PERMITTED_ALL:
-        theraputics = ("therapeutics", "with_covid_therapeutics", "5")
         icnarc = ("icnarc", "admitted_to_icu", "3")
-        if repo in [Repo.PERMITTED_ICNARC, Repo.PERMITTED_MULTIPLE]:
-            validate_fail(capsys, continue_on_error, not_permitted=theraputics, permitted=icnarc)
-        elif repo == Repo.PERMITTED_THERAPEUTICS:
-            validate_fail(capsys, continue_on_error, not_permitted=icnarc, permitted=theraputics)
+        theraputics = ("therapeutics", "with_covid_therapeutics", "5")
+        isaric = ("isaric", "with_an_isaric_record", "7")
+        
+        permitted_mapping = {
+            "permitted": {
+                Repo.PERMITTED_ICNARC: (icnarc,),
+                Repo.PERMITTED_THERAPEUTICS: (theraputics,),
+                Repo.PERMITTED_ISARIC: (isaric,),
+                Repo.PERMITTED_MULTIPLE: (icnarc,),
+                Repo.UNKNOWN: (),
+                Repo.UNPERMITTED: (),
+                None: (),
+            },
+            "not_permitted": {
+                Repo.PERMITTED_ICNARC: (theraputics, isaric),
+                Repo.PERMITTED_THERAPEUTICS: (icnarc, isaric),
+                Repo.PERMITTED_ISARIC: (icnarc, theraputics),
+                Repo.PERMITTED_MULTIPLE: (theraputics, isaric),
+                Repo.UNKNOWN: (icnarc, theraputics, isaric),
+                Repo.UNPERMITTED: (icnarc, theraputics, isaric),
+                None: (icnarc, theraputics, isaric),
+            }
+        }
+        validate_fail(
+            capsys, 
+            continue_on_error, 
+            not_permitted=permitted_mapping["not_permitted"][repo],
+            permitted=permitted_mapping["permitted"][repo]
+        )
     else:
         validate_pass(capsys, continue_on_error)
 

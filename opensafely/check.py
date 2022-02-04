@@ -11,7 +11,8 @@ DESCRIPTION = "Check the opensafely project for correctness"
 
 RESTRICTED_DATASETS = {
     "icnarc": ["admitted_to_icu"],
-    "therapeutics": ["with_covid_therapeutics"],    
+    "therapeutics": ["with_covid_therapeutics"],  
+    "isaric": ["with_an_isaric_record"]  
 }
 
 PERMISSIONS_URL = "https://raw.githubusercontent.com/opensafely-core/opensafely-cli/main/repository_permissions.yaml"
