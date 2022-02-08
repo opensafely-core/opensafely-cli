@@ -47,7 +47,16 @@ def main():
     # there's some hint as to why their invocation is failing before being told
     # by argparse.
     if len(sys.argv) == 1 or sys.argv[1] != "upgrade":
-        upgrade.check_version()
+        try:
+            upgrade.check_version()
+        except Exception:
+            pass
+
+    if len(sys.argv) == 1 or sys.argv[1] != "pull":
+        try:
+            pull.check_version()
+        except Exception:
+            pass
 
     # start by using looser parsing only known args, so we can get the sub command
     args, unknown = parser.parse_known_args()
