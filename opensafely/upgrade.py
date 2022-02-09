@@ -93,14 +93,11 @@ def need_to_update(latest):
 
 
 def check_version():
-    try:
-        latest = get_latest_version()
-        update = need_to_update(latest)
-        if update:
-            print(
-                f"Warning: there is a newer version of opensafely available ({latest}) - please upgrade by running:\n"
-                "    opensafely upgrade\n"
-            )
-        return update
-    except Exception:
-        pass  # this is an optional check, it should never stop the program
+    latest = get_latest_version()
+    update = need_to_update(latest)
+    if update:
+        print(
+            f"Warning: there is a newer version of opensafely available ({latest}) - please upgrade by running:\n"
+            "    opensafely upgrade\n"
+        )
+    return update

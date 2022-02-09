@@ -15,7 +15,7 @@ def tag(image):
 def test_default_no_local_images(run, capsys):
 
     run.expect(["docker", "info"])
-    run.expect(["docker", "image", "ls", "--format={{.Repository}}"], stdout="")
+    run.expect(["docker", "images", "ghcr.io/opensafely-core/*", "--no-trunc", "--format={{.Repository}}={{.ID}}"], stdout="")
 
     pull.main(image="all", force=False)
     out, err = capsys.readouterr()
@@ -26,10 +26,9 @@ def test_default_no_local_images(run, capsys):
 def test_default_no_local_images_force(run, capsys):
 
     run.expect(["docker", "info"])
-    run.expect(["docker", "image", "ls", "--format={{.Repository}}"], stdout="")
+    run.expect(["docker", "images", "ghcr.io/opensafely-core/*", "--no-trunc", "--format={{.Repository}}={{.ID}}"], stdout="")
     run.expect(["docker", "pull", tag("cohortextractor")])
     run.expect(["docker", "pull", tag("cohortextractor-v2")])
-    run.expect(["docker", "pull", tag("databuilder")])
     run.expect(["docker", "pull", tag("jupyter")])
     run.expect(["docker", "pull", tag("python")])
     run.expect(["docker", "pull", tag("r")])
@@ -42,7 +41,6 @@ def test_default_no_local_images_force(run, capsys):
     assert out.splitlines() == [
         "Updating OpenSAFELY cohortextractor image",
         "Updating OpenSAFELY cohortextractor-v2 image",
-        "Updating OpenSAFELY databuilder image",
         "Updating OpenSAFELY jupyter image",
         "Updating OpenSAFELY python image",
         "Updating OpenSAFELY r image",
@@ -55,8 +53,8 @@ def test_default_with_local_images(run, capsys):
 
     run.expect(["docker", "info"])
     run.expect(
-        ["docker", "image", "ls", "--format={{.Repository}}"],
-        stdout="ghcr.io/opensafely-core/r",
+        ["docker", "images", "ghcr.io/opensafely-core/*", "--no-trunc", "--format={{.Repository}}={{.ID}}"],
+        stdout="ghcr.io/opensafely-core/r=sha",
     )
     run.expect(["docker", "pull", tag("r")])
     run.expect(["docker", "image", "prune", "--force"])
@@ -73,7 +71,7 @@ def test_default_with_local_images(run, capsys):
 def test_specific_image(run, capsys):
 
     run.expect(["docker", "info"])
-    run.expect(["docker", "image", "ls", "--format={{.Repository}}"], stdout="")
+    run.expect(["docker", "images", "ghcr.io/opensafely-core/*", "--no-trunc", "--format={{.Repository}}={{.ID}}"], stdout="")
     run.expect(["docker", "pull", tag("r")])
     run.expect(["docker", "image", "prune", "--force"])
 
@@ -89,7 +87,7 @@ def test_specific_image(run, capsys):
 def test_project(run, capsys):
 
     run.expect(["docker", "info"])
-    run.expect(["docker", "image", "ls", "--format={{.Repository}}"], stdout="")
+    run.expect(["docker", "images", "ghcr.io/opensafely-core/*", "--no-trunc", "--format={{.Repository}}={{.ID}}"], stdout="")
     run.expect(["docker", "pull", tag("cohortextractor")])
     run.expect(["docker", "pull", tag("python")])
     run.expect(["docker", "pull", tag("jupyter")])
@@ -119,6 +117,39 @@ def test_remove_deprecated_images(run):
     run.expect(["docker", "image", "rm", "ghcr.io/opensafely/r"])
 
     pull.remove_deprecated_images(local_images)
+
+
+def test_check_version_out_of_date(run, capsys):
+
+    run.expect(
+        ["docker", "images", "ghcr.io/opensafely-core/*", "--no-trunc", "--format={{.Repository}}={{.ID}}"], 
+        stdout="ghcr.io/opensafely-core/python=sha256:oldsha"
+    )
+
+    assert len(pull.check_version()) == 1
+    out, err = capsys.readouterr()
+    assert err == ""
+    assert out.splitlines() == [
+        "Warning: the OpenSAFELY docker images for python actions are out of date - please update by running:",
+        "    opensafely pull",
+        "",
+    ]
+
+
+def test_check_version_up_to_date(run, capsys):
+
+    current_sha = pull.get_remote_sha("ghcr.io/opensafely-core/python", "latest")
+    pull.token = None
+
+    run.expect(
+        ["docker", "images", "ghcr.io/opensafely-core/*", "--no-trunc", "--format={{.Repository}}={{.ID}}"], 
+        stdout=f"ghcr.io/opensafely-core/python={current_sha}"
+    )
+
+    assert len(pull.check_version()) == 0
+    out, err = capsys.readouterr()
+    assert err == ""
+    assert out.splitlines() == []
 
 
 @pytest.mark.parametrize(
