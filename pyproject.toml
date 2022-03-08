@@ -1,5 +1,43 @@
 [tool.black]
-exclude = 'opensafely/_vendor'
+exclude = '''
+(
+  /(
+      \.git         # exclude a few common directories
+    | \.direnv
+    | \.github
+    | \.pytest_cache
+    | \.venv
+    | htmlcov
+    | opensafely/_vendor
+    | venv
+  )/
+)
+'''
+
+[tool.coverage.run]
+branch = true
+omit = [
+  "opensafely/_vendor/*",
+  ".venv/*",
+]
+
+[tool.coverage.report]
+fail_under = 78
+skip_covered = true
+
+[tool.coverage.html]
+
+[tool.isort]
+profile = "black"
+lines_after_imports = 2
+skip_glob = [
+  ".direnv",
+  ".venv",
+  "opensafely/_vendor",
+  "venv",
+]
+
+[tool.pytest.ini_options]
 
 [tool.vendoring]
 destination = "opensafely/_vendor/"
