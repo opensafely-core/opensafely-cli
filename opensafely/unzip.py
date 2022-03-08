@@ -2,6 +2,7 @@ import gzip
 import sys
 from pathlib import Path
 
+
 DESCRIPTION = "Unzip a compressesd .csv.gz or .dta.gz file for local viewing"
 
 

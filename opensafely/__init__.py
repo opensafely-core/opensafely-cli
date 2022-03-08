@@ -2,10 +2,9 @@ import argparse
 import sys
 from pathlib import Path
 
-from opensafely import (
-    check, codelists, extract_stats, jupyter, pull, unzip, upgrade
-)
+from opensafely import check, codelists, extract_stats, jupyter, pull, unzip, upgrade
 from opensafely._vendor.jobrunner.cli import local_run
+
 
 __version__ = Path(__file__).parent.joinpath("VERSION").read_text().strip()
 

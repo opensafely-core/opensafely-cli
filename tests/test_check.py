@@ -1,19 +1,20 @@
-from collections import Counter
 import itertools
 import os
 import subprocess
 import textwrap
+from collections import Counter
 from enum import Enum
 from pathlib import Path
 
 import pytest
 from requests_mock import mocker
-from opensafely._vendor.ruamel.yaml import YAML
 
 from opensafely import check
 from opensafely._vendor import requests
-from opensafely._vendor.ruamel.yaml.comments import CommentedMap
 from opensafely._vendor.requests.exceptions import RequestException
+from opensafely._vendor.ruamel.yaml import YAML
+from opensafely._vendor.ruamel.yaml.comments import CommentedMap
+
 
 # Because we're using a vendored version of requests we need to monkeypatch the
 # requests_mock library so it references our vendored library instead
@@ -203,8 +204,8 @@ def test_permissions_fixture_data_complete():
     assert (
         all_allowed_repo is not None
     ), """
-        No repo found with access to all restricted datasets.  
-        If you added a new restricted dataset, make sure 
+        No repo found with access to all restricted datasets.
+        If you added a new restricted dataset, make sure
         tests/fixtures/permissions/repository-permissions.yaml has been updated.
         """
 

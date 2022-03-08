@@ -3,6 +3,7 @@ from collections import deque
 
 import pytest
 
+
 _actual_run = subprocess.run
 
 

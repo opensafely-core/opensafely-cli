@@ -1,7 +1,4 @@
 import gzip
-import os
-from pathlib import Path
-import subprocess
 
 import pytest
 
