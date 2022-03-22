@@ -4,9 +4,7 @@ opensafely/dummy_ons:
   allow: ['ons']
 opensafely/dummy_icnarc_ons:
   allow: ['icnarc','ons']
-opensafely/dummy_therapeutics:
-    allow: ['therapeutics']
 opensafely/dummy_isaric:
     allow: ['isaric']
 opensafely/dummy_all:
-  allow: ['icnarc','ons','therapeutics', 'isaric']
+  allow: ['icnarc','ons', 'isaric']

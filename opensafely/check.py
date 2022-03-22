@@ -11,7 +11,6 @@ DESCRIPTION = "Check the opensafely project for correctness"
 
 RESTRICTED_DATASETS = {
     "icnarc": ["admitted_to_icu"],
-    "therapeutics": ["with_covid_therapeutics"],  
     "isaric": ["with_an_isaric_record"]  
 }
 
