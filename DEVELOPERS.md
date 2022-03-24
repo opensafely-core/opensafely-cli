@@ -47,3 +47,11 @@ Due to the fact that we're vendoring `requests` there's some slightly
 nasty monkeypatching which we need to apply `requests_mock` in order to
 get it to mock the right library. Monkeypatching mocking libraries is
 known as "software engineering".
+
+
+## Releases
+
+New versions are tagged, and the PyPI package built and published, automatically 
+via GitHub actions on merges to `main`.  Note that the version will be bumped 
+according to information parsed from the commits using semantic-release conventions (e.g. `fix:`, `feat:`).  If no semantic commit is found since the last tag, a new version
+will not be released.
