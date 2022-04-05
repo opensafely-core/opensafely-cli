@@ -2,9 +2,11 @@ opensafely/dummy_icnarc:
   allow: ['icnarc']
 opensafely/dummy_ons:
   allow: ['ons']
+opensafely/dummy_ons_cis:
+  allow: ['ons_cis']  
 opensafely/dummy_icnarc_ons:
-  allow: ['icnarc','ons']
+  allow: ['icnarc', 'ons', 'ons_cis']
 opensafely/dummy_isaric:
-    allow: ['isaric']
+  allow: ['isaric']
 opensafely/dummy_all:
-  allow: ['icnarc','ons', 'isaric']
+  allow: ['icnarc', 'ons', 'isaric', 'ons_cis']

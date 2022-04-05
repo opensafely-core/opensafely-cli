@@ -11,7 +11,8 @@ DESCRIPTION = "Check the opensafely project for correctness"
 
 RESTRICTED_DATASETS = {
     "icnarc": ["admitted_to_icu"],
-    "isaric": ["with_an_isaric_record"]  
+    "isaric": ["with_an_isaric_record"],
+    "ons_cis": ["with_an_ons_cis_record"]  
 }
 
 PERMISSIONS_URL = "https://raw.githubusercontent.com/opensafely-core/opensafely-cli/main/repository_permissions.yaml"
