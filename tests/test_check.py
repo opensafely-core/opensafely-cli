@@ -18,23 +18,11 @@ from opensafely._vendor.requests.exceptions import RequestException
 mocker.requests = requests
 mocker._original_send = requests.Session.send
 
-PERMISSIONS_TEXT = """
-opensafely/dummy_icnarc:
-    allow: ['icnarc']
-opensafely/dummy_ons:
-    allow: ['ons']
-opensafely/dummy_icnarc_ons:
-    allow: ['icnarc','ons']
-opensafely/dummy_isaric:
-    allow: ['isaric']
-opensafely/dummy_all:
-    allow: ['icnarc','ons', 'isaric]
-"""
-
 
 class Repo(Enum):
     PERMITTED_ICNARC = "opensafely/dummy_icnarc"
     PERMITTED_ISARIC = "opensafely/dummy_isaric"
+    PERMITTED_ONS_CIS = "opensafely/dummy_ons_cis"
     PERMITTED_MULTIPLE = "opensafely/dummy_icnarc_ons"
     PERMITTED_ALL = "opensafely/dummy_all"
     UNPERMITTED = "opensafely/dummy_ons"
@@ -57,7 +45,7 @@ study = StudyDefinition ("""
 
 
 UNRESTRICTED_FUNCTION = "with_these_medications"
-RESTRICTED_FUNCTIONS = ["admitted_to_icu", "with_an_isaric_record"]
+RESTRICTED_FUNCTIONS = ["admitted_to_icu", "with_an_isaric_record", "with_an_ons_cis_record"]
 
 
 def format_function_call(func):
@@ -84,6 +72,8 @@ def write_study_def(path, dataset):
                 #b={format_function_call(RESTRICTED_FUNCTIONS[0])},
                 c={format_function_call(RESTRICTED_FUNCTIONS[1])+',' if restricted else ''},
                 #d={format_function_call(RESTRICTED_FUNCTIONS[1])},
+                e={format_function_call(RESTRICTED_FUNCTIONS[2])+',' if restricted else ''},
+                #f={format_function_call(RESTRICTED_FUNCTIONS[2])},
                 y={format_function_call(UNRESTRICTED_FUNCTION)},
                 #z={format_function_call(UNRESTRICTED_FUNCTION)},
                 )"""
@@ -202,23 +192,26 @@ def test_check(
     elif dataset == Dataset.RESTRICTED and repo != Repo.PERMITTED_ALL:
         icnarc = ("icnarc", "admitted_to_icu", "3")
         isaric = ("isaric", "with_an_isaric_record", "5")
+        ons_cis = ("ons_cis", "with_an_ons_cis_record", "7")
         
         permitted_mapping = {
             "permitted": {
                 Repo.PERMITTED_ICNARC: (icnarc,),
                 Repo.PERMITTED_ISARIC: (isaric,),
-                Repo.PERMITTED_MULTIPLE: (icnarc,),
+                Repo.PERMITTED_ONS_CIS: (ons_cis,),
+                Repo.PERMITTED_MULTIPLE: (icnarc, ons_cis),
                 Repo.UNKNOWN: (),
                 Repo.UNPERMITTED: (),
                 None: (),
             },
             "not_permitted": {
-                Repo.PERMITTED_ICNARC: (isaric,),
-                Repo.PERMITTED_ISARIC: (icnarc,),
+                Repo.PERMITTED_ICNARC: (isaric, ons_cis),
+                Repo.PERMITTED_ISARIC: (icnarc, ons_cis),
+                Repo.PERMITTED_ONS_CIS: (icnarc, isaric),
                 Repo.PERMITTED_MULTIPLE: (isaric,),
-                Repo.UNKNOWN: (icnarc, isaric),
-                Repo.UNPERMITTED: (icnarc, isaric),
-                None: (icnarc, isaric),
+                Repo.UNKNOWN: (icnarc, isaric, ons_cis),
+                Repo.UNPERMITTED: (icnarc, isaric, ons_cis),
+                None: (icnarc, isaric, ons_cis),
             }
         }
         validate_fail(
