@@ -1,3 +1,4 @@
+from collections import Counter
 import itertools
 import os
 import subprocess
@@ -7,6 +8,7 @@ from pathlib import Path
 
 import pytest
 from requests_mock import mocker
+from opensafely._vendor.ruamel.yaml import YAML
 
 from opensafely import check
 from opensafely._vendor import requests
@@ -19,14 +21,8 @@ mocker.requests = requests
 mocker._original_send = requests.Session.send
 
 
-class Repo(Enum):
-    PERMITTED_ICNARC = "opensafely/dummy_icnarc"
-    PERMITTED_ISARIC = "opensafely/dummy_isaric"
-    PERMITTED_ONS_CIS = "opensafely/dummy_ons_cis"
-    PERMITTED_MULTIPLE = "opensafely/dummy_icnarc_ons"
-    PERMITTED_ALL = "opensafely/dummy_all"
-    UNPERMITTED = "opensafely/dummy_ons"
-    UNKNOWN = "opensafely/dummy"
+def flatten_list(nested_list):
+    return sum([sublist for sublist in nested_list], [])
 
 
 class Protocol(Enum):
@@ -35,17 +31,30 @@ class Protocol(Enum):
     ENVIRON = 3
 
 
-class Dataset(Enum):
-    RESTRICTED = True
-    UNRESTRICTED = False
-
-
-STUDY_DEF_HEADER = """from cohortextractor import (StudyDefinition, patients)
-study = StudyDefinition ("""
-
 
 UNRESTRICTED_FUNCTION = "with_these_medications"
-RESTRICTED_FUNCTIONS = ["admitted_to_icu", "with_an_isaric_record", "with_an_ons_cis_record"]
+
+
+@pytest.fixture
+def repo_path(tmp_path):
+    prev_dir = os.getcwd()
+    os.chdir(tmp_path)
+    yield tmp_path
+    os.chdir(prev_dir)
+
+
+def get_permissions_fixture_data():
+    permissions_file = Path(__file__).parent / "fixtures" / "permissions" / "repository_permissions.yaml"
+    permissions_text = permissions_file.read_text()
+    permissions_dict = YAML().load(permissions_text)
+    return permissions_text, permissions_dict
+
+
+def all_test_repos():
+    _, permissions = get_permissions_fixture_data()
+    unknown_repo = "opensafely/dummy"
+    assert unknown_repo not in permissions
+    return [*permissions, unknown_repo, None]
 
 
 def format_function_call(func):
@@ -57,25 +66,48 @@ def format_function_call(func):
     )
 
 
-def write_study_def(path, dataset):
-    restricted = dataset.value
+def write_study_def(path, include_restricted):
+    filename_part = "restricted" if include_restricted else "unrestricted"
+    all_restricted_functions = flatten_list(check.RESTRICTED_DATASETS.values())
+
     for a in [1, 2]:
-        f = (
-            path
-            / f"study_definition_{'' if restricted else 'un'}restricted_{a}.py"
+        # generate the filename; we make 2 versions to test that all study defs are checked 
+        filepath = path / f"study_definition_{filename_part}_{a}.py"
+        
+        # Build the function calls for the test's study definition.  We name each variable with 
+        # the function name itself, to make checking the outputs easier
+        
+        # if we're included restricted functions, create a function call for each one
+        # these will cause check fails depending on the test repo's permissions
+        if include_restricted:
+            restricted = [
+                f"{name}_name={format_function_call(name)},"
+                for name in all_restricted_functions
+            ]
+        else:
+            restricted = []
+        restricted_lines = "\n".join(restricted)
+        # create a commented-out function call for each restricted function
+        # include these in all test study defs; always allowed
+        restricted_commented_lines = "\n".join(
+            [
+                f"#{name}_commented={format_function_call(name)},"
+                for name in all_restricted_functions
+            ]
         )
-        f.write_text(
+        # create a function call an unrestricted function; 
+        # include in all test study defs; this is always allowed
+        unrestricted = f"{UNRESTRICTED_FUNCTION}={format_function_call(UNRESTRICTED_FUNCTION)},"
+                
+        filepath.write_text(
             textwrap.dedent(
-                f"""\
-                {STUDY_DEF_HEADER}
-                a={format_function_call(RESTRICTED_FUNCTIONS[0])+',' if restricted else ''}
-                #b={format_function_call(RESTRICTED_FUNCTIONS[0])},
-                c={format_function_call(RESTRICTED_FUNCTIONS[1])+',' if restricted else ''},
-                #d={format_function_call(RESTRICTED_FUNCTIONS[1])},
-                e={format_function_call(RESTRICTED_FUNCTIONS[2])+',' if restricted else ''},
-                #f={format_function_call(RESTRICTED_FUNCTIONS[2])},
-                y={format_function_call(UNRESTRICTED_FUNCTION)},
-                #z={format_function_call(UNRESTRICTED_FUNCTION)},
+                f"""
+                from cohortextractor import StudyDefinition, patients
+
+                study = StudyDefinition (
+                {restricted_lines}
+                {restricted_commented_lines}
+                {unrestricted}
                 )"""
             )
         )
@@ -96,26 +128,25 @@ def validate_pass(capsys, continue_on_error):
         assert stdout == ""
 
 
-def validate_fail(capsys, continue_on_error, not_permitted, permitted):
+def validate_fail(capsys, continue_on_error, permissions):
     def validate_fail_output(stdout, stderr):
         assert stdout != "Success\n"
         assert "Usage of restricted datasets found:" in stderr
-        for not_permitted_dataset_values in not_permitted:
-            np_name, np_function, np_error_line = not_permitted_dataset_values
-            assert np_name in stderr
-            assert np_function in stderr
-            assert np_error_line in stderr
+
+        for dataset_name, function_list in check.RESTRICTED_DATASETS.items():
+            for function_name in function_list:
+                # commented out functions are never in error output, even if restricted
+                assert f"#{function_name}_commented" not in stderr
+            if dataset_name in permissions:
+                assert dataset_name not in stderr
+                assert f"{function_name}_name" not in stderr
+            else:
+                assert dataset_name in stderr, permissions
+                assert f"{function_name}_name" in stderr
         
-        for permitted_dataset_values in permitted:
-            p_name, p_function, p_error_line = permitted_dataset_values
-            assert p_name not in stderr
-            assert p_function not in stderr
-            assert p_error_line not in stderr
-        assert "4:" not in stderr
-        assert "#b=" not in stderr
-        assert "#y=" not in stderr
-        assert "#z=" not in stderr
-        assert "unrestricted" not in stderr
+        # unrestricted function is never in error output
+        assert UNRESTRICTED_FUNCTION not in stderr
+        # Both study definition files are reported
         assert "study_definition_restricted_1.py" in stderr
         assert "study_definition_restricted_2.py" in stderr
 
@@ -145,80 +176,88 @@ def validate_norepo(capsys, continue_on_error):
         assert stdout == ""
 
 
-@pytest.fixture
-def repo_path(tmp_path):
-    prev_dir = os.getcwd()
-    os.chdir(tmp_path)
-    yield tmp_path
-    os.chdir(prev_dir)
+def test_permissions_fixture_data_complete():
+    """
+    This test is just to test the permissions test fixture, to ensure:
+    1) that we've included all the restricted datasets
+    2) that at least one test repo has access to all restricted datasets
+    """
+    _, permissions_dict = get_permissions_fixture_data()
+
+    restricted_datasets = set(check.RESTRICTED_DATASETS.keys())
+
+    all_allowed_repo = None
+    # find repo with all restricted datasets
+    for repo, allowed_dict in permissions_dict.items():
+        allowed = set(allowed_dict.get("allow", []))
+        if not (restricted_datasets - allowed):
+            all_allowed_repo = repo
+            break
+    
+    assert all_allowed_repo is not None, (
+        """
+        No repo found with access to all restricted datasets.  
+        If you added a new restricted dataset, make sure 
+        tests/fixtures/permissions/repository-permissions.yaml has been updated.
+        """
+    )
+
+    flattened_permitted_datasets = flatten_list(
+        [dataset_permissions["allow"] for dataset_permissions in permissions_dict.values()]
+    )
+    permitted_dataset_counts = Counter(flattened_permitted_datasets)
+
+    for dataset in restricted_datasets:
+        assert permitted_dataset_counts[dataset] > 1, \
+        f"No part-restricted repo found for restricted dataset {dataset}"
 
 
 @pytest.mark.parametrize(
-    "repo, protocol, dataset, continue_on_error",
+    "repo, protocol, include_restricted, continue_on_error",
     itertools.chain(
         itertools.product(
-            list(Repo), list(Protocol), list(Dataset), [True, False]
+            all_test_repos(), list(Protocol), [True, False], [True, False]
         ),
-        itertools.product([None], [None], list(Dataset), [True, False]),
+        itertools.product([None], [None], [True, False], [True, False]),
     ),
 )
 def test_check(
-    repo_path, capsys, monkeypatch, requests_mock, repo, protocol, dataset, continue_on_error
+    repo_path, capsys, monkeypatch, requests_mock, repo, protocol, include_restricted, continue_on_error
 ):
     if "GITHUB_REPOSITORY" in os.environ:
         monkeypatch.delenv("GITHUB_REPOSITORY")
 
     # Mock the call to the permissions URL to return the contents of our test permissions file
-    permissions_file = Path(__file__).parent / "fixtures" / "permissions" / "repository_permissions.yaml"
-    requests_mock.get(check.PERMISSIONS_URL, text=permissions_file.read_text())   
+    permissions_text, permissions_dict = get_permissions_fixture_data()
+    requests_mock.get(check.PERMISSIONS_URL, text=permissions_text)   
     
-    write_study_def(repo_path, dataset)
+    write_study_def(repo_path, include_restricted)
 
     if repo:
-        repo_name = repo.value
         if protocol == Protocol.ENVIRON:
-            monkeypatch.setenv("GITHUB_REPOSITORY", repo_name)
+            monkeypatch.setenv("GITHUB_REPOSITORY", repo)
         else:
             if protocol == Protocol.SSH:
-                url = f"git@github.com:{repo_name}.git"
+                url = f"git@github.com:{repo}.git"
             elif protocol == Protocol.HTTPS:
-                url = f"https://github.com/{repo_name}"
+                url = f"https://github.com/{repo}"
             else:
                 url = ""
             git_init(url)
 
-    if not repo and dataset != Dataset.RESTRICTED:
+    repo_permissions = permissions_dict.get(repo, {}).get("allow", [])    
+    # are the restricted datasets all in repo's permitted dataset?
+    # Some repos in the test fixtures list "ons", which is an allowed dataset;
+    # ignore any datasets listed in the repo's permissions that are not restricted
+    all_allowed = not (set(check.RESTRICTED_DATASETS.keys()) - set(repo_permissions))
+
+    if not repo and not include_restricted:
         validate_norepo(capsys, continue_on_error)
-    elif dataset == Dataset.RESTRICTED and repo != Repo.PERMITTED_ALL:
-        icnarc = ("icnarc", "admitted_to_icu", "3")
-        isaric = ("isaric", "with_an_isaric_record", "5")
-        ons_cis = ("ons_cis", "with_an_ons_cis_record", "7")
-        
-        permitted_mapping = {
-            "permitted": {
-                Repo.PERMITTED_ICNARC: (icnarc,),
-                Repo.PERMITTED_ISARIC: (isaric,),
-                Repo.PERMITTED_ONS_CIS: (ons_cis,),
-                Repo.PERMITTED_MULTIPLE: (icnarc, ons_cis),
-                Repo.UNKNOWN: (),
-                Repo.UNPERMITTED: (),
-                None: (),
-            },
-            "not_permitted": {
-                Repo.PERMITTED_ICNARC: (isaric, ons_cis),
-                Repo.PERMITTED_ISARIC: (icnarc, ons_cis),
-                Repo.PERMITTED_ONS_CIS: (icnarc, isaric),
-                Repo.PERMITTED_MULTIPLE: (isaric,),
-                Repo.UNKNOWN: (icnarc, isaric, ons_cis),
-                Repo.UNPERMITTED: (icnarc, isaric, ons_cis),
-                None: (icnarc, isaric, ons_cis),
-            }
-        }
+    elif include_restricted and not all_allowed:
         validate_fail(
             capsys, 
-            continue_on_error, 
-            not_permitted=permitted_mapping["not_permitted"][repo],
-            permitted=permitted_mapping["permitted"][repo]
+            continue_on_error,
+            permissions_dict.get(repo, {}).get("allow", [])
         )
     else:
         validate_pass(capsys, continue_on_error)
