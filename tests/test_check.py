@@ -31,7 +31,6 @@ class Protocol(Enum):
     ENVIRON = 3
 
 
-
 UNRESTRICTED_FUNCTION = "with_these_medications"
 
 
@@ -44,7 +43,12 @@ def repo_path(tmp_path):
 
 
 def get_permissions_fixture_data():
-    permissions_file = Path(__file__).parent / "fixtures" / "permissions" / "repository_permissions.yaml"
+    permissions_file = (
+        Path(__file__).parent
+        / "fixtures"
+        / "permissions"
+        / "repository_permissions.yaml"
+    )
     permissions_text = permissions_file.read_text()
     permissions_dict = YAML().load(permissions_text)
     return permissions_text, permissions_dict
@@ -71,12 +75,12 @@ def write_study_def(path, include_restricted):
     all_restricted_functions = flatten_list(check.RESTRICTED_DATASETS.values())
 
     for a in [1, 2]:
-        # generate the filename; we make 2 versions to test that all study defs are checked 
+        # generate the filename; we make 2 versions to test that all study defs are checked
         filepath = path / f"study_definition_{filename_part}_{a}.py"
-        
-        # Build the function calls for the test's study definition.  We name each variable with 
+
+        # Build the function calls for the test's study definition.  We name each variable with
         # the function name itself, to make checking the outputs easier
-        
+
         # if we're included restricted functions, create a function call for each one
         # these will cause check fails depending on the test repo's permissions
         if include_restricted:
@@ -95,10 +99,12 @@ def write_study_def(path, include_restricted):
                 for name in all_restricted_functions
             ]
         )
-        # create a function call an unrestricted function; 
+        # create a function call an unrestricted function;
         # include in all test study defs; this is always allowed
-        unrestricted = f"{UNRESTRICTED_FUNCTION}={format_function_call(UNRESTRICTED_FUNCTION)},"
-                
+        unrestricted = (
+            f"{UNRESTRICTED_FUNCTION}={format_function_call(UNRESTRICTED_FUNCTION)},"
+        )
+
         filepath.write_text(
             textwrap.dedent(
                 f"""
@@ -143,7 +149,7 @@ def validate_fail(capsys, continue_on_error, permissions):
             else:
                 assert dataset_name in stderr, permissions
                 assert f"{function_name}_name" in stderr
-        
+
         # unrestricted function is never in error output
         assert UNRESTRICTED_FUNCTION not in stderr
         # Both study definition files are reported
@@ -193,23 +199,27 @@ def test_permissions_fixture_data_complete():
         if not (restricted_datasets - allowed):
             all_allowed_repo = repo
             break
-    
-    assert all_allowed_repo is not None, (
-        """
+
+    assert (
+        all_allowed_repo is not None
+    ), """
         No repo found with access to all restricted datasets.  
         If you added a new restricted dataset, make sure 
         tests/fixtures/permissions/repository-permissions.yaml has been updated.
         """
-    )
 
     flattened_permitted_datasets = flatten_list(
-        [dataset_permissions["allow"] for dataset_permissions in permissions_dict.values()]
+        [
+            dataset_permissions["allow"]
+            for dataset_permissions in permissions_dict.values()
+        ]
     )
     permitted_dataset_counts = Counter(flattened_permitted_datasets)
 
     for dataset in restricted_datasets:
-        assert permitted_dataset_counts[dataset] > 1, \
-        f"No part-restricted repo found for restricted dataset {dataset}"
+        assert (
+            permitted_dataset_counts[dataset] > 1
+        ), f"No part-restricted repo found for restricted dataset {dataset}"
 
 
 @pytest.mark.parametrize(
@@ -222,15 +232,22 @@ def test_permissions_fixture_data_complete():
     ),
 )
 def test_check(
-    repo_path, capsys, monkeypatch, requests_mock, repo, protocol, include_restricted, continue_on_error
+    repo_path,
+    capsys,
+    monkeypatch,
+    requests_mock,
+    repo,
+    protocol,
+    include_restricted,
+    continue_on_error,
 ):
     if "GITHUB_REPOSITORY" in os.environ:
         monkeypatch.delenv("GITHUB_REPOSITORY")
 
     # Mock the call to the permissions URL to return the contents of our test permissions file
     permissions_text, permissions_dict = get_permissions_fixture_data()
-    requests_mock.get(check.PERMISSIONS_URL, text=permissions_text)   
-    
+    requests_mock.get(check.PERMISSIONS_URL, text=permissions_text)
+
     write_study_def(repo_path, include_restricted)
 
     if repo:
@@ -245,7 +262,7 @@ def test_check(
                 url = ""
             git_init(url)
 
-    repo_permissions = permissions_dict.get(repo, {}).get("allow", [])    
+    repo_permissions = permissions_dict.get(repo, {}).get("allow", [])
     # are the restricted datasets all in repo's permitted dataset?
     # Some repos in the test fixtures list "ons", which is an allowed dataset;
     # ignore any datasets listed in the repo's permissions that are not restricted
@@ -255,9 +272,7 @@ def test_check(
         validate_norepo(capsys, continue_on_error)
     elif include_restricted and not all_allowed:
         validate_fail(
-            capsys, 
-            continue_on_error,
-            permissions_dict.get(repo, {}).get("allow", [])
+            capsys, continue_on_error, permissions_dict.get(repo, {}).get("allow", [])
         )
     else:
         validate_pass(capsys, continue_on_error)
@@ -271,7 +286,7 @@ def test_repository_permissions_yaml():
         # on the branch, it will fail before it's merged
         branch = subprocess.run(["git", "rev-parse", "--abbrev-ref", "HEAD"])
         if branch != "main" and "Error 404" in str(e):
-            pytest.xfail("Permissions file does not exist on main yet") 
+            pytest.xfail("Permissions file does not exist on main yet")
 
     assert permissions, "empty permissions file"
     assert type(permissions) == CommentedMap, "invalid permissions file"

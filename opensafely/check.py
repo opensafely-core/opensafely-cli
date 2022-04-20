@@ -12,7 +12,8 @@ DESCRIPTION = "Check the opensafely project for correctness"
 RESTRICTED_DATASETS = {
     "icnarc": ["admitted_to_icu"],
     "isaric": ["with_an_isaric_record"],
-    "ons_cis": ["with_an_ons_cis_record"]  
+    "ons_cis": ["with_an_ons_cis_record"],
+    "ukrr": ["with_record_in_ukrr"],
 }
 
 PERMISSIONS_URL = "https://raw.githubusercontent.com/opensafely-core/opensafely-cli/main/repository_permissions.yaml"
@@ -23,18 +24,14 @@ def add_arguments(parser):
 
 
 def main(continue_on_error=False):
-    permissions_url = (
-        os.environ.get("OPENSAFELY_PERMISSIONS_URL") or PERMISSIONS_URL
-    )
+    permissions_url = os.environ.get("OPENSAFELY_PERMISSIONS_URL") or PERMISSIONS_URL
     repo_name = get_repository_name(continue_on_error)
     if not repo_name and not continue_on_error:
         sys.exit("Unable to find repository name")
     permissions = get_datasource_permissions(permissions_url)
     allowed_datasets = get_allowed_datasets(repo_name, permissions)
     datasets_to_check = {
-        k: v
-        for k, v in RESTRICTED_DATASETS.items()
-        if k not in allowed_datasets
+        k: v for k, v in RESTRICTED_DATASETS.items() if k not in allowed_datasets
     }
     files_to_check = glob.glob("**/*.py", recursive=True)
 
