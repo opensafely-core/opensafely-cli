@@ -1,0 +1,28 @@
+2022-04-25T11:37:20.751678216Z 2022-04-25 11:37:20 [info     ] Generating cohort for study_definition in output [cohortextractor.cohortextractor] 
+2022-04-25T11:37:20.832847251Z 2022-04-25 11:37:20 [info     ] cohortextractor-stats          [cohortextractor.log_utils] output_column_count=33 table_count=30 table_joins_count=30
+2022-04-25T11:37:20.832875666Z 2022-04-25 11:37:20 [info     ] cohortextractor-stats          [cohortextractor.log_utils] variable_count=32
+2022-04-25T11:37:20.832946062Z 2022-04-25 11:37:20 [info     ] cohortextractor-stats          [cohortextractor.log_utils] variables_using_codelist_count=23
+2022-04-25T11:37:20.833012480Z 2022-04-25 11:37:20 [info     ] cohortextractor-stats          [cohortextractor.log_utils] codelist_size=50 variable_using_codelist=learning_disability
+2022-04-25T11:37:20.833090409Z 2022-04-25 11:37:20 [info     ] cohortextractor-stats          [cohortextractor.log_utils] codelist_size=79 variable_using_codelist=medication_review
+2022-04-25T11:37:20.833090412Z 2022-04-25 11:37:20 [info     ] cohortextractor-stats          [cohortextractor.log_utils] description=A description with spaces sql=SELECT * FROM 
+TABLE 
+    with 
+    line 
+    breaks
+2022-04-25T11:37:20.835160414Z 2022-04-25 11:37:20 [info     ] Setting index_date to 2021-04-01 [cohortextractor.cohortextractor] 
+2022-04-25T11:37:21.133637972Z 2022-04-25 11:37:21 [info     ] Successfully created cohort and covariates at output/input_2021-04-01.feather [cohortextractor.cohortextractor] 
+2022-04-25T11:37:21.133714541Z 2022-04-25 11:37:21 [info     ] cohortextractor-stats          [cohortextractor.cohortextractor] description=generate_cohort for study_definition at 2021-04-01 execution_time=0:00:00.282108 execution_time_secs=0.28210839499999985
+2022-04-25T11:37:28.537687970Z 2022-04-25 11:37:28 [info     ] cohortextractor-stats          [cohortextractor.cohortextractor] description=generate_cohort for study_definition (all index dates) execution_time=0:00:07.801681 execution_time_secs=7.801681266000001
+
+
+state: succeeded
+docker_image_id: sha256:a7b427365c8d7f93004671ce91cf91f703ed3da74c80007c755254c651ebb9ec
+job_id: 3e6blwbtbxgpm6ji
+run_by_user: becky
+created_at: 2022-04-25T11:37:16Z
+completed_at: 2022-04-25T11:37:32Z
+
+Completed successfully
+
+outputs:
+  output/input_2019-04-01.feather  - highly_sensitive
