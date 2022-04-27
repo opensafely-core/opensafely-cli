@@ -42,13 +42,13 @@ def test_log_stats(project_path):
             "run_by_user",
             "created_at",
             "completed_at",
-            "elapsed_time_secs",
-            "elapsed_time",
+            "action_elapsed_time_secs",
+            "action_elapsed_time",
         ]
         # elapsed time is calculated from created/completed time and reported in
         # seconds and human-readable H:M:S
-        assert summary_log["elapsed_time_secs"] == 16
-        assert summary_log["elapsed_time"] == "0:00:16"
+        assert summary_log["action_elapsed_time_secs"] == 16
+        assert summary_log["action_elapsed_time"] == "0:00:16"
         assert summary_log["total_actions_in_job_request"] == 2
 
     # all other logs have the job id, project etc added

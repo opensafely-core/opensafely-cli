@@ -67,8 +67,9 @@ def format_summary_stats(project_name, current_action, summary_stats):
 
     if start_time and end_time:
         elapsed = datetime.strptime(end_time, ts_format) - start_dt
-        summary_stats["elapsed_time_secs"] = elapsed.seconds
-        summary_stats["elapsed_time"] = str(elapsed)
+        # prefix summary elapsed time to make filtering easier
+        summary_stats["action_elapsed_time_secs"] = elapsed.seconds
+        summary_stats["action_elapsed_time"] = str(elapsed)
     return {
         "timestamp": _timestamp_for_honeytail(start_time, ts_format),
         "project": project_name,
