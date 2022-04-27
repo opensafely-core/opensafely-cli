@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from opensafely import log_stats
+from opensafely import extract_stats
 
 
 @pytest.fixture
@@ -15,7 +15,7 @@ def project_path(tmp_path):
 
 
 def test_log_stats(project_path):
-    log_stats.main(project_path, "stats.json")
+    extract_stats.main(project_path, "stats.json")
     stats_output_path = project_path / "metadata" / "stats.json"
     assert stats_output_path.exists()
 
