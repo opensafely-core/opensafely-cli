@@ -82,7 +82,10 @@ def format_summary_stats(project_name, current_action, summary_stats):
 
 def add_action_counts_by_job_request(summary_stats_list):
     job_request_counts = Counter(
-        [summary["job_request_id"] for summary in summary_stats_list]
+        [
+            summary.get("job_request_id") for summary in summary_stats_list 
+            if "job_request_id" in summary
+        ]
     )
     # Include the total number of actions run alongside this one in each action summary
 
@@ -159,20 +162,23 @@ def main(project_dir, output_file, project_name=None):
 
         # At the end of each processed file, we parse the raw logs into a dict
         # and add them to the full list that will be written to file
-        stats_logs.extend(
-            parse_stats_logs(
-                raw_logs,
-                project_name,
-                current_action,
-                summary_stats["job_id"],
-                summary_stats["job_request_id"],
+        if raw_logs:
+            stats_logs.extend(
+                parse_stats_logs(
+                    raw_logs,
+                    project_name,
+                    current_action,
+                    summary_stats.get("job_id"),
+                    summary_stats.get("job_request_id"),
+                )
             )
-        )
 
         # Format and add the summary stats
-        summary_stats_logs.append(
-            format_summary_stats(project_name, current_action, summary_stats)
-        )
+        # Check for job_id in case we encountered other, non-job logs in the metadata folder
+        if summary_stats.get("job_id"):  
+            summary_stats_logs.append(
+                format_summary_stats(project_name, current_action, summary_stats)
+            )
 
     # Now that all log files are processed, find the action acounts by
     # job request

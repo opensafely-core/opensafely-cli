@@ -27,6 +27,7 @@ def test_log_stats(project_path):
     # action 2 has 9 stats logs plus one summary log
     # action 3 is a different job request
     # action 3 has 1 stats log plus one summary log
+    # non-action.log is processed, but has no stats log or summary section
 
     assert len(stats_json) == 9 + 10 + 2
     summary_logs = [stats_json[8], stats_json[18], stats_json[-1]]
