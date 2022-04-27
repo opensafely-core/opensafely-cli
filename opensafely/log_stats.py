@@ -81,7 +81,7 @@ def main(project_dir, output_file, project_name=None):
     log_dir = project_dir / "metadata"
     project_name = project_name or project_dir.resolve().name
 
-    log_files = list((log_dir).glob("*.log"))
+    log_files = list(log_dir.glob("*.log"))
 
     # Find the number of actions (equivalent to the number of log files)
     action_count = len(log_files)
