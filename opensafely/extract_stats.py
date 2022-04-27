@@ -28,9 +28,9 @@ def add_arguments(parser):
     )
     parser.add_argument(
         "--output-file",
-        help="Output json filename (default: log_stats.json)",
+        help="Output json filename (default: extracted_stats.json)",
         type=Path,
-        default="log_stats.json",
+        default="extracted_stats.json",
     )
     return parser
 
