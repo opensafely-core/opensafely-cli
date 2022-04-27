@@ -6,11 +6,11 @@ from datetime import datetime
 from pathlib import Path
 
 DESCRIPTION = "Parse and output cohortextractor-stats logs as JSONL"
-TIMESTAMP_PREFIX_REGEX = r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{9}Z"
-COMPLETED_PREFIX_REGEX = r"^Completed successfully"
-KEY_VALUE_REGEX = r"(?<=\s)([^\s=]+)=(.*?)(?=(?:\s[^\s=]+=|$))"
-ACTION_SUMMARY_REGEX = (
-    r"^(state|docker_image_id|job_id|run_by_user|created_at|completed_at):\s(.*)"
+TIMESTAMP_PREFIX_REGEX = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{9}Z")
+COMPLETED_PREFIX_REGEX = re.compile(r"^Completed successfully")
+KEY_VALUE_REGEX = re.compile(r"(?<=\s)([^\s=]+)=(.*?)(?=(?:\s[^\s=]+=|$))")
+ACTION_SUMMARY_REGEX = re.compile(
+        r"^(state|docker_image_id|job_id|run_by_user|created_at|completed_at):\s(.*)"
 )
 
 
@@ -42,10 +42,9 @@ def _timestamp_for_honeytail(timestamp, ts_format):
 
 
 def parse_log(project_name, current_action, job_id, current_log):
-    current_log_timestamp = re.match(TIMESTAMP_PREFIX_REGEX, current_log).group()
+    current_log_timestamp = TIMESTAMP_PREFIX_REGEX.match(current_log).group()
     current_log = re.sub(r"\s*\n\s*", " ", current_log).strip()
-    log_params = dict(re.findall(KEY_VALUE_REGEX, current_log))
-    ts_format = "%Y-%m-%dT%H:%M:%S"
+    log_params = dict(KEY_VALUE_REGEX.findall(current_log))
     return {
         "timestamp": current_log_timestamp,
         "project": project_name,
@@ -99,9 +98,7 @@ def main(project_dir, output_file, project_name=None):
         for line in filep.open().readlines():
             # Logs in the log file can span multiple lines;
             # check if this line is the beginning of a new log or the action summary
-            if re.match(TIMESTAMP_PREFIX_REGEX, line) or re.match(
-                COMPLETED_PREFIX_REGEX, line
-            ):
+            if TIMESTAMP_PREFIX_REGEX.match(line) or COMPLETED_PREFIX_REGEX.match(line):
                 # If there's a current log, we're finished with it now, parse it add to the stats dict
                 if current_log is not None:
                     raw_logs.append(current_log)
@@ -111,9 +108,9 @@ def main(project_dir, output_file, project_name=None):
                 else:
                     # This is a standard log, set the current_log to None
                     current_log = None
-            elif re.match(ACTION_SUMMARY_REGEX, line):
+            elif ACTION_SUMMARY_REGEX.match(line):
                 # Check for the summary stats lines
-                summary_stats.update(dict(re.findall(ACTION_SUMMARY_REGEX, line)))
+                summary_stats.update(dict(ACTION_SUMMARY_REGEX.findall(line)))
             elif current_log is not None:
                 # this isn't a log start, and the previous log start was a stats one, so it
                 # must be a continuation
