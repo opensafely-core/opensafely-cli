@@ -12,6 +12,7 @@ from opensafely._vendor.jobrunner import config
 from opensafely._vendor.jobrunner.lib.string_utils import project_name_from_url
 from opensafely._vendor.jobrunner.lib.subprocess_utils import subprocess_run
 
+
 log = logging.getLogger(__name__)
 
 

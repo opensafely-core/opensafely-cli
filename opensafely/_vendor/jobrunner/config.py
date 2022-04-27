@@ -34,6 +34,14 @@ MEDIUM_PRIVACY_STORAGE_BASE = Path(
 HIGH_PRIVACY_WORKSPACES_DIR = HIGH_PRIVACY_STORAGE_BASE / "workspaces"
 MEDIUM_PRIVACY_WORKSPACES_DIR = MEDIUM_PRIVACY_STORAGE_BASE / "workspaces"
 
+HIGH_PRIVACY_ARCHIVE_DIR = os.environ.get(
+    "HIGH_PRIVACY_ARCHIVE_DIR", HIGH_PRIVACY_STORAGE_BASE / "archives"
+)
+
+# valid archive formats
+ARCHIVE_FORMATS = (".tar.gz", ".tar.zstd", ".tar.xz")
+
+
 JOB_LOG_DIR = HIGH_PRIVACY_STORAGE_BASE / "logs"
 
 JOB_SERVER_ENDPOINT = os.environ.get(
@@ -180,5 +188,5 @@ STATS_POLL_INTERVAL = float(os.environ.get("STATS_POLL_INTERVAL", "10"))
 
 
 # feature flag to enable new API abstraction
-EXECUTION_API = os.environ.get("EXECUTION_API", "false").lower() == "true"
+EXECUTION_API = os.environ.get("EXECUTION_API", "true").lower() == "true"
 EXECUTOR = os.environ.get("EXECUTOR", "opensafely._vendor.jobrunner.executors.local:LocalDockerAPI")

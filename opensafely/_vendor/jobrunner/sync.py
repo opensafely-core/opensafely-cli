@@ -14,6 +14,7 @@ from opensafely._vendor.jobrunner.lib.database import find_where
 from opensafely._vendor.jobrunner.lib.log_utils import configure_logging, set_log_context
 from opensafely._vendor.jobrunner.models import Job, JobRequest
 
+
 session = requests.Session()
 log = logging.getLogger(__name__)
 

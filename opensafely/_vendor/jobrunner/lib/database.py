@@ -16,6 +16,7 @@ from enum import Enum
 
 from opensafely._vendor.jobrunner import config
 
+
 CONNECTION_CACHE = threading.local()
 
 

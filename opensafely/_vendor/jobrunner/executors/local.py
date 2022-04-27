@@ -3,6 +3,7 @@ import logging
 import subprocess
 from pathlib import Path
 
+from opensafely._vendor.jobrunner import config
 from opensafely._vendor.jobrunner.job_executor import (
     ExecutorAPI,
     ExecutorState,
@@ -13,6 +14,7 @@ from opensafely._vendor.jobrunner.job_executor import (
 )
 from opensafely._vendor.jobrunner.lib import docker
 from opensafely._vendor.jobrunner.lib.string_utils import tabulate
+
 # ideally, these should be moved into this module when the old implementation
 # is removed
 from opensafely._vendor.jobrunner.manage_jobs import (
@@ -31,6 +33,7 @@ from opensafely._vendor.jobrunner.manage_jobs import (
     volume_name,
     write_manifest_file,
 )
+
 
 # cache of result objects
 RESULTS = {}
@@ -51,6 +54,15 @@ def get_job_labels(job: JobDefinition):
     }
 
 
+def workspace_is_archived(workspace):
+    archive_dir = config.HIGH_PRIVACY_ARCHIVE_DIR
+    for ext in config.ARCHIVE_FORMATS:
+        path = (archive_dir / workspace).with_suffix(ext)
+        if path.exists():
+            return True
+    return False
+
+
 class LocalDockerAPI(ExecutorAPI):
     """ExecutorAPI implementation using local docker service."""
 
@@ -58,6 +70,15 @@ class LocalDockerAPI(ExecutorAPI):
         current = self.get_status(job)
         if current.state != ExecutorState.UNKNOWN:
             return current
+
+        # Check the workspace is not archived
+        workspace_dir = get_high_privacy_workspace(job.workspace)
+        if not workspace_dir.exists():
+            if workspace_is_archived(job.workspace):
+                return JobStatus(
+                    ExecutorState.ERROR,
+                    f"Workspace {job.workspace} has been archived. Contact the OpenSAFELY tech team to resolve",
+                )
 
         # Check the image exists locally and error if not. Newer versions of
         # docker-cli support `--pull=never` as an argument to `docker run` which

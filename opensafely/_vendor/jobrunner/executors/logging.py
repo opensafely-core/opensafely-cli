@@ -10,6 +10,7 @@ from opensafely._vendor.jobrunner.job_executor import (
 )
 from opensafely._vendor.jobrunner.lib.lru_dict import LRUDict
 
+
 LOGGER_NAME = "executor"
 
 

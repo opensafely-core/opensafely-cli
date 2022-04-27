@@ -16,6 +16,7 @@ from opensafely._vendor.jobrunner.lib.docker_stats import (
 from opensafely._vendor.jobrunner.lib.log_utils import configure_logging
 from opensafely._vendor.jobrunner.lib.system_stats import DockerDiskSpaceError, get_system_stats
 
+
 SCHEMA_SQL = """
 CREATE TABLE stats (
     timestamp TEXT,
