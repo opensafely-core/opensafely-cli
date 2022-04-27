@@ -78,6 +78,19 @@ def format_summary_stats(project_name, current_action, summary_stats):
 
 
 def main(project_dir, output_file, project_name=None):
+    """
+    Read all log files from the project's metadata folder and extract stats logs.
+
+    Cohort-extractor actions log stats with the event "cohortextractor-stats",
+    which is used to idenitfy stats logs, and any number of key-value pairs of 
+    stats data in the format key=value.  Logs can span multiple lines, and values in
+    a key=value pair can contain spaces.
+
+    In addition, each log file contains a section with overall job summary data, which 
+    is extracted into a single additional log, and other non-stats logs, which are ignored.
+
+    Output is in JSONL format, one log per line.
+    """
     log_dir = project_dir / "metadata"
     project_name = project_name or project_dir.resolve().name
 
@@ -93,32 +106,43 @@ def main(project_dir, output_file, project_name=None):
         # Include the total number of actions run alongside this one in each action summary
         summary_stats = {"total_actions_in_job_request": action_count}
         raw_logs = []
-        current_log = None
+        # logs in the log file can span multiple lines, and are a mixture of stats logs, 
+        # which we want to extract, and other logs, which we mostly don't care about.  
+        # `extracted_log` keeps track of the log that's being parsed as we interate over the log
+        # file line-by-line, collecting the stats logs into the `raw_logs` list            
+
+        extracted_log = None
         for line in filep.open().readlines():
-            # Logs in the log file can span multiple lines;
-            # check if this line is the beginning of a new log or the action summary
+            # check if this line is the beginning of a new log or the beginning of the end-of-file 
+            # action summary
             if TIMESTAMP_PREFIX_REGEX.match(line) or COMPLETED_PREFIX_REGEX.match(line):
-                # If there's a current log, we're finished with it now, parse it add to the stats dict
-                if current_log is not None:
-                    raw_logs.append(current_log)
-                # Now reset the current log, to the current line if it's a cohort-extractor log
+                # We're at the beginning of a new log
+                # If we were in the process of extracting a log, we're finished with it now
+                # Add it to the list of raw logs to be processed later
+                # (extracted_log can be None if we're at the beginning of the file, or if 
+                # the previous line wasn't a stats log)
+                if extracted_log is not None:
+                    raw_logs.append(extracted_log)
+                # Now reset the extracted_log...
                 if "cohortextractor-stats" in line:
-                    current_log = line
+                    # ...to the current line if it's a stats log
+                    extracted_log = line
                 else:
-                    # This is a standard log, set the current_log to None
-                    current_log = None
+                    # ...to None if it's a standard non-stats log
+                    extracted_log = None
             elif ACTION_SUMMARY_REGEX.match(line):
                 # Check for the summary stats lines
                 summary_stats.update(dict(ACTION_SUMMARY_REGEX.findall(line)))
-            elif current_log is not None:
-                # this isn't a log start, and the previous log start was a stats one, so it
-                # must be a continuation
-                current_log += line
-        # Add the final log, if there is one
-        if current_log is not None:
-            raw_logs.append(current_log)
+            elif extracted_log is not None:
+                # this line isn't a log start, and we're in the process of extracting a log, 
+                # so it must be a continuation line. Append it to the log we're extracting. 
+                extracted_log += line
+        # Add the final extracted log, if there is one
+        if extracted_log is not None:
+            raw_logs.append(extracted_log)
 
-        # format the raw logs and add to the main list
+        # At the end of each processed file, we parse the raw logs into a dict
+        # and add them to the full list that will be written to file
         stats_logs.extend(
             parse_stats_logs(
                 raw_logs, project_name, current_action, summary_stats["job_id"]
