@@ -49,6 +49,7 @@ def test_log_stats(project_path):
         # seconds and human-readable H:M:S
         assert summary_log["elapsed_time_secs"] == 16
         assert summary_log["elapsed_time"] == "0:00:16"
+        assert summary_log["total_actions_in_job_request"] == 2
 
     # all other logs have the job id, project etc added
     def _assert_keys(log):

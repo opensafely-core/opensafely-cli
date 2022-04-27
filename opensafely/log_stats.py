@@ -89,7 +89,6 @@ def main(project_dir, output_file, project_name=None):
     summary_stats_logs = []
 
     for filep in log_files:
-        action_count += 1
         current_action = filep.stem
         # Include the total number of actions run alongside this one in each action summary
         summary_stats = {"total_actions_in_job_request": action_count}
