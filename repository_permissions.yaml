@@ -6,3 +6,5 @@ opensafely/school-age-children-and-covid:
   allow: ['icnarc']
 opensafely/hdruk-os-covid-paeds:
   allow: ['isaric']
+opensafely/renal-short-data-report:
+  allow: ['ukrr']
