@@ -33,7 +33,8 @@ from opensafely._vendor.jobrunner.manage_jobs import (
     start_job,
 )
 from opensafely._vendor.jobrunner.models import Job, State, StatusCode
-from opensafely._vendor.jobrunner.project import is_generate_cohort_command
+from opensafely._vendor.jobrunner.project import requires_db_access
+
 
 log = logging.getLogger(__name__)
 
@@ -295,7 +296,7 @@ def handle_job_api(job, api):
         elif job.state != State.RUNNING:
             # got an ExecutorState that should mean the job.state is RUNNING, but it is not
             log.warning(
-                "state error: got {new_status.state} for job we thought was {job.state}"
+                f"state error: got {new_status.state} for job we thought was {job.state}"
             )
         set_message(job, new_status.state.value.title())
 
@@ -365,7 +366,7 @@ def job_to_job_definition(job):
     allow_database_access = False
     env = {"OPENSAFELY_BACKEND": config.BACKEND}
     # Check `is True` so we fail closed if we ever get anything else
-    if is_generate_cohort_command(action_args) is True:
+    if requires_db_access(action_args) is True:
         if not config.USING_DUMMY_DATA_BACKEND:
             allow_database_access = True
             env["DATABASE_URL"] = config.DATABASE_URLS[job.database_name]

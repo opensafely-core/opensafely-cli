@@ -2,7 +2,9 @@ import argparse
 import sys
 from pathlib import Path
 
-from opensafely import check, codelists, jupyter, pull, unzip, upgrade
+from opensafely import (
+    check, codelists, extract_stats, jupyter, pull, unzip, upgrade
+)
 from opensafely._vendor.jobrunner.cli import local_run
 
 __version__ = Path(__file__).parent.joinpath("VERSION").read_text().strip()
@@ -42,6 +44,7 @@ def main():
     add_subcommand("check", check)
     add_subcommand("jupyter", jupyter)
     add_subcommand("unzip", unzip)
+    add_subcommand("extract-stats", extract_stats)
 
     # we version check before parse_args is called so that if a user is
     # following recent documentation but has an old opensafely installed,

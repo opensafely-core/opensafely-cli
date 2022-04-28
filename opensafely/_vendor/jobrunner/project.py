@@ -8,6 +8,7 @@ from types import SimpleNamespace
 from opensafely._vendor.jobrunner import config
 from opensafely._vendor.jobrunner.lib.yaml_utils import YAMLError, parse_yaml
 
+
 # The magic action name which means "run every action"
 RUN_ALL_COMMAND = "run_all"
 
@@ -238,6 +239,23 @@ def add_config_to_run_command(run_command, config):
     return f"{run_command} --config '{config_as_json}'"
 
 
+def requires_db_access(args):
+    """
+    By default actions do not have database access, but certain trusted actions require it
+    """
+    valid_commands = {
+        "cohortextractor": ("generate_cohort", "generate_codelist_report"),
+        "cohortextractor-v2": ("generate_cohort", "generate_dataset"),
+        "databuilder": ("generate_dataset",),
+    }
+    if len(args) <= 1:
+        return False
+
+    image, command = args[0], args[1]
+    image = image.split(":")[0]
+    return command in valid_commands.get(image, [])
+
+
 def is_generate_cohort_command(args, require_version=None):
     """
     The `cohortextractor generate_cohort` command gets special treatment in
@@ -246,7 +264,7 @@ def is_generate_cohort_command(args, require_version=None):
     """
     assert not isinstance(args, str)
     version_found = None
-    if len(args) > 1 and args[1] == "generate_cohort":
+    if len(args) > 1 and args[1] in ("generate_cohort", "generate_dataset"):
         if args[0].startswith("cohortextractor:"):
             version_found = 1
         # databuilder is a rebranded cohortextractor-v2.

@@ -8,6 +8,7 @@ import time
 from opensafely._vendor.jobrunner import config, record_stats, run, sync
 from opensafely._vendor.jobrunner.lib.log_utils import configure_logging
 
+
 log = logging.getLogger(__name__)
 
 

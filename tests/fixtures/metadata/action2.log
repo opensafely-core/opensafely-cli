@@ -1,0 +1,35 @@
+2022-04-25T11:37:53.516753154Z 2022-04-25 11:37:53 [info     ] Generating measure for study_definition in output [cohortextractor.cohortextractor] 
+2022-04-25T11:37:53.605072735Z 2022-04-25 11:37:53 [info     ] cohortextractor-stats          [cohortextractor.log_utils] output_column_count=33 table_count=30 table_joins_count=30
+2022-04-25T11:37:53.605144893Z 2022-04-25 11:37:53 [info     ] cohortextractor-stats          [cohortextractor.log_utils] variable_count=32
+2022-04-25T11:37:53.608226064Z 2022-04-25 11:37:53 [info     ] cohortextractor-stats          [cohortextractor.cohortextractor] measures_count=2
+2022-04-25T11:37:53.609617608Z 2022-04-25 11:37:53 [info     ] Calculating measures for output/input_2019-12-01.feather [cohortextractor.cohortextractor] 
+2022-04-25T11:37:53.609752917Z 2022-04-25 11:37:53 [info     ] Calculating systolic_bp        [cohortextractor.cohortextractor] 
+2022-04-25T11:37:53.609889694Z 2022-04-25 11:37:53 [info     ] Loading patient data from output/input_2019-12-01.feather [cohortextractor.cohortextractor] 
+2022-04-25T11:37:53.698733081Z 2022-04-25 11:37:53 [info     ] cohortextractor-stats          [cohortextractor.cohortextractor] dataframe=patient_df date=datetime.date(2019, 12, 1) measure_id=systolic_bp memory=41214
+2022-04-25T11:37:53.698892232Z 2022-04-25 11:37:53 [info     ] cohortextractor-stats          [cohortextractor.cohortextractor] date=datetime.date(2019, 12, 1) description=Load patient dataframe for measures execution_time=0:00:00.078953 execution_time_secs=0.07895265700000031 input_file=output/input_2019-12-01.feather
+2022-04-25T11:37:53.707543608Z 2022-04-25 11:37:53 [info     ] cohortextractor-stats          [cohortextractor.cohortextractor] date=datetime.date(2019, 12, 1) description=Calculate measure execution_time=0:00:00.007607 execution_time_secs=0.007606717999999901 measure_id=systolic_bp
+2022-04-25T11:37:53.708836721Z 2022-04-25 11:37:53 [info     ] cohortextractor-stats          [cohortextractor.cohortextractor] dataframe=measure_df date=datetime.date(2019, 12, 1) measure_id=systolic_bp memory=3509
+2022-04-25T11:37:53.711864471Z 2022-04-25 11:37:53 [info     ] Created measure output at output/measure_systolic_bp_2019-12-01.csv [cohortextractor.cohortextractor] 
+2022-04-25T11:37:53.711955357Z 2022-04-25 11:37:53 [info     ] Calculating systolic_bp_practice_only [cohortextractor.cohortextractor] 
+2022-04-25T11:37:53.716617612Z 2022-04-25 11:37:53 [info     ] cohortextractor-stats          [cohortextractor.cohortextractor] date=datetime.date(2019, 12, 1) description=Calculate measure execution_time=0:00:00.004357 execution_time_secs=0.004357261000000001 measure_id=systolic_bp_practice_only
+2022-04-25T11:37:53.717850127Z 2022-04-25 11:37:53 [info     ] cohortextractor-stats          [cohortextractor.cohortextractor] dataframe=measure_df date=datetime.date(2019, 12, 1) measure_id=systolic_bp_practice_only memory=1120
+2022-04-25T11:37:53.719066327Z 2022-04-25 11:37:53 [info     ] Created measure output at output/measure_systolic_bp_practice_only_2019-12-01.csv [cohortextractor.cohortextractor] 
+2022-04-25T11:37:58.169074136Z 2022-04-25 11:37:58 [info     ] Combined measure output for all dates in output/measure_systolic_bp.csv [cohortextractor.cohortextractor] 
+2022-04-25T11:37:58.171443532Z 2022-04-25 11:37:58 [info     ] Combined measure output for all dates in output/measure_systolic_bp_practice_only.csv [cohortextractor.cohortextractor] 
+
+
+state: succeeded
+docker_image_id: sha256:a7b427365c8d7f93004671ce91cf91f703ed3da74c80007c755254c651ebb9ec
+job_id: yf5dm6ekrw7cv5vo
+job_request_id: 1234
+run_by_user: becky
+created_at: 2022-04-25T11:37:16Z
+completed_at: 2022-04-25T11:37:32Z
+
+Completed successfully
+
+outputs:
+  output/measure_systolic_bp.csv                                         - moderately_sensitive
+  output/measure_systolic_bp_2019-01-01.csv                              - moderately_sensitive
+  output/measure_systolic_bp_practice_only.csv                                         - moderately_sensitive
+  output/measure_systolic_bp_practice_only_2019-01-01.csv                              - moderately_sensitive

@@ -60,6 +60,7 @@ from opensafely._vendor.jobrunner.reusable_actions import (
 )
 from opensafely._vendor.jobrunner.run import main as run_main
 
+
 # First paragraph of docstring
 DESCRIPTION = __doc__.partition("\n\n")[0]
 

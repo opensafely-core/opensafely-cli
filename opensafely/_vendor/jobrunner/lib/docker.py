@@ -7,7 +7,9 @@ import re
 import subprocess
 
 from opensafely._vendor.jobrunner import config
+from opensafely._vendor.jobrunner.lib import atomic_writer
 from opensafely._vendor.jobrunner.lib.subprocess_utils import subprocess_run
+
 
 # Docker requires a container in order to interact with volumes, but it doesn't
 # much matter what it is for our purposes as long as it has `sh` and `find`
@@ -166,6 +168,7 @@ def copy_to_volume(volume_name, source, dest, timeout=None):
     docker(
         [
             "cp",
+            "--follow-link",
             source,
             f"{manager_name(volume_name)}:{VOLUME_MOUNT_POINT}/{dest}",
         ],
@@ -183,17 +186,18 @@ def copy_from_volume(volume_name, source, dest, timeout=None):
     As this command can potentially take a long time with large files it does
     not, by default, have any timeout.
     """
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    docker(
-        [
-            "cp",
-            f"{manager_name(volume_name)}:{VOLUME_MOUNT_POINT}/{source}",
-            dest,
-        ],
-        check=True,
-        capture_output=True,
-        timeout=timeout,
-    )
+    with atomic_writer(dest) as tmp:
+        docker(
+            [
+                "cp",
+                "--follow-link",
+                f"{manager_name(volume_name)}:{VOLUME_MOUNT_POINT}/{source}",
+                tmp,
+            ],
+            check=True,
+            capture_output=True,
+            timeout=timeout,
+        )
 
 
 def glob_volume_files(volume_name, glob_patterns):
