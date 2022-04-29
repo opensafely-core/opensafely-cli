@@ -8,10 +8,10 @@ from pathlib import Path
 
 DESCRIPTION = "Parse and output cohortextractor-stats logs as JSONL"
 TIMESTAMP_PREFIX_REGEX = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{9}Z")
-COMPLETED_PREFIX_REGEX = re.compile(r"^Completed successfully")
+COMPLETED_PREFIX_REGEX = re.compile(r"^Completed successfully|outputs:")
 KEY_VALUE_REGEX = re.compile(r"(?<=\s)([^\s=]+)=(.*?)(?=(?:\s[^\s=]+=|$))")
 ACTION_SUMMARY_REGEX = re.compile(
-    r"^(state|docker_image_id|job_id|job_request_id|run_by_user|created_at|completed_at):\s(.*)"
+    r"^(state|exit_code|docker_image_id|job_id|job_request_id|run_by_user|created_at|completed_at|local_run):\s(.*)"
 )
 
 
@@ -36,10 +36,9 @@ def add_arguments(parser):
     return parser
 
 
-def _timestamp_for_honeytail(timestamp, ts_format):
+def _timestamp_for_honeytail(ts_datetime):
     honeytail_ts_format = "%Y-%m-%dT%H:%M:%S.000000000Z"
-    dt = datetime.strptime(timestamp, ts_format)
-    return dt.strftime(honeytail_ts_format)
+    return ts_datetime.strftime(honeytail_ts_format)
 
 
 def parse_log(project_name, current_action, job_id, job_request_id, current_log):
@@ -61,19 +60,39 @@ def parse_stats_logs(raw_logs, project_name, current_action, job_id, job_request
         yield parse_log(project_name, current_action, job_id, job_request_id, log)
 
 
+def _parse_summary_datetime(datetime_string, ts_format):
+    """
+    Created/completed in the log summary may be a stingified int (unix time)
+    or ISO-8061 UTC format
+    Convert the string to a datetime object and return both the datetime object and
+    its ISO-8061 UTC string
+    """
+    try:
+        datetime_obj = datetime.fromtimestamp(int(datetime_string))
+        return datetime_obj, datetime_obj.strftime(ts_format)
+    except ValueError:
+        return datetime.strptime(datetime_string, ts_format), datetime_string
+
+
 def format_summary_stats(project_name, current_action, summary_stats):
     start_time = summary_stats.get("created_at")
     end_time = summary_stats.get("completed_at")
-    ts_format = "%Y-%m-%dT%H:%M:%SZ"
-    start_dt = datetime.strptime(start_time, ts_format)
 
+    iso_utc_format = "%Y-%m-%dT%H:%M:%SZ"
+
+    start_dt, start_time_formatted = _parse_summary_datetime(start_time, iso_utc_format)
+    summary_stats["created_at"] = start_time_formatted
     if start_time and end_time:
-        elapsed = datetime.strptime(end_time, ts_format) - start_dt
+        end_dt, end_time_formatted = _parse_summary_datetime(end_time, iso_utc_format)
+        elapsed = end_dt - start_dt
         # prefix summary elapsed time to make filtering easier
         summary_stats["action_elapsed_time_secs"] = elapsed.seconds
         summary_stats["action_elapsed_time"] = str(elapsed)
+        summary_stats["completed_at"] = end_time_formatted
+
     return {
-        "timestamp": _timestamp_for_honeytail(start_time, ts_format),
+        # add the timestamp field in the format that honeytail requires
+        "timestamp": _timestamp_for_honeytail(start_dt),
         "project": project_name,
         "action": current_action,
         **{k: v for k, v in summary_stats.items()},
@@ -83,12 +102,12 @@ def format_summary_stats(project_name, current_action, summary_stats):
 def add_action_counts_by_job_request(summary_stats_list):
     job_request_counts = Counter(
         [
-            summary.get("job_request_id") for summary in summary_stats_list 
+            summary.get("job_request_id")
+            for summary in summary_stats_list
             if "job_request_id" in summary
         ]
     )
     # Include the total number of actions run alongside this one in each action summary
-
     summary_stats_with_action_counts = []
     for summary in summary_stats_list:
         job_request_id = summary.get("job_request_id")
@@ -175,7 +194,7 @@ def main(project_dir, output_file, project_name=None):
 
         # Format and add the summary stats
         # Check for job_id in case we encountered other, non-job logs in the metadata folder
-        if summary_stats.get("job_id"):  
+        if summary_stats.get("job_id"):
             summary_stats_logs.append(
                 format_summary_stats(project_name, current_action, summary_stats)
             )
