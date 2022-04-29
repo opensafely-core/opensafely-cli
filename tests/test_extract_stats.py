@@ -7,21 +7,30 @@ import pytest
 from opensafely import extract_stats
 
 
-@pytest.fixture
-def project_path(tmp_path):
-    fixture_path = Path(__file__).parent / "fixtures" / "metadata"
+def add_metadata_to_project_path(tmp_path, fixture_folder):
+    fixture_path = Path(__file__).parent / "fixtures" / "metadata" / fixture_folder
     shutil.copytree(fixture_path, tmp_path / "metadata")
-    yield tmp_path
+    return tmp_path
 
 
-def test_log_stats(project_path):
+@pytest.mark.parametrize(
+    "fixture_folder,unique_summary_keys",
+    [
+        ("old_style_logs", ["state", "run_by_user"]),
+        # Jobs run via the executor api log slightly different fields and format to
+        # old-style jobs
+        ("executor_api_logs", ["exit_code", "local_run"]),
+    ],
+)
+def test_log_stats(tmp_path, fixture_folder, unique_summary_keys):
+    project_path = add_metadata_to_project_path(tmp_path, fixture_folder)
     extract_stats.main(project_path, "stats.json")
     stats_output_path = project_path / "metadata" / "stats.json"
     assert stats_output_path.exists()
 
     stats_json = [json.loads(line) for line in stats_output_path.open().readlines()]
     # sort logs by action, with summary log at th
-    stats_json.sort(key=lambda x: (x["action"], x.get("state", "")))
+    stats_json.sort(key=lambda x: (x["action"], x.get("docker_image_id", "")))
     # action 1 and 2 are part of one job request
     # action 1 has 8 stats logs plus one summary log
     # action 2 has 9 stats logs plus one summary log
@@ -35,23 +44,27 @@ def test_log_stats(project_path):
     action2_logs = stats_json[10:18]
     action3_logs = stats_json[19:-1]
 
+    # logs from jobs run the old way and with the new executor-api have some commong
+    # keys, and a couple that are different
+    common_summary_keys = [
+        "timestamp",
+        "project",
+        "action",
+        "docker_image_id",
+        "job_id",
+        "job_request_id",
+        "created_at",
+        "completed_at",
+        "action_elapsed_time_secs",
+        "action_elapsed_time",
+        "total_actions_in_job_request",
+    ]
+    summary_keys = common_summary_keys + unique_summary_keys
+
     for summary_log in summary_logs:
         # First item in each action log list is the summary
-        assert list(summary_log.keys()) == [
-            "timestamp",
-            "project",
-            "action",
-            "state",
-            "docker_image_id",
-            "job_id",
-            "job_request_id",
-            "run_by_user",
-            "created_at",
-            "completed_at",
-            "action_elapsed_time_secs",
-            "action_elapsed_time",
-            "total_actions_in_job_request",
-        ]
+        # It has the expected keys
+        assert set(summary_log.keys()) == set(summary_keys)
         # elapsed time is calculated from created/completed time and reported in
         # seconds and human-readable H:M:S
         assert summary_log["action_elapsed_time_secs"] == 16

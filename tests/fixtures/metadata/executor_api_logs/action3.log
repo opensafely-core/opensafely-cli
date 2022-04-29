@@ -1,0 +1,15 @@
+2022-04-25T11:37:53.516753154Z 2022-04-25 11:37:53 [info     ] Generating measure for study_definition in output [cohortextractor.cohortextractor] 
+2022-04-25T11:37:53.605072735Z 2022-04-25 11:37:53 [info     ] cohortextractor-stats          [cohortextractor.log_utils] output_column_count=33 table_count=30 table_joins_count=30
+
+
+job_id: 123
+job_request_id: 5678
+docker_image_id: sha256:a7b427365c8d7f93004671ce91cf91f703ed3da74c80007c755254c651ebb9de
+exit_code: 0
+created_at: 1650883036
+completed_at: 1650883052
+local_run: True
+
+
+outputs:
+  output/measure_systolic_bp.csv                                         - moderately_sensitive
