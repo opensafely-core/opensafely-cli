@@ -3,6 +3,7 @@ import shlex
 import textwrap
 
 from opensafely._vendor.jobrunner import config
+from opensafely._vendor.jobrunner.extractors import is_extraction_command
 from opensafely._vendor.jobrunner.lib import git
 from opensafely._vendor.jobrunner.lib.github_validators import (
     GithubValidationError,
@@ -10,7 +11,6 @@ from opensafely._vendor.jobrunner.lib.github_validators import (
     validate_repo_url,
 )
 from opensafely._vendor.jobrunner.lib.yaml_utils import YAMLError, parse_yaml
-from opensafely._vendor.jobrunner.project import is_generate_cohort_command
 
 
 class ReusableActionError(Exception):
@@ -182,7 +182,7 @@ def apply_reusable_action(run_args, reusable_action):
         action_image, action_tag = action_run_args[0].split(":")
         if action_image not in config.ALLOWED_IMAGES:
             raise ReusableActionError(f"Unrecognised runtime: {action_image}")
-        if is_generate_cohort_command(action_run_args):
+        if is_extraction_command(action_run_args):
             raise ReusableActionError(
                 "Re-usable actions cannot invoke cohortextractor/databuilder"
             )

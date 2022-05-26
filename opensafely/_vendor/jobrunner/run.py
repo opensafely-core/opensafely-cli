@@ -20,21 +20,11 @@ from opensafely._vendor.jobrunner.job_executor import (
     Privacy,
     Study,
 )
+from opensafely._vendor.jobrunner.lib.commands import requires_db_access
 from opensafely._vendor.jobrunner.lib.database import find_where, select_values, update
 from opensafely._vendor.jobrunner.lib.log_utils import configure_logging, set_log_context
-from opensafely._vendor.jobrunner.manage_jobs import (
-    BrokenContainerError,
-    JobError,
-    cleanup_job,
-    finalise_job,
-    job_still_running,
-    kill_job,
-    list_outputs_from_action,
-    start_job,
-)
 from opensafely._vendor.jobrunner.models import Job, State, StatusCode
-from opensafely._vendor.jobrunner.project import requires_db_access
-from opensafely._vendor.jobrunner.queries import get_flag
+from opensafely._vendor.jobrunner.queries import calculate_workspace_state, get_flag_value
 
 
 log = logging.getLogger(__name__)
@@ -46,16 +36,10 @@ class InvalidTransition(Exception):
 
 def main(exit_callback=lambda _: False):
     log.info("jobrunner.run loop started")
-
-    api = None
-    if config.EXECUTION_API:
-        log.info("using new EXECUTION_API")
-        api = get_executor_api()
+    api = get_executor_api()
 
     while True:
-        mode = get_flag("mode")
-
-        active_jobs = handle_jobs(api, mode)
+        active_jobs = handle_jobs(api)
 
         if exit_callback(active_jobs):
             break
@@ -63,7 +47,7 @@ def main(exit_callback=lambda _: False):
         time.sleep(config.JOB_LOOP_INTERVAL)
 
 
-def handle_jobs(api: Optional[ExecutorAPI], mode=None):
+def handle_jobs(api: Optional[ExecutorAPI]):
     log.debug("Querying database for active jobs")
     active_jobs = find_where(Job, state__in=[State.PENDING, State.RUNNING])
     log.debug("Done query")
@@ -78,96 +62,9 @@ def handle_jobs(api: Optional[ExecutorAPI], mode=None):
         # `set_log_context` ensures that all log messages triggered anywhere
         # further down the stack will have `job` set on them
         with set_log_context(job=job):
-            if api:
-                handle_active_job_api(job, api, mode)
-            else:
-                # old way
-                if job.state == State.PENDING:
-                    handle_pending_job(job)
-                elif job.state == State.RUNNING:
-                    handle_running_job(job)
+            handle_single_job(job, api)
 
     return active_jobs
-
-
-def handle_pending_job(job):
-    if job.cancelled:
-        # Mark the job as running and then immediately invoke
-        # `handle_running_job` to deal with the cancellation. This slightly
-        # counterintuitive approach allows us to keep a simple, consistent set
-        # of state transitions and to consolidate all the kill/cleanup code
-        # together. It also means that there aren't edge cases where we could
-        # lose track of jobs completely after losing database state
-        mark_job_as_running(job)
-        handle_running_job(job)
-        return
-
-    awaited_states = get_states_of_awaited_jobs(job)
-    if State.FAILED in awaited_states:
-        mark_job_as_failed(
-            job, "Not starting as dependency failed", code=StatusCode.DEPENDENCY_FAILED
-        )
-    elif any(state != State.SUCCEEDED for state in awaited_states):
-        set_message(
-            job, "Waiting on dependencies", code=StatusCode.WAITING_ON_DEPENDENCIES
-        )
-    else:
-        not_started_reason = get_reason_job_not_started(job)
-        if not_started_reason:
-            set_message(job, not_started_reason, code=StatusCode.WAITING_ON_WORKERS)
-        else:
-            try:
-                set_message(job, "Preparing")
-                start_job(job)
-            except JobError as exception:
-                mark_job_as_failed(job, exception)
-                # See the `raise` in manage_jobs which explains why we can't
-                # cleanup on this specific error
-                if not isinstance(exception, BrokenContainerError):
-                    cleanup_job(job)
-            except Exception:
-                mark_job_as_failed(job, "Internal error when starting job")
-                cleanup_job(job)
-                raise
-            else:
-                mark_job_as_running(job)
-
-
-def handle_running_job(job):
-    if job.cancelled:
-        log.info("Cancellation requested, killing job")
-        kill_job(job)
-
-    log.debug("Checking job running state")
-    is_running = job_still_running(job)
-    log.debug("Check done")
-    if is_running:
-        set_message(job, "Running")
-    else:
-        try:
-            set_message(job, "Finished, checking status and extracting outputs")
-            job = finalise_job(job)
-            # We expect the job to be transitioned into its final state at this
-            # point
-            assert job.state in [State.SUCCEEDED, State.FAILED]
-        except JobError as exception:
-            mark_job_as_failed(job, exception)
-            # Question: do we want to clean up failed jobs? Given that we now
-            # tag all job-runner volumes and containers with a specific label
-            # we could leave them around for debugging purposes and have a
-            # cronjob which cleans them up a few days after they've stopped.
-            cleanup_job(job)
-        except Exception:
-            mark_job_as_failed(job, "Internal error when finalising job")
-            # We deliberately don't clean up after an internal error so we have
-            # some change of debugging. It's also possible, after fixing the
-            # error, to manually flip the state of the job back to "running" in
-            # the database and the code will then be able to finalise it
-            # correctly without having to re-run the job.
-            raise
-        else:
-            mark_job_as_completed(job)
-            cleanup_job(job)
 
 
 # we do not control the tranisition from these states, the executor does
@@ -178,11 +75,19 @@ STABLE_STATES = [
 ]
 
 
-def handle_active_job_api(job, api, mode=None):
+def handle_single_job(job, api):
+    mode = get_flag_value("mode")
+    paused = get_flag_value("paused", "").lower() == "true"
     try:
-        handle_job_api(job, api, mode)
+        handle_job(job, api, mode, paused)
     except Exception:
-        mark_job_as_failed(job, "Internal error")
+        mark_job_as_failed(
+            job,
+            "Internal error: this usually means a platform issue rather than a problem "
+            "for users to fix.\n"
+            "The tech team are automatically notified of these errors and will be "
+            "investigating.",
+        )
         # Do not clean up, as we may want to debug
         #
         # Raising will kill the main loop, by design. The service manager
@@ -192,7 +97,7 @@ def handle_active_job_api(job, api, mode=None):
         raise
 
 
-def handle_job_api(job, api, mode=None):
+def handle_job(job, api, mode=None, paused=None):
     """Handle an active job.
 
     This contains the main state machine logic for a job. For the most part,
@@ -211,8 +116,12 @@ def handle_job_api(job, api, mode=None):
         api.cleanup(definition)
         return
 
-    # handle db maintenance mode before considering current executor state, as
-    # if it applies, we're going to tear it all down anyway.
+    # handle special modes beofre considering executor state, as they ignore it
+    if paused:
+        if job.state == State.PENDING:
+            # do not start the job, keep it pending
+            return
+
     if mode == "db-maintenance" and definition.allow_database_access:
         if job.state == State.RUNNING:
             log.warning(f"DB maintenance mode active, killing db job {job.id}")
@@ -277,7 +186,7 @@ def handle_job_api(job, api, mode=None):
     elif initial_status.state == ExecutorState.FINALIZED:
         # final state - we have finished!
         results = api.get_results(definition)
-        save_results(job, results)
+        save_results(job, definition, results)
         obsolete = get_obsolete_files(definition, results.outputs)
         if obsolete:
             errors = api.delete_files(definition.workspace, Privacy.HIGH, obsolete)
@@ -328,7 +237,7 @@ def handle_job_api(job, api, mode=None):
         )
 
 
-def save_results(job, results):
+def save_results(job, definition, results):
     """Extract the results of the execution and update the job accordingly."""
     # set the final state of the job
     if results.exit_code != 0:
@@ -337,6 +246,11 @@ def save_results(job, results):
         job.status_code = StatusCode.NONZERO_EXIT
         if results.message:
             job.status_message += f": {results.message}"
+        elif definition.allow_database_access:
+            error_msg = config.DATABASE_EXIT_CODES.get(results.exit_code)
+            if error_msg:
+                job.status_message += f": {error_msg}"
+
     elif results.unmatched_patterns:
         job.state = State.FAILED
         job.status_message = "No outputs found matching patterns:\n - {}".format(
@@ -345,10 +259,7 @@ def save_results(job, results):
         # If the job fails because an output was missing its very useful to
         # show the user what files were created as often the issue is just a
         # typo
-
-        # Can we figure these out from job.outputs and project.yaml? Do we do
-        # it here or just in local run?
-        # TODO:  job.unmatched_outputs = ???
+        job.unmatched_outputs = results.unmatched_outputs
     else:
         job.state = State.SUCCEEDED
         job.status_message = "Completed successfully"
@@ -417,18 +328,22 @@ def job_to_job_definition(job):
             outputs[pattern] = privacy_level
 
     return JobDefinition(
-        job.id,
-        job.job_request_id,
-        study,
-        job.workspace,
-        job.action,
-        job.created_at,
-        full_image,
-        action_args,
-        env,
-        input_files,
-        outputs,
-        allow_database_access,
+        id=job.id,
+        job_request_id=job.job_request_id,
+        study=study,
+        workspace=job.workspace,
+        action=job.action,
+        created_at=job.created_at,
+        image=full_image,
+        args=action_args,
+        env=env,
+        inputs=input_files,
+        output_spec=outputs,
+        allow_database_access=allow_database_access,
+        # in future, these may come from the JobRequest, but for now, we have
+        # config defaults.
+        cpu_count=config.DEFAULT_JOB_CPU_COUNT,
+        memory_limit=config.DEFAULT_JOB_MEMORY_LIMIT,
     )
 
 
@@ -529,6 +444,15 @@ def get_reason_job_not_started(job):
             return "Waiting on available workers for resource intensive job"
         else:
             return "Waiting on available workers"
+
+
+def list_outputs_from_action(workspace, action):
+    for job in calculate_workspace_state(workspace):
+        if job.action == action:
+            return job.output_files
+
+    # The action has never been run before
+    return []
 
 
 def get_job_resource_weight(job, weights=config.JOB_RESOURCE_WEIGHTS):

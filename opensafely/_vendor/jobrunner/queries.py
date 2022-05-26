@@ -1,8 +1,9 @@
 import sqlite3
+import time
 from itertools import groupby
 from operator import attrgetter
 
-from opensafely._vendor.jobrunner.lib.database import find_one, find_where, upsert
+from opensafely._vendor.jobrunner.lib.database import find_all, find_one, find_where, upsert
 from opensafely._vendor.jobrunner.models import Flag, Job
 
 
@@ -28,20 +29,34 @@ def group_by(iterable, key):
 
 
 def get_flag(name):
-    """Get the current value of a flag, None if not set."""
+    """Get a flag from the db"""
+    return find_one(Flag, id=name)
+
+
+def get_flag_value(name, default=None):
+    """Get the current value of a flag, with a default"""
     # Note: fail gracefully if the flags table does not exist
     # This means we don't need to worry about it in local_run.
     try:
-        return find_one(Flag, id=name).value
+        return get_flag(name).value
     except ValueError:
-        return None
+        return default
     except sqlite3.OperationalError as e:
         if "no such table" in str(e):
-            return None
+            return default
         raise
 
 
-def set_flag(name, value):
+def set_flag(name, value, timestamp=None):
     """Set a flag to a value in the db."""
     # Note: table must exist to set flags
-    upsert(Flag(name, value))
+    if timestamp is None:
+        timestamp = time.time()
+    flag = Flag(name, value, timestamp)
+    upsert(flag)
+    return flag
+
+
+def get_current_flags():
+    """Get all currently set flags"""
+    return find_all(Flag)

@@ -1,1 +1,1 @@
-opensafely-jobrunner
+git+https://github.com/opensafely-core/job-runner@v2.53.1
