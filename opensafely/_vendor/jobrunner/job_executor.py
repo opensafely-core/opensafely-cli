@@ -30,6 +30,8 @@ class JobDefinition:
         str, str
     ]  # the files that the job should produce (globs mapped to privacy levels)
     allow_database_access: bool  # whether this job should have access to the database
+    cpu_count: str = None  # number of CPUs to be allocated
+    memory_limit: str = None  # memory limit to apply
 
 
 class ExecutorState(Enum):
@@ -53,6 +55,7 @@ class JobStatus:
 class JobResults:
     outputs: Mapping[str, str]  # mapping of outputs to privacy levels
     unmatched_patterns: List[str]  # list of patterns that matched no outputs
+    unmatched_outputs: List[str]  # outputs that not match the output_spec
     exit_code: int
     image_id: str
     message: str = None

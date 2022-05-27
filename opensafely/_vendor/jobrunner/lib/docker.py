@@ -178,6 +178,20 @@ def copy_to_volume(volume_name, source, dest, timeout=None):
     )
 
 
+def touch_file(volume_name, path, timeout=None):
+    docker(
+        [
+            "container",
+            "exec",
+            manager_name(volume_name),
+            "touch",
+            f"{VOLUME_MOUNT_POINT}/{path}",
+        ],
+        check=True,
+        timeout=timeout,
+    )
+
+
 def copy_from_volume(volume_name, source, dest, timeout=None):
     """
     Copy the contents of `source` from the root of the named volume to `dest`
@@ -344,9 +358,10 @@ def run(
         env = {}
     for key, value in env.items():
         run_args.extend(["--env", key])
-    docker(
+    ps = docker(
         run_args + args, check=True, capture_output=True, env=dict(os.environ, **env)
     )
+    return ps
 
 
 def image_exists_locally(image_name_and_version):

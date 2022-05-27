@@ -5,9 +5,9 @@ import argparse
 import sqlite3
 import sys
 
-from opensafely._vendor.jobrunner.lib.database import create_table, get_connection, select_values
+from opensafely._vendor.jobrunner.lib.database import create_table, get_connection
 from opensafely._vendor.jobrunner.models import Flag
-from opensafely._vendor.jobrunner.queries import get_flag, set_flag
+from opensafely._vendor.jobrunner.queries import get_current_flags, get_flag, set_flag
 
 
 def parse_cli_flag(raw):
@@ -22,12 +22,12 @@ def parse_cli_flag(raw):
 
 def main(action, flags, create=False):
     try:
-        current_flags = select_values(Flag, "id")
+        get_current_flags()
     except sqlite3.OperationalError as e:
         if "no such table" in str(e):
             if create:
                 create_table(get_connection(), Flag)
-                current_flags = select_values(Flag, "id")
+                get_current_flags()
             else:
                 sys.exit(
                     "The flags table does not exists. Run command again with --create to create it."
@@ -37,23 +37,29 @@ def main(action, flags, create=False):
 
     if action == "set":
         for name, value in flags:
-            set_flag(name, value)
-            flags_to_show.append(name)
+            flag = set_flag(name, value)
+            flags_to_show.append(flag)
 
     else:  # action == "get"
         if flags:
-            flags_to_show = flags
+            for f in flags:
+                try:
+                    flag = get_flag(f)
+                except ValueError:
+                    flag = Flag(f, None, None)
+                flags_to_show.append(flag)
         else:
-            flags_to_show = current_flags
+            flags_to_show = get_current_flags()
 
     for flag in flags_to_show:
-        print(f"{flag}={get_flag(flag)}")
+        print(flag)
 
 
 def run(argv):
     parser = argparse.ArgumentParser(description=__doc__.partition("\n\n")[0])
 
-    subparsers = parser.add_subparsers()
+    subparsers = parser.add_subparsers(dest="action")
+    subparsers.required = True
     # for get, flag arguments is optional
     parser_get = subparsers.add_parser("get", help="get the current values of flags")
     parser_get.add_argument(

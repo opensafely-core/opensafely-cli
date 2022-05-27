@@ -34,25 +34,24 @@ import textwrap
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from opensafely._vendor.jobrunner import config, executors, manifest_to_database_migration
+from opensafely._vendor.pipeline import RUN_ALL_COMMAND, ProjectValidationError, load_pipeline
+
+from opensafely._vendor.jobrunner import config, executors
+from opensafely._vendor.jobrunner.actions import UnknownActionError
 from opensafely._vendor.jobrunner.create_or_update_jobs import (
-    RUN_ALL_COMMAND,
     JobRequestError,
     NothingToDoError,
-    ProjectValidationError,
     assert_new_jobs_created,
     get_new_jobs_to_run,
     insert_into_database,
-    parse_and_validate_project_file,
 )
+from opensafely._vendor.jobrunner.executors.local import METADATA_DIR
 from opensafely._vendor.jobrunner.lib import database, docker
 from opensafely._vendor.jobrunner.lib.database import find_where
 from opensafely._vendor.jobrunner.lib.log_utils import configure_logging
 from opensafely._vendor.jobrunner.lib.string_utils import tabulate
 from opensafely._vendor.jobrunner.lib.subprocess_utils import subprocess_run
-from opensafely._vendor.jobrunner.manage_jobs import METADATA_DIR
 from opensafely._vendor.jobrunner.models import Job, JobRequest, State, StatusCode, random_id
-from opensafely._vendor.jobrunner.project import UnknownActionError, get_all_actions
 from opensafely._vendor.jobrunner.queries import calculate_workspace_state
 from opensafely._vendor.jobrunner.reusable_actions import (
     ReusableActionError,
@@ -237,11 +236,6 @@ def create_and_run_jobs(
         extra_filter=filter_log_messages,
     )
 
-    # This is a temporary migration step to avoid unnecessarily re-running actions as we migrate away from the manifest.
-    manifest_to_database_migration.migrate_one(
-        project_dir, write_medium_privacy_manifest=False, batch_size=1000, log=False
-    )
-
     # Any jobs that are running or pending must be left over from a previous run that was aborted either by an
     # unexpected and unhandled exception or by the researcher abruptly terminating the process. We can't reasonably
     # recover them (and the researcher may not want to -- maybe that's why they terminated), so we mark them as
@@ -421,7 +415,7 @@ def create_job_request_and_jobs(project_dir, actions, force_run_dependencies):
     # production in `jobrunner.create_or_update_jobs.create_jobs`. If you make
     # changes below then consider what, if any, the appropriate corresponding
     # changes might be for production jobs.
-    project = parse_and_validate_project_file(project_file_path.read_bytes())
+    pipeline_config = load_pipeline(project_file_path)
     latest_jobs = calculate_workspace_state(job_request.workspace)
 
     # On the server out-of-band deletion of an existing output is considered an error, so we ignore that case when
@@ -437,12 +431,12 @@ def create_job_request_and_jobs(project_dir, actions, force_run_dependencies):
         if not actions:
             raise UnknownActionError("At least one action must be supplied")
         new_jobs = get_new_jobs_to_run(
-            job_request, project, latest_jobs_with_files_present
+            job_request, pipeline_config, latest_jobs_with_files_present
         )
     except UnknownActionError as e:
         # Annotate the exception with a list of valid action names so we can
         # show them to the user
-        e.valid_actions = [RUN_ALL_COMMAND] + get_all_actions(project)
+        e.valid_actions = [RUN_ALL_COMMAND] + pipeline_config.all_actions
         raise e
     assert_new_jobs_created(new_jobs, latest_jobs_with_files_present)
     resolve_reusable_action_references(new_jobs)

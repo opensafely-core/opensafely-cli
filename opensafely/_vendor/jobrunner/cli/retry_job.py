@@ -16,8 +16,8 @@ updates on it.
 import argparse
 import time
 
+from opensafely._vendor.jobrunner.executors.local import container_name, docker
 from opensafely._vendor.jobrunner.lib.database import find_where, update
-from opensafely._vendor.jobrunner.manage_jobs import container_name, docker
 from opensafely._vendor.jobrunner.models import Job, State
 from opensafely._vendor.jobrunner.sync import api_post, job_to_remote_format
 
