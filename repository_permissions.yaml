@@ -8,3 +8,5 @@ opensafely/hdruk-os-covid-paeds:
   allow: ['isaric']
 opensafely/renal-short-data-report:
   allow: ['ukrr']
+opensafely/MH_pandemic:
+  allow: ['ons_cis']
