@@ -6,6 +6,8 @@ from typing import Dict, List
 from opensafely._vendor.pipeline.exceptions import ProjectValidationError
 from opensafely._vendor.pipeline.outputs import get_output_dirs
 
+from opensafely._vendor.jobrunner.lib.path_utils import ensure_unix_path
+
 from .extractors import is_extraction_command
 
 
@@ -60,7 +62,9 @@ def get_action_specification(config, action_id, using_dummy_data_backend=False):
         # anyway, which would make this unnecessary.
         if using_dummy_data_backend:
             if action_spec.dummy_data_file is not None:
-                run_parts.append(f"--dummy-data-file={action_spec.dummy_data_file}")
+                run_parts.append(
+                    f"--dummy-data-file={ensure_unix_path(action_spec.dummy_data_file)}"
+                )
             else:
                 size = config.expectations.population_size
                 run_parts.append(f"--expectations-population={size}")

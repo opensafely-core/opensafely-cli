@@ -17,3 +17,6 @@ rm -f vendor.txt.bak
 
 echo "Vendoring all dependencies"
 vendoring sync -v
+
+echo "Removing pydantic c libraries"
+rm -f opensafely/_vendor/pydantic/*.so
