@@ -152,6 +152,25 @@ def test_check_version_up_to_date(run, capsys):
     assert out.splitlines() == []
 
 
+def test_check_version_up_to_date_old_sha(run, capsys):
+
+    current_sha = pull.get_remote_sha("ghcr.io/opensafely-core/python", "latest")
+    pull.token = None
+
+    run.expect(
+        ["docker", "images", "ghcr.io/opensafely-core/*", "--no-trunc", "--format={{.Repository}}={{.ID}}"], 
+        stdout=(
+            f"ghcr.io/opensafely-core/python={current_sha}\n"
+            f"ghcr.io/opensafely-core/python=oldsha"
+        ),
+    )
+
+    assert len(pull.check_version()) == 0
+    out, err = capsys.readouterr()
+    assert err == ""
+    assert out.splitlines() == []
+
+
 @pytest.mark.parametrize(
     "project_yaml,exc_msg",
     [

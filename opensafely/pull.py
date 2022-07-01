@@ -1,5 +1,6 @@
 import subprocess
 import sys
+from collections import defaultdict
 from http.cookiejar import split_header_words
 from pathlib import Path
 from urllib.parse import urlparse
@@ -109,7 +110,7 @@ def get_actions_from_project_file(project_yaml):
 
 
 def get_local_images():
-    """Returns a dict of locally installed OpenSAFELY images and their SHA."""
+    """Returns a dict of image names and their locally available SHAs"""
     ps = subprocess.run(
         [
             "docker",
@@ -122,9 +123,18 @@ def get_local_images():
         text=True,
         capture_output=True,
     )
-    lines = [line for line in ps.stdout.splitlines() if line.strip()]
-    all_images = dict(l.split("=", 1) for l in lines)
-    return {k: v for k, v in all_images.items() if k in FULL_IMAGES}
+    images = defaultdict(list)
+    for line in ps.stdout.splitlines():
+        if not line.strip():
+            continue
+
+        name, sha = line.split("=", 1)
+        # currently databuilder is not published, so we ignore it
+        if "databuilder" in name:
+            continue
+        images[name].append(sha)
+
+    return images
 
 
 def remove_deprecated_images(local_images):
@@ -178,11 +188,11 @@ def check_version():
 
     for image in IMAGES:
         full_name = f"{REGISTRY}/{image}"
-        local_sha = local_images.get(full_name)
-        if local_sha is None:
-            continue
-        if local_sha != get_remote_sha(full_name, "latest"):
-            need_update.append(image)
+        local_shas = local_images.get(full_name, [])
+        if local_shas:
+            latest_sha = get_remote_sha(full_name, "latest")
+            if latest_sha not in local_shas:
+                need_update.append(image)
 
     if need_update:
         print(
