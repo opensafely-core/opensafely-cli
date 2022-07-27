@@ -174,6 +174,7 @@ def parse_codelist_file(codelists_dir):
     if not codelists_file.exists():
         exit_with_error(f"No file found at '{CODELISTS_DIR}/{CODELISTS_FILE}'")
     codelists = []
+    codelist_versions = {}
     for line in codelists_file.read_text().splitlines():
         line = line.strip().rstrip("/")
         if not line or line.startswith("#"):
@@ -184,6 +185,13 @@ def parse_codelist_file(codelists_dir):
                 f"{line} does not match [project]/[codelist]/[version] "
                 "or user/[username]/[codelist]/[version]"
             )
+        codelist_id = "/".join(tokens[:-1])
+        if (existing_version := codelist_versions.get(codelist_id)) is not None:
+            exit_with_error(
+                f"{line} conflicts with a different version of the same codelist: {existing_version}"
+            )
+        codelist_versions[codelist_id] = tokens[-1]
+
         url = f"https://codelists.opensafely.org/codelist/{line}/"
         filename = "-".join(tokens[:-1]) + ".csv"
         codelists.append(
