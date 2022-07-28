@@ -192,7 +192,7 @@ def parse_codelist_file(codelists_dir):
             exit_with_error(
                 f"{line} is a duplicate of a previous line"
             )
-        elif existing_version is not None:
+        if existing_version is not None:
             exit_with_error(
                 f"{line} conflicts with a different version of the same codelist: {existing_version}"
             )
