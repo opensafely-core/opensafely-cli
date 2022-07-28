@@ -185,12 +185,18 @@ def parse_codelist_file(codelists_dir):
                 f"{line} does not match [project]/[codelist]/[version] "
                 "or user/[username]/[codelist]/[version]"
             )
-        codelist_id = "/".join(tokens[:-1])
-        if (existing_version := codelist_versions.get(codelist_id)) is not None:
+        line_without_version = "/".join(tokens[:-1])
+        existing_version = codelist_versions.get(line_without_version)
+        line_version = tokens[-1]
+        if existing_version == line_version:
+            exit_with_error(
+                f"{line} is a duplicate of a previous line"
+            )
+        elif existing_version is not None:
             exit_with_error(
                 f"{line} conflicts with a different version of the same codelist: {existing_version}"
             )
-        codelist_versions[codelist_id] = tokens[-1]
+        codelist_versions[line_without_version] = line_version
 
         url = f"https://codelists.opensafely.org/codelist/{line}/"
         filename = "-".join(tokens[:-1]) + ".csv"
