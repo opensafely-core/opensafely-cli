@@ -93,7 +93,7 @@ def test_codelists_check_fail_if_invalid_manifest_file(codelists_path):
         codelists.check()
 
 
-def test_codelists_parse_fail_if_duplicate_versions_of_same_list(codelists_path):
+def test_codelists_parse_fail_if_different_versions_of_same_list(codelists_path):
     with open(codelists_path / "codelists/codelists.txt", "a") as f:
         f.write("\nsomeproject/somelist/someversion")
         f.write("\nsomeproject/somelist/differentversion")
@@ -102,7 +102,7 @@ def test_codelists_parse_fail_if_duplicate_versions_of_same_list(codelists_path)
         codelists.parse_codelist_file(codelists_path / "codelists")
 
 
-def test_codelists_parse_fail_if_same_version_of_same_list(codelists_path):
+def test_codelists_parse_fail_if_duplicate_lines(codelists_path):
     with open(codelists_path / "codelists/codelists.txt", "a") as f:
         f.write("\nsomeproject/somelist/someversion")
         f.write("\nsomeproject/somelist/someversion")
