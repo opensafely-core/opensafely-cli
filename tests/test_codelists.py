@@ -91,3 +91,29 @@ def test_codelists_check_fail_if_invalid_manifest_file(codelists_path):
     os.chdir(codelists_path)
     with pytest.raises(SystemExit):
         codelists.check()
+
+
+def test_codelists_parse_fail_if_different_versions_of_same_list(codelists_path):
+    with open(codelists_path / "codelists/codelists.txt", "a") as f:
+        f.write("\nsomeproject/somelist/someversion")
+        f.write("\nsomeproject/somelist/differentversion")
+    os.chdir(codelists_path)
+    with pytest.raises(SystemExit):
+        codelists.parse_codelist_file(codelists_path / "codelists")
+
+
+def test_codelists_parse_fail_if_duplicate_lines(codelists_path):
+    with open(codelists_path / "codelists/codelists.txt", "a") as f:
+        f.write("\nsomeproject/somelist/someversion")
+        f.write("\nsomeproject/somelist/someversion")
+    os.chdir(codelists_path)
+    with pytest.raises(SystemExit):
+        codelists.parse_codelist_file(codelists_path / "codelists")
+
+
+def test_codelists_parse_pass_if_different_lists_have_same_version(codelists_path):
+    with open(codelists_path / "codelists/codelists.txt", "a") as f:
+        f.write("\nsomeproject/somelist/someversion")
+        f.write("\nsomeuser/anotherproject/somelist/someversion")
+    os.chdir(codelists_path)
+    assert codelists.parse_codelist_file(codelists_path / "codelists")
