@@ -22,14 +22,16 @@ To update the vendored version of job-runner:
    pip install -r requirements.dev.txt
    ```
 
-2. Run the update script:
+2. Update the version tag in vendor.in
+
+3. Run the update script:
    ```
    ./scripts/update-jobrunner.sh
    ```
 
-3. Commit the results
+4. Commit the results
 
-4. If you want to update jobrunner's transitive dependencies you can use
+5. If you want to update jobrunner's transitive dependencies you can use
    the update-all script, but this might require more work to get the
    vendoring working successfully:
     ```
