@@ -77,7 +77,7 @@ STABLE_STATES = [
 
 def handle_single_job(job, api):
     mode = get_flag_value("mode")
-    paused = get_flag_value("paused", "").lower() == "true"
+    paused = str(get_flag_value("paused", "False")).lower() == "true"
     try:
         handle_job(job, api, mode, paused)
     except Exception:
@@ -120,6 +120,10 @@ def handle_job(job, api, mode=None, paused=None):
     if paused:
         if job.state == State.PENDING:
             # do not start the job, keep it pending
+            set_message(
+                job,
+                "Backend is currently paused for maintenance, job will start once this is completed",
+            )
             return
 
     if mode == "db-maintenance" and definition.allow_database_access:
@@ -144,6 +148,12 @@ def handle_job(job, api, mode=None, paused=None):
         # no action needed, simply update job message and timestamp
         message = initial_status.state.value.title()
         set_message(job, message)
+        return
+
+    if initial_status.state == ExecutorState.ERROR:
+        # something has gone wrong since we last checked
+        mark_job_as_failed(job, initial_status.message)
+        api.cleanup(definition)
         return
 
     # ok, handle the state transitions that are our responsibility
