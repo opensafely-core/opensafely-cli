@@ -10,7 +10,7 @@ chardet==4.0.0
     # via requests
 idna==2.10
     # via requests
-opensafely-jobrunner @ git+https://github.com/opensafely-core/job-runner@v2.55.2
+opensafely-jobrunner @ git+https://github.com/opensafely-core/job-runner@v2.56.0
     # via -r vendor.in
 opensafely-pipeline @ git+https://github.com/opensafely-core/pipeline@v0.2.0
     # via opensafely-jobrunner
