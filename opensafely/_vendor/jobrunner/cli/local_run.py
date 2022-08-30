@@ -32,7 +32,6 @@ import sys
 import tempfile
 import textwrap
 from datetime import datetime, timedelta
-from multiprocessing import cpu_count
 from pathlib import Path
 
 from opensafely._vendor.pipeline import RUN_ALL_COMMAND, ProjectValidationError, load_pipeline
@@ -123,22 +122,22 @@ def add_arguments(parser):
         "-c",
         type=int,
         help=(
-            "The number of jobs to run concurrently. Hint: try `-c 1` to run things in series to help debug memory issues."
+            "The number of jobs to run concurrently. Defaults to 2. Hint: try `-c 1` to run things in series to help debug memory issues."
         ),
-        default=max(cpu_count() - 1, 1),
+        default=2,
     )
     parser.add_argument(
         "--memory",
         "-m",
         help=(
-            "The per-job memory limit, with units, e.g. '2G'. Your local docker may have a max memory limit too."
+            f"The per-job memory limit, with units. Defaults to {config.DEFAULT_JOB_MEMORY_LIMIT}. Your local docker may have a max memory limit too."
         ),
         default=config.DEFAULT_JOB_MEMORY_LIMIT,
     )
     parser.add_argument(
         "--cpu",
         type=int,
-        help="The per-job cpu limit. How many cpus the job can use.",
+        help=f"The per-job cpu limit. How many cpus the job can use. Defaults to {config.DEFAULT_JOB_CPU_COUNT}",
         default=config.DEFAULT_JOB_CPU_COUNT,
     )
     return parser
@@ -153,7 +152,7 @@ def main(
     timestamps=False,
     format_output_for_github=False,
     concurrency=config.MAX_WORKERS,
-    memory_limit=config.DEFAULT_JOB_MEMORY_LIMIT,
+    memory=config.DEFAULT_JOB_MEMORY_LIMIT,
     cpu=config.DEFAULT_JOB_CPU_COUNT,
 ):
     if not docker_preflight_check():
@@ -223,7 +222,7 @@ def create_and_run_jobs(
     log_format=LOCAL_RUN_FORMAT,
     format_output_for_github=False,
     concurrency=config.MAX_WORKERS,
-    memory_limit=config.DEFAULT_JOB_MEMORY_LIMIT,
+    memory=config.DEFAULT_JOB_MEMORY_LIMIT,
     cpu=config.DEFAULT_JOB_CPU_COUNT,
 ):
     # Fiddle with the configuration to suit what we need for running local jobs
@@ -238,7 +237,7 @@ def create_and_run_jobs(
     config.USING_DUMMY_DATA_BACKEND = True
     config.CLEAN_UP_DOCKER_OBJECTS = clean_up_docker_objects
     config.MAX_WORKERS = concurrency
-    config.DEFAULT_JOB_MEMORY_LIMIT = memory_limit
+    config.DEFAULT_JOB_MEMORY_LIMIT = memory
     config.DEFAULT_JOB_CPU_COUNT = cpu
 
     # We want to fetch any reusable actions code directly from Github so as to
