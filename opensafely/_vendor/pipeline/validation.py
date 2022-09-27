@@ -99,7 +99,7 @@ def validate_databuilder_outputs(action_id: str, action: Action) -> None:
     num_output_levels = len(action.outputs)
     if num_output_levels != 1:
         raise ValueError(
-            "A `generate_dataset` action must have exactly one output; "
+            "A `generate-dataset` action must have exactly one output; "
             f"{action_id} had {num_output_levels}"
         )
 

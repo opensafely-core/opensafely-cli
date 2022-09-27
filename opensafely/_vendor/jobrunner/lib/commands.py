@@ -4,11 +4,15 @@ def requires_db_access(args):
     """
     valid_commands = {
         "cohortextractor": ("generate_cohort", "generate_codelist_report"),
-        "databuilder": ("generate_dataset",),
+        "databuilder": ("generate-dataset",),
+        "sqlrunner": None,  # all commands are valid
     }
     if len(args) <= 1:
         return False
 
     image, command = args[0], args[1]
     image = image.split(":")[0]
-    return command in valid_commands.get(image, [])
+    if image in valid_commands:
+        if valid_commands[image] is None or command in valid_commands[image]:
+            return True
+    return False

@@ -18,7 +18,7 @@ from .validation import (
 
 
 cohortextractor_pat = re.compile(r"cohortextractor:\S+ generate_cohort")
-databuilder_pat = re.compile(r"databuilder:\S+ generate_dataset")
+databuilder_pat = re.compile(r"databuilder:\S+ generate[-_]dataset")
 
 
 class Expectations(BaseModel):
