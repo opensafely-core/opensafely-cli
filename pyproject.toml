@@ -30,6 +30,7 @@ substitute = [
   { match='from \. import packages', replace='' },
   { match='jobrunner.executors.local:LocalDockerAPI', replace='opensafely._vendor.jobrunner.executors.local:LocalDockerAPI' },
   { match='jobrunner.executors.volumes:DockerVolumeAPI', replace='opensafely._vendor.jobrunner.executors.volumes:DockerVolumeAPI' },
+  { match='jobrunner.models', replace='opensafely._vendor.jobrunner.models' },
 ]
 
 drop = [
