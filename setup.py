@@ -9,7 +9,8 @@ with open(os.path.join("opensafely", "VERSION")) as f:
 setup(
     name="opensafely",
     version=version,
-    packages=find_namespace_packages(exclude=["tests"]),
+    packages=find_namespace_packages(exclude=["tests", "build", "venv*"]),
+    package_data={"opensafely._vendor": ["*.dist-info/*"]},
     include_package_data=True,
     url="https://github.com/opensafely-core/opensafely-cli",
     description="Command line tool for running OpenSAFELY studies locally.",

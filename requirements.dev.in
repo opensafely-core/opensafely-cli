@@ -1,6 +1,8 @@
 pip-tools
 # We have to develop using 3.8, but we need to test under 3.7 (see README)
-vendoring; python_version >= '3.8'
+# Currently use our fork of vendoring
+https://github.com/opensafely-core/vendoring/archive/add-preserve-metadata-option.zip; python_version >= '3.8'
+# regular test dependencies
 black
 pytest
 requests-mock

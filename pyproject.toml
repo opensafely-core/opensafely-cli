@@ -13,6 +13,7 @@ patches-dir = "patches"
 protected-files = []
 license.fallback-urls = {}
 typing-stubs = {}
+preserve_metadata = true
 
 [tool.vendoring.transformations]
 # Imports of the form `import X.Y` can't be rewritten automatically by the
