@@ -20,14 +20,18 @@ def test_packaging(package_type, ext, tmp_path):
     shutil.rmtree(project_root / "build", ignore_errors=True)
     # Build the package
     subprocess_run(
-        [sys.executable, "setup.py", "build", package_type],
+        [sys.executable, "setup.py", package_type],
         check=True,
         cwd=project_root,
     )
     # Install it in a temporary virtualenv
     subprocess_run([sys.executable, "-m", "venv", tmp_path], check=True)
+    # sdist requires wheel to build
+    subprocess_run([tmp_path / BIN_DIR / "pip", "install", "wheel"], check=True)
+
     package = list(project_root.glob(f"dist/*.{ext}"))[0]
     subprocess_run([tmp_path / BIN_DIR / "pip", "install", package], check=True)
+
     # Smoketest it by running `--help` and `--version`. This is actually a more
     # comprehensive test than you might think as it involves importing
     # everything and because all the complexity in this project is in the

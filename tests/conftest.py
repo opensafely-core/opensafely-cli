@@ -8,8 +8,7 @@ from pathlib import Path
 import pkg_resources
 opensafely_module_dir = Path(__file__).parent
 pkg_resources.working_set.add_entry(f"{opensafely_module_dir}/_vendor")
-
-
+    
 import pytest
 
 _actual_run = subprocess.run
