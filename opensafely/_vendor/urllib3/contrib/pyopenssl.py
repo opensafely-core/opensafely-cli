@@ -20,7 +20,7 @@ You can install them with the following command:
     $ python -m pip install pyopenssl cryptography idna
 
 To activate certificate checking, call
-:func:`~urllib3.contrib.pyopenssl.inject_into_urllib3` from your Python code
+:func:`~opensafely._vendor.urllib3.contrib.pyopenssl.inject_into_urllib3` from your Python code
 before you begin making HTTP requests. This can be done in a ``sitecustomize``
 module, or at any other time before your application begins using ``urllib3``,
 like this:
@@ -28,8 +28,8 @@ like this:
 .. code-block:: python
 
     try:
-        import urllib3.contrib.pyopenssl
-        urllib3.contrib.pyopenssl.inject_into_urllib3()
+        import opensafely._vendor.urllib3.contrib.pyopenssl
+        opensafely._vendor.urllib3.contrib.pyopenssl.inject_into_urllib3()
     except ImportError:
         pass
 
@@ -76,6 +76,7 @@ import sys
 
 from .. import util
 from ..packages import six
+from ..util.ssl_ import PROTOCOL_TLS_CLIENT
 
 __all__ = ["inject_into_urllib3", "extract_from_urllib3"]
 
@@ -85,6 +86,7 @@ HAS_SNI = True
 # Map from urllib3 to PyOpenSSL compatible parameter-values.
 _openssl_versions = {
     util.PROTOCOL_TLS: OpenSSL.SSL.SSLv23_METHOD,
+    PROTOCOL_TLS_CLIENT: OpenSSL.SSL.SSLv23_METHOD,
     ssl.PROTOCOL_TLSv1: OpenSSL.SSL.TLSv1_METHOD,
 }
 

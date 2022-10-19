@@ -10,7 +10,7 @@ Pydantic is installed.  See also:
 https://hypothesis.readthedocs.io/en/latest/strategies.html#registering-strategies-via-setuptools-entry-points
 https://hypothesis.readthedocs.io/en/latest/data.html#hypothesis.strategies.register_type_strategy
 https://hypothesis.readthedocs.io/en/latest/strategies.html#interaction-with-pytest-cov
-https://pydantic-docs.helpmanual.io/usage/types/#pydantic-types
+https://pydantic-docs.helpmanual.io/usage/types/#opensafely._vendor.pydantic.types
 
 Note that because our motivation is to *improve user experience*, the strategies
 are always sound (never generate invalid data) but sacrifice completeness for
@@ -32,8 +32,8 @@ from typing import Callable, Dict, Type, Union, cast, overload
 import hypothesis.strategies as st
 
 from opensafely._vendor import pydantic
-import pydantic.color
-import pydantic.types
+import opensafely._vendor.pydantic.color
+import opensafely._vendor.pydantic.types
 
 # FilePath and DirectoryPath are explicitly unsupported, as we'd have to create
 # them on-disk, and that's unsafe in general without being told *where* to do so.
@@ -86,23 +86,23 @@ st.register_type_strategy(
 _color_regexes = (
     '|'.join(
         (
-            pydantic.color.r_hex_short,
-            pydantic.color.r_hex_long,
-            pydantic.color.r_rgb,
-            pydantic.color.r_rgba,
-            pydantic.color.r_hsl,
-            pydantic.color.r_hsla,
+            opensafely._vendor.pydantic.color.r_hex_short,
+            opensafely._vendor.pydantic.color.r_hex_long,
+            opensafely._vendor.pydantic.color.r_rgb,
+            opensafely._vendor.pydantic.color.r_rgba,
+            opensafely._vendor.pydantic.color.r_hsl,
+            opensafely._vendor.pydantic.color.r_hsla,
         )
     )
     # Use more precise regex patterns to avoid value-out-of-range errors
-    .replace(pydantic.color._r_sl, r'(?:(\d\d?(?:\.\d+)?|100(?:\.0+)?)%)')
-    .replace(pydantic.color._r_alpha, r'(?:(0(?:\.\d+)?|1(?:\.0+)?|\.\d+|\d{1,2}%))')
-    .replace(pydantic.color._r_255, r'(?:((?:\d|\d\d|[01]\d\d|2[0-4]\d|25[0-4])(?:\.\d+)?|255(?:\.0+)?))')
+    .replace(opensafely._vendor.pydantic.color._r_sl, r'(?:(\d\d?(?:\.\d+)?|100(?:\.0+)?)%)')
+    .replace(opensafely._vendor.pydantic.color._r_alpha, r'(?:(0(?:\.\d+)?|1(?:\.0+)?|\.\d+|\d{1,2}%))')
+    .replace(opensafely._vendor.pydantic.color._r_255, r'(?:((?:\d|\d\d|[01]\d\d|2[0-4]\d|25[0-4])(?:\.\d+)?|255(?:\.0+)?))')
 )
 st.register_type_strategy(
-    pydantic.color.Color,
+    opensafely._vendor.pydantic.color.Color,
     st.one_of(
-        st.sampled_from(sorted(pydantic.color.COLORS_BY_NAME)),
+        st.sampled_from(sorted(opensafely._vendor.pydantic.color.COLORS_BY_NAME)),
         st.tuples(
             st.integers(0, 255),
             st.integers(0, 255),
@@ -175,22 +175,22 @@ RESOLVERS: Dict[type, Callable[[type], st.SearchStrategy]] = {}  # type: ignore[
 
 
 @overload
-def _registered(typ: Type[pydantic.types.T]) -> Type[pydantic.types.T]:
+def _registered(typ: Type[opensafely._vendor.pydantic.types.T]) -> Type[opensafely._vendor.pydantic.types.T]:
     pass
 
 
 @overload
-def _registered(typ: pydantic.types.ConstrainedNumberMeta) -> pydantic.types.ConstrainedNumberMeta:
+def _registered(typ: opensafely._vendor.pydantic.types.ConstrainedNumberMeta) -> opensafely._vendor.pydantic.types.ConstrainedNumberMeta:
     pass
 
 
 def _registered(
-    typ: Union[Type[pydantic.types.T], pydantic.types.ConstrainedNumberMeta]
-) -> Union[Type[pydantic.types.T], pydantic.types.ConstrainedNumberMeta]:
-    # This function replaces the version in `pydantic.types`, in order to
+    typ: Union[Type[opensafely._vendor.pydantic.types.T], opensafely._vendor.pydantic.types.ConstrainedNumberMeta]
+) -> Union[Type[opensafely._vendor.pydantic.types.T], opensafely._vendor.pydantic.types.ConstrainedNumberMeta]:
+    # This function replaces the version in `opensafely._vendor.pydantic.types`, in order to
     # effect the registration of new constrained types so that Hypothesis
     # can generate valid examples.
-    pydantic.types._DEFINED_TYPES.add(typ)
+    opensafely._vendor.pydantic.types._DEFINED_TYPES.add(typ)
     for supertype, resolver in RESOLVERS.items():
         if issubclass(typ, supertype):
             st.register_type_strategy(typ, resolver(typ))  # type: ignore
@@ -199,7 +199,7 @@ def _registered(
 
 
 def resolves(
-    typ: Union[type, pydantic.types.ConstrainedNumberMeta]
+    typ: Union[type, opensafely._vendor.pydantic.types.ConstrainedNumberMeta]
 ) -> Callable[[Callable[..., st.SearchStrategy]], Callable[..., st.SearchStrategy]]:  # type: ignore[type-arg]
     def inner(f):  # type: ignore
         assert f not in RESOLVERS
@@ -358,7 +358,7 @@ def resolve_constr(cls):  # type: ignore[no-untyped-def]  # pragma: no cover
 
 
 # Finally, register all previously-defined types, and patch in our new function
-for typ in list(pydantic.types._DEFINED_TYPES):
+for typ in opensafely._vendor.pydantic.types._DEFINED_TYPES:
     _registered(typ)
-pydantic.types._registered = _registered
+opensafely._vendor.pydantic.types._registered = _registered
 st.register_type_strategy(pydantic.Json, resolve_json)

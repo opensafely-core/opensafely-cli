@@ -1,5 +1,8 @@
 # coding: utf-8
 
+from __future__ import print_function, absolute_import, division, unicode_literals
+
+from opensafely._vendor.ruamel.yaml.compat import text_type
 from opensafely._vendor.ruamel.yaml.anchor import Anchor
 
 if False:  # MYPY
@@ -18,20 +21,20 @@ __all__ = [
 ]
 
 
-class ScalarString(str):
+class ScalarString(text_type):
     __slots__ = Anchor.attrib
 
     def __new__(cls, *args, **kw):
         # type: (Any, Any) -> Any
         anchor = kw.pop('anchor', None)  # type: ignore
-        ret_val = str.__new__(cls, *args, **kw)  # type: ignore
+        ret_val = text_type.__new__(cls, *args, **kw)  # type: ignore
         if anchor is not None:
             ret_val.yaml_set_anchor(anchor, always_dump=True)
         return ret_val
 
     def replace(self, old, new, maxreplace=-1):
         # type: (Any, Any, int) -> Any
-        return type(self)((str.replace(self, old, new, maxreplace)))
+        return type(self)((text_type.replace(self, old, new, maxreplace)))
 
     @property
     def anchor(self):
@@ -126,7 +129,8 @@ def walk_tree(base, map=None):
         map[':'] = SingleQuotedScalarString
         walk_tree(data, map=map)
     """
-    from collections.abc import MutableMapping, MutableSequence  # type: ignore
+    from opensafely._vendor.ruamel.yaml.compat import string_types
+    from opensafely._vendor.ruamel.yaml.compat import MutableMapping, MutableSequence  # type: ignore
 
     if map is None:
         map = {'\n': preserve_literal}
@@ -134,19 +138,19 @@ def walk_tree(base, map=None):
     if isinstance(base, MutableMapping):
         for k in base:
             v = base[k]  # type: Text
-            if isinstance(v, str):
+            if isinstance(v, string_types):
                 for ch in map:
                     if ch in v:
                         base[k] = map[ch](v)
                         break
             else:
-                walk_tree(v, map=map)
+                walk_tree(v)
     elif isinstance(base, MutableSequence):
         for idx, elem in enumerate(base):
-            if isinstance(elem, str):
+            if isinstance(elem, string_types):
                 for ch in map:
                     if ch in elem:  # type: ignore
                         base[idx] = map[ch](elem)
                         break
             else:
-                walk_tree(elem, map=map)
+                walk_tree(elem)

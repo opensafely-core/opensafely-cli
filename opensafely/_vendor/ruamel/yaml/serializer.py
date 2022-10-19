@@ -1,7 +1,9 @@
 # coding: utf-8
 
+from __future__ import absolute_import
+
 from opensafely._vendor.ruamel.yaml.error import YAMLError
-from opensafely._vendor.ruamel.yaml.compat import nprint, DBG_NODE, dbg, nprintf  # NOQA
+from opensafely._vendor.ruamel.yaml.compat import nprint, DBG_NODE, dbg, string_types, nprintf  # NOQA
 from opensafely._vendor.ruamel.yaml.util import RegExp
 
 from opensafely._vendor.ruamel.yaml.events import (
@@ -32,8 +34,8 @@ class SerializerError(YAMLError):
 class Serializer(object):
 
     # 'id' and 3+ numbers, but not 000
-    ANCHOR_TEMPLATE = 'id%03d'
-    ANCHOR_RE = RegExp('id(?!000$)\\d{3,}')
+    ANCHOR_TEMPLATE = u'id%03d'
+    ANCHOR_RE = RegExp(u'id(?!000$)\\d{3,}')
 
     def __init__(
         self,
@@ -51,7 +53,7 @@ class Serializer(object):
         self.use_encoding = encoding
         self.use_explicit_start = explicit_start
         self.use_explicit_end = explicit_end
-        if isinstance(version, str):
+        if isinstance(version, string_types):
             self.use_version = tuple(map(int, version.split('.')))
         else:
             self.use_version = version  # type: ignore

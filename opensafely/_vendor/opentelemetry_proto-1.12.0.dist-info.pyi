@@ -1,0 +1,1 @@
+from opentelemetry_proto-1.12.0.dist-info import *

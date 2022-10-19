@@ -76,7 +76,7 @@ def strict_str_validator(v: Any) -> Union[str]:
     raise errors.StrError()
 
 
-def bytes_validator(v: Any) -> Union[bytes]:
+def bytes_validator(v: Any) -> bytes:
     if isinstance(v, bytes):
         return v
     elif isinstance(v, bytearray):
