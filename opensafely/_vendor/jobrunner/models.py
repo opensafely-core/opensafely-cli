@@ -14,10 +14,12 @@ import hashlib
 import secrets
 from enum import Enum
 
-from opensafely._vendor.jobrunner.lib.database import databaseclass
-from opensafely._vendor.jobrunner.lib.string_utils import project_name_from_url, slugify
+from opensafely._vendor.jobrunner.lib.database import databaseclass, migration
+from opensafely._vendor.jobrunner.lib.string_utils import slugify
 
 
+# this is the overall high level state the job-runner uses to decide how to
+# handle a particular job.
 class State(Enum):
     PENDING = "pending"
     RUNNING = "running"
@@ -26,16 +28,55 @@ class State(Enum):
 
 
 # In contrast to State, these play no role in the state machine controlling
-# what happens with a job. They are simply machine readable versions of the
-# human readable status_message which allow us to provide certain UX
-# affordances in the web and command line interfaces. These get added as we
-# have a direct need for them, hence the minimal list below.
+# what happens with a job. These are designed specifically for reporting the
+# current low-level state of a job. They are simply machine readable versions
+# of the human readable status_message which allow us to provide certain UX
+# affordances in the web, cli and telemetry.
 class StatusCode(Enum):
+
+    # PENDING states
+    #
+    # initial state of a job, not yet running
+    CREATED = "created"
+    # waiting for pause mode to exit
+    WAITING_PAUSED = "paused"
+    # waiting db maintenance mode to exit
+    WAITING_DB_MAINTENANCE = "waiting_db_maintenance"
+    # waiting on dependant jobs
     WAITING_ON_DEPENDENCIES = "waiting_on_dependencies"
-    DEPENDENCY_FAILED = "dependency_failed"
+    # waiting on available resources to run the job
     WAITING_ON_WORKERS = "waiting_on_workers"
+    # reset for reboot
+    WAITING_ON_REBOOT = "waiting_on_reboot"
+
+    # RUNNING states, these mirror ExecutorState, and are the normal happy path
+    PREPARING = "preparing"
+    PREPARED = "prepared"
+    EXECUTING = "executing"
+    EXECUTED = "executed"
+    FINALIZING = "finalizing"
+    FINALIZED = "finalized"
+
+    # SUCCEEDED states. Simples.
+    SUCCEEDED = "succeeded"
+
+    # FAILED states
+    DEPENDENCY_FAILED = "dependency_failed"
     NONZERO_EXIT = "nonzero_exit"
     CANCELLED_BY_USER = "cancelled_by_user"
+    UNMATCHED_PATTERNS = "unmatched_patterns"
+    INTERNAL_ERROR = "internal_error"
+
+
+# used for tracing to know if a state is final or not
+FINAL_STATUS_CODES = [
+    StatusCode.SUCCEEDED,
+    StatusCode.DEPENDENCY_FAILED,
+    StatusCode.NONZERO_EXIT,
+    StatusCode.CANCELLED_BY_USER,
+    StatusCode.UNMATCHED_PATTERNS,
+    StatusCode.INTERNAL_ERROR,
+]
 
 
 # This is our internal representation of a JobRequest which we pass around but
@@ -103,6 +144,8 @@ class Job:
             updated_at INT,
             started_at INT,
             completed_at INT,
+            trace_context TEXT,
+            status_code_updated_at INT,
 
             PRIMARY KEY (id)
         );
@@ -116,6 +159,14 @@ class Job:
         -- grows.
         CREATE INDEX idx_job__state ON job (state) WHERE state NOT IN ('failed', 'succeeded');
     """
+
+    migration(
+        1,
+        """
+        ALTER TABLE job ADD COLUMN trace_context TEXT;
+        ALTER TABLE job ADD COLUMN status_code_updated_at INT;
+        """,
+    )
 
     id: str = None  # noqa: A003
     job_request_id: str = None
@@ -164,11 +215,19 @@ class Job:
     status_code: StatusCode = None
     # Flag indicating that the user has cancelled this job
     cancelled: bool = False
-    # Times (stored as integer UNIX timestamps)
+    # Times (stored as integer UNIX timestamps in seconds)
     created_at: int = None
     updated_at: int = None
     started_at: int = None
     completed_at: int = None
+
+    # Note: this timestamp should be in nanoseconds, not seconds
+    status_code_updated_at: int = None
+    # used to track the OTel trace context for this job
+    trace_context: dict = None
+
+    # used to cache the job_request json by the tracing code
+    _job_request = None
 
     def __post_init__(self):
         # Generate a Job ID based on the Job Request ID and action. This means
@@ -191,6 +250,8 @@ class Job:
                 data[key] = value.value
             # Convert UNIX timestamp to ISO format
             elif isinstance(value, int) and key.endswith("_at"):
+                if key == "status_code_updated_at":
+                    value /= 1e9
                 data[key] = timestamp_to_isoformat(value)
         return data
 
@@ -213,19 +274,12 @@ class Job:
     # On Python 3.8 we could use `functools.cached_property` here and avoid
     # recomputing this every time
     @property
-    def project(self):
-        """Project name based on github url."""
-        return project_name_from_url(self.repo_url)
-
-    # On Python 3.8 we could use `functools.cached_property` here and avoid
-    # recomputing this every time
-    @property
     def slug(self):
         """
         Use a human-readable slug rather than just an opaque ID to identify jobs in
         order to make debugging easier
         """
-        return slugify(f"{self.project}-{self.action}-{self.id}")
+        return slugify(f"{self.workspace}-{self.action}-{self.id}")
 
     @property
     def output_files(self):

@@ -1,6 +1,7 @@
+# # header
 # coding: utf-8
 
-from opensafely._vendor.ruamel.yaml.compat import _F
+from __future__ import unicode_literals
 
 if False:  # MYPY
     from typing import Text, Any, Dict, Optional, List  # NOQA
@@ -23,9 +24,7 @@ class Token(object):
         #               hasattr('self', key)]
         attributes = [key for key in self.__slots__ if not key.endswith('_mark')]
         attributes.sort()
-        arguments = ', '.join(
-            [_F('{key!s}={gattr!r})', key=key, gattr=getattr(self, key)) for key in attributes]
-        )
+        arguments = ', '.join(['%s=%r' % (key, getattr(self, key)) for key in attributes])
         if SHOWLINES:
             try:
                 arguments += ', line: ' + str(self.start_mark.line)
@@ -36,14 +35,6 @@ class Token(object):
         except:  # NOQA
             pass
         return '{}({})'.format(self.__class__.__name__, arguments)
-
-    @property
-    def column(self):
-        return self.start_mark.column
-
-    @column.setter
-    def column(self, pos):
-        self.start_mark.column = pos
 
     def add_post_comment(self, comment):
         # type: (Any) -> None
@@ -90,7 +81,7 @@ class Token(object):
             # nprint('mco2:', self, target, target.comment, empty)
             return self
         if c[0] and tc[0] or c[1] and tc[1]:
-            raise NotImplementedError(_F('overlap in comment {c!r} {tc!r}', c=c, tc=tc))
+            raise NotImplementedError('overlap in comment %r %r' % (c, tc))
         if c[0]:
             tc[0] = c[0]
         if c[1]:
@@ -275,9 +266,6 @@ class CommentToken(Token):
         if SHOWLINES:
             try:
                 v += ', line: ' + str(self.start_mark.line)
-            except:  # NOQA
-                pass
-            try:
                 v += ', col: ' + str(self.start_mark.column)
             except:  # NOQA
                 pass

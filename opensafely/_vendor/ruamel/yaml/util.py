@@ -4,9 +4,12 @@
 some helper functions that might be generally useful
 """
 
+from __future__ import absolute_import, print_function
+
 from functools import partial
 import re
 
+from .compat import text_type, binary_type
 
 if False:  # MYPY
     from typing import Any, Dict, Optional, List, Text  # NOQA
@@ -63,9 +66,9 @@ def load_yaml_guess_indent(stream, **kw):
     - if there are no block sequences, indent is taken from nested mappings, block sequence
       indent is unset (None) in that case
     """
-    from .main import YAML
+    from .main import round_trip_load
 
-    # load a YAML document, guess the indentation, if you use TABs you are on your own
+    # load a YAML document, guess the indentation, if you use TABs you're on your own
     def leading_spaces(line):
         # type: (Any) -> int
         idx = 0
@@ -73,9 +76,9 @@ def load_yaml_guess_indent(stream, **kw):
             idx += 1
         return idx
 
-    if isinstance(stream, str):
+    if isinstance(stream, text_type):
         yaml_str = stream  # type: Any
-    elif isinstance(stream, bytes):
+    elif isinstance(stream, binary_type):
         # most likely, but the Reader checks BOM for this
         yaml_str = stream.decode('utf-8')
     else:
@@ -114,8 +117,7 @@ def load_yaml_guess_indent(stream, **kw):
         prev_line_key_only = None
     if indent is None and map_indent is not None:
         indent = map_indent
-    yaml = YAML()
-    return yaml.load(yaml_str, **kw), indent, block_seq_indent
+    return round_trip_load(yaml_str, **kw), indent, block_seq_indent
 
 
 def configobj_walker(cfg):
@@ -143,28 +145,28 @@ def _walk_section(s, level=0):
     from configobj import Section
 
     assert isinstance(s, Section)
-    indent = '  ' * level
+    indent = u'  ' * level
     for name in s.scalars:
         for c in s.comments[name]:
             yield indent + c.strip()
         x = s[name]
-        if '\n' in x:
-            i = indent + '  '
-            x = '|\n' + i + x.strip().replace('\n', '\n' + i)
+        if u'\n' in x:
+            i = indent + u'  '
+            x = u'|\n' + i + x.strip().replace(u'\n', u'\n' + i)
         elif ':' in x:
-            x = "'" + x.replace("'", "''") + "'"
-        line = '{0}{1}: {2}'.format(indent, name, x)
+            x = u"'" + x.replace(u"'", u"''") + u"'"
+        line = u'{0}{1}: {2}'.format(indent, name, x)
         c = s.inline_comments[name]
         if c:
-            line += ' ' + c
+            line += u' ' + c
         yield line
     for name in s.sections:
         for c in s.comments[name]:
             yield indent + c.strip()
-        line = '{0}{1}:'.format(indent, name)
+        line = u'{0}{1}:'.format(indent, name)
         c = s.inline_comments[name]
         if c:
-            line += ' ' + c
+            line += u' ' + c
         yield line
         for val in _walk_section(s[name], level=level + 1):
             yield val

@@ -11,8 +11,13 @@ namespace = "opensafely._vendor"
 patches-dir = "patches"
 # Other config values which have to be defined even though we don't use them
 protected-files = []
-license.fallback-urls = {}
 typing-stubs = {}
+preserve_metadata = true
+
+# some packages don't ship their license in the package. ffs google.
+[tool.vendoring.license.fallback-urls]
+protobuf = "https://raw.githubusercontent.com/protocolbuffers/protobuf/main/LICENSE"
+chardet = "https://raw.githubusercontent.com/chardet/chardet/main/LICENSE"
 
 [tool.vendoring.transformations]
 # Imports of the form `import X.Y` can't be rewritten automatically by the
@@ -31,6 +36,13 @@ substitute = [
   { match='jobrunner.executors.local:LocalDockerAPI', replace='opensafely._vendor.jobrunner.executors.local:LocalDockerAPI' },
   { match='jobrunner.executors.volumes:DockerVolumeAPI', replace='opensafely._vendor.jobrunner.executors.volumes:DockerVolumeAPI' },
   { match='jobrunner.models', replace='opensafely._vendor.jobrunner.models' },
+  { match='wrapt._wrappers', replace='opensafely._vendor.wrapt._wrappers'},
+  { match='pydantic.color', replace='opensafely._vendor.pydantic.color'},
+  { match='pydantic.types', replace='opensafely._vendor.pydantic.types'},
+  { match='opentelemetry.sdk.metrics', replace='opensafely._vendor.opentelemetry.sdk.metrics'},
+  { match='opentelemetry.sdk.resources', replace='opensafely._vendor.opentelemetry.sdk.resources'},
+  { match='urllib3.contrib.securetransport', replace='opensafely._vendor.urllib3.contrib.securetransport'},
+  { match='urllib3.contrib.pyopenssl', replace='opensafely._vendor.urllib3.contrib.pyopenssl'},
 ]
 
 drop = [

@@ -1,5 +1,7 @@
 # coding: utf-8
 
+from __future__ import absolute_import
+
 from _ruamel_yaml import CParser, CEmitter  # type: ignore
 
 from opensafely._vendor.ruamel.yaml.constructor import Constructor, BaseConstructor, SafeConstructor

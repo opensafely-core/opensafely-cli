@@ -1,5 +1,7 @@
 # coding: utf-8
 
+from __future__ import absolute_import
+
 from opensafely._vendor.ruamel.yaml.emitter import Emitter
 from opensafely._vendor.ruamel.yaml.serializer import Serializer
 from opensafely._vendor.ruamel.yaml.representer import (

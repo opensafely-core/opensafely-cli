@@ -4,27 +4,90 @@
 #
 #    pip-compile vendor.in
 #
-certifi==2020.12.5
-    # via requests
-chardet==4.0.0
-    # via requests
+backoff==2.1.2
+    # via
+    #   -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.59.11/requirements.prod.txt
+    #   opentelemetry-exporter-otlp-proto-http
+certifi==2020.11.8
+    # via
+    #   -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.59.11/requirements.prod.txt
+    #   requests
+chardet==3.0.4
+    # via
+    #   -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.59.11/requirements.prod.txt
+    #   requests
+deprecated==1.2.13
+    # via
+    #   -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.59.11/requirements.prod.txt
+    #   opentelemetry-api
+googleapis-common-protos==1.56.4
+    # via
+    #   -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.59.11/requirements.prod.txt
+    #   opentelemetry-exporter-otlp-proto-http
 idna==2.10
-    # via requests
-opensafely-jobrunner @ git+https://github.com/opensafely-core/job-runner@v2.57.1
+    # via
+    #   -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.59.11/requirements.prod.txt
+    #   requests
+opensafely-jobrunner @ git+https://github.com/opensafely-core/job-runner@v2.59.11
     # via -r vendor.in
 opensafely-pipeline @ git+https://github.com/opensafely-core/pipeline@v0.2.1
-    # via opensafely-jobrunner
-pydantic==1.9.1
-    # via opensafely-pipeline
-requests==2.25.1
-    # via opensafely-jobrunner
-ruamel-yaml==0.17.4
     # via
+    #   -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.59.11/requirements.prod.txt
     #   opensafely-jobrunner
-    #   opensafely-pipeline
+opentelemetry-api==1.12.0
+    # via
+    #   -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.59.11/requirements.prod.txt
+    #   opentelemetry-exporter-otlp-proto-http
+    #   opentelemetry-sdk
+opentelemetry-exporter-otlp-proto-http==1.12.0
+    # via
+    #   -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.59.11/requirements.prod.txt
+    #   opensafely-jobrunner
+opentelemetry-proto==1.12.0
+    # via
+    #   -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.59.11/requirements.prod.txt
+    #   opentelemetry-exporter-otlp-proto-http
+opentelemetry-sdk==1.12.0
+    # via
+    #   -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.59.11/requirements.prod.txt
+    #   opentelemetry-exporter-otlp-proto-http
+opentelemetry-semantic-conventions==0.33b0
+    # via
+    #   -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.59.11/requirements.prod.txt
+    #   opentelemetry-sdk
+protobuf==3.20.2
+    # via
+    #   -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.59.11/requirements.prod.txt
+    #   googleapis-common-protos
+    #   opentelemetry-proto
+pydantic==1.9.0
+    # via -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.59.11/requirements.prod.txt
+requests==2.25.0
+    # via
+    #   -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.59.11/requirements.prod.txt
+    #   opensafely-jobrunner
+    #   opentelemetry-exporter-otlp-proto-http
+ruamel-yaml==0.16.12
+    # via
+    #   -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.59.11/requirements.prod.txt
+    #   opensafely-jobrunner
 # ruamel-yaml-clib==0.2.6
-    # via ruamel-yaml
-typing-extensions==4.2.0
-    # via pydantic
-urllib3==1.26.4
-    # via requests
+    # via
+    #   -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.59.11/requirements.prod.txt
+    #   ruamel-yaml
+typing-extensions==4.1.1
+    # via
+    #   -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.59.11/requirements.prod.txt
+    #   opentelemetry-sdk
+    #   pydantic
+urllib3==1.26.5
+    # via
+    #   -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.59.11/requirements.prod.txt
+    #   requests
+wrapt==1.14.1
+    # via
+    #   -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.59.11/requirements.prod.txt
+    #   deprecated
+
+# The following packages are considered to be unsafe in a requirements file:
+# setuptools

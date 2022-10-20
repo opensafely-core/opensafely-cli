@@ -12,7 +12,7 @@ import time
 
 from opensafely._vendor.pipeline import RUN_ALL_COMMAND, ProjectValidationError, load_pipeline
 
-from opensafely._vendor.jobrunner import config
+from opensafely._vendor.jobrunner import config, tracing
 from opensafely._vendor.jobrunner.actions import get_action_specification
 from opensafely._vendor.jobrunner.lib.database import exists_where, insert, transaction, update_where
 from opensafely._vendor.jobrunner.lib.git import GitError, GitFileNotFoundError, read_file_from_repo
@@ -21,7 +21,7 @@ from opensafely._vendor.jobrunner.lib.github_validators import (
     validate_branch_and_commit,
     validate_repo_url,
 )
-from opensafely._vendor.jobrunner.models import Job, SavedJobRequest, State
+from opensafely._vendor.jobrunner.models import Job, SavedJobRequest, State, StatusCode
 from opensafely._vendor.jobrunner.queries import calculate_workspace_state
 from opensafely._vendor.jobrunner.reusable_actions import (
     ReusableActionError,
@@ -221,9 +221,14 @@ def recursively_build_jobs(jobs_by_action, job_request, pipeline_config, action)
         if required_job.state in [State.PENDING, State.RUNNING]:
             wait_for_job_ids.append(required_job.id)
 
+    timestamp = time.time()
     job = Job(
         job_request_id=job_request.id,
         state=State.PENDING,
+        status_code=StatusCode.CREATED,
+        # time in nanoseconds
+        status_code_updated_at=int(timestamp * 1e9),
+        status_message="Created",
         repo_url=job_request.repo_url,
         commit=job_request.commit,
         workspace=job_request.workspace,
@@ -233,9 +238,11 @@ def recursively_build_jobs(jobs_by_action, job_request, pipeline_config, action)
         requires_outputs_from=action_spec.needs,
         run_command=action_spec.run,
         output_spec=action_spec.outputs,
-        created_at=int(time.time()),
-        updated_at=int(time.time()),
+        created_at=int(timestamp),
+        updated_at=int(timestamp),
     )
+    tracing.initialise_trace(job)
+    tracing.start_new_state(job, job.status_code_updated_at)
 
     # Add it to the dictionary of scheduled jobs
     jobs_by_action[action] = job
@@ -316,26 +323,33 @@ def create_failed_job(job_request, exception):
     # Special case for the NothingToDoError which we treat as a success
     if isinstance(exception, NothingToDoError):
         state = State.SUCCEEDED
+        code = StatusCode.SUCCEEDED
         status_message = "All actions have already run"
         action = job_request.requested_actions[0]
     else:
         state = State.FAILED
+        code = StatusCode.INTERNAL_ERROR
         status_message = f"{type(exception).__name__}: {exception}"
         action = "__error__"
-    now = int(time.time())
+    now = time.time()
     job = Job(
         job_request_id=job_request.id,
         state=state,
+        status_code=code,
+        status_message=status_message,
+        # time in nanoseconds
+        status_code_updated_at=int(now * 1e9),
         repo_url=job_request.repo_url,
         commit=job_request.commit,
         workspace=job_request.workspace,
         action=action,
-        status_message=status_message,
-        created_at=now,
-        started_at=now,
-        updated_at=now,
-        completed_at=now,
+        created_at=int(now),
+        started_at=int(now),
+        updated_at=int(now),
+        completed_at=int(now),
     )
+    tracing.initialise_trace(job)
+    tracing.record_final_state(job, job.status_code_updated_at)
     insert_into_database(job_request, [job])
 
 

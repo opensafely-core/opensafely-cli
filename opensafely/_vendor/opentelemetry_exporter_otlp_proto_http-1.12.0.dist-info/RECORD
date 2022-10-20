@@ -1,0 +1,14 @@
+opentelemetry/exporter/otlp/proto/http/__init__.py,sha256=7yAq15MLoxdbiTaw_Lc1uMInPv5zbaOCeL3nH74LE9Q,2513
+opentelemetry/exporter/otlp/proto/http/_log_exporter/__init__.py,sha256=5rOMfBH2LlhixkWYVlG-1tb1ttWEYQe8HlOO-IyG7v4,5689
+opentelemetry/exporter/otlp/proto/http/_log_exporter/encoder/__init__.py,sha256=vo--9E4ccSzKqQ39tv6LlOa6cIavRYYzEjrqCnCFwAY,3525
+opentelemetry/exporter/otlp/proto/http/trace_exporter/__init__.py,sha256=uXseNMND2vUmyCzb2LnK4x_lTBRQnjYNALMXTP50nQA,6294
+opentelemetry/exporter/otlp/proto/http/trace_exporter/encoder/__init__.py,sha256=W-d5OCUnLLRNPvygyUDktEQVH0M6z72qiEIxDPjKpv8,9964
+opentelemetry/exporter/otlp/proto/http/version.py,sha256=yk1jvTkr9u44V9-UKXzc2yZoks579w8PMizujHde9S4,608
+opentelemetry_exporter_otlp_proto_http-1.12.0.dist-info/INSTALLER,sha256=zuuue4knoyJ-UwPPXg8fezS7VCrXJQrAP7zeNuwvFQg,4
+opentelemetry_exporter_otlp_proto_http-1.12.0.dist-info/LICENSE,sha256=h8jwqxShIeVkc8vOo9ynxGYW16f4fVPxLhZKZs0H5U8,11350
+opentelemetry_exporter_otlp_proto_http-1.12.0.dist-info/METADATA,sha256=rZmIotoj1OBv0PxcUTTNHR0iUoLj1L6niMOcvZXH4Fg,2244
+opentelemetry_exporter_otlp_proto_http-1.12.0.dist-info/RECORD,,
+opentelemetry_exporter_otlp_proto_http-1.12.0.dist-info/REQUESTED,sha256=47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU,0
+opentelemetry_exporter_otlp_proto_http-1.12.0.dist-info/WHEEL,sha256=G16H4A3IeoQmnOrYV4ueZGKSjhipXx8zc8nu9FGlvMA,92
+opentelemetry_exporter_otlp_proto_http-1.12.0.dist-info/entry_points.txt,sha256=my4WVswTKy4Gpmj3rSXFHy1CBON2gcNSIt1cB-Vog30,121
+opentelemetry_exporter_otlp_proto_http-1.12.0.dist-info/top_level.txt,sha256=5p97iTMneNm1LAKDalzEVpYhvPZsaqJZzdLuD_upSaQ,14
