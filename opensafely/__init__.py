@@ -9,7 +9,7 @@ opensafely_module_dir = Path(__file__).parent
 pkg_resources.working_set.add_entry(f"{opensafely_module_dir}/_vendor")
 
 from opensafely import (
-    check, codelists, extract_stats, jupyter, pull, unzip, upgrade, info 
+    check, codelists, execute, extract_stats, jupyter, pull, unzip, upgrade, info
 )
 from opensafely._vendor.jobrunner.cli import local_run
 
@@ -52,6 +52,7 @@ def main():
     add_subcommand("unzip", unzip)
     add_subcommand("extract-stats", extract_stats)
     add_subcommand("info", info)
+    add_subcommand("exec", execute)
 
     # we version check before parse_args is called so that if a user is
     # following recent documentation but has an old opensafely installed,
