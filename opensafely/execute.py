@@ -46,7 +46,6 @@ def main(image, docker_args):
             "docker",
             "run",
             "--rm",
-            "-it",
             f"--volume={pathlib.Path.cwd()}:/workspace",
             *user_args,
             f"{config.DOCKER_REGISTRY}/{image}",
