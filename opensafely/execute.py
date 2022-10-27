@@ -24,7 +24,7 @@ def add_arguments(parser):
     return parser
 
 
-def main(image, docker_args):
+def main(image, docker_args, environment=os.environ):
     if not docker_preflight_check():
         return False
 
@@ -40,6 +40,10 @@ def main(image, docker_args):
         user_args = []
     else:
         user_args = ["--user", f"{uid}:{gid}"]
+
+    # Override for rootless Docker permissions.
+    if "OPENSAFELY_EXEC_USE_CONTAINER_USER" in environment:
+        user_args = []
 
     proc = subprocess.run(
         [
