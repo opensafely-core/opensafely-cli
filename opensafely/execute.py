@@ -11,6 +11,13 @@ DESCRIPTION = "Run an OpenSAFELY action outside of the `project.yaml` pipeline"
 
 def add_arguments(parser):
     parser.add_argument(
+        "--container-user",
+        dest="container_user_is_enabled",
+        action="store_true",
+        default=False,
+        help="Overrides automatic of host user id and group id or Docker; for rootless Docker",
+    )
+    parser.add_argument(
         "image",
         metavar="IMAGE_NAME:VERSION",
         help="OpenSAFELY image and version (e.g. databuilder:v1)",
@@ -21,25 +28,28 @@ def add_arguments(parser):
         metavar="...",
         help="Any additional arguments to pass to the image",
     )
+    parser.set_defaults()
     return parser
 
 
-def main(image, docker_args):
+def main(image, docker_args, container_user_is_enabled):
     if not docker_preflight_check():
         return False
 
-    try:
-        # In order for any files that get created to have the appropriate owner/group we
-        # run the command using the current user's UID/GID
-        uid = os.getuid()
-        gid = os.getgid()
-    except Exception:
-        # These aren't available on Windows; but then on Windows we don't have to deal
-        # with the same file ownership problems which require us to match the UID in the
-        # first place.
-        user_args = []
-    else:
-        user_args = ["--user", f"{uid}:{gid}"]
+    user_args = []
+    if not container_user_is_enabled:
+        try:
+            # In order for any files that get created to have the appropriate owner/group we
+            # run the command using the current user's UID/GID
+            uid = os.getuid()
+            gid = os.getgid()
+        except Exception:
+            # These aren't available on Windows; but then on Windows we don't have to deal
+            # with the same file ownership problems which require us to match the UID in the
+            # first place.
+            pass
+        else:
+            user_args = ["--user", f"{uid}:{gid}"]
 
     proc = subprocess.run(
         [
