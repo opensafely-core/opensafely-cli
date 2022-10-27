@@ -23,7 +23,7 @@ def test_execute_main(mock_os, run):
             "baz",
         ]
     )
-    execute.main("databuilder:v1", ["foo", "bar", "baz"], container_user_is_enabled=False)
+    execute.main("databuilder:v1", ["foo", "bar", "baz"])
 
 
 @mock.patch("opensafely.execute.os")
@@ -43,22 +43,4 @@ def test_execute_main_on_windows(mock_os, run):
             "baz",
         ]
     )
-    execute.main("databuilder:v1", ["foo", "bar", "baz"], container_user_is_enabled=False)
-
-
-@mock.patch("opensafely.execute.os")
-def test_execute_main_without_user(mock_os, run):
-    run.expect(["docker", "info"])
-    run.expect(
-        [
-            "docker",
-            "run",
-            "--rm",
-            f"--volume={pathlib.Path.cwd()}:/workspace",
-            "ghcr.io/opensafely-core/databuilder:v1",
-            "foo",
-            "bar",
-            "baz",
-        ]
-   )
-    execute.main("databuilder:v1", ["foo", "bar", "baz"], container_user_is_enabled=True)
+    execute.main("databuilder:v1", ["foo", "bar", "baz"])
