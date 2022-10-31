@@ -1,5 +1,5 @@
 [tool.black]
-exclude = 'opensafely/_vendor'
+extend-exclude = 'opensafely/_vendor'
 
 [tool.vendoring]
 destination = "opensafely/_vendor/"
