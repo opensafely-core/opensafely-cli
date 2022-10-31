@@ -1,5 +1,6 @@
 __pycache__
 *.egg-info/
+.pytest-cache/
 pip-wheel-metadata/*
 build/
 dist/
