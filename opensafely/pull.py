@@ -60,9 +60,6 @@ def main(image="all", force=False, project=None):
     try:
         updated = False
         for image in images:
-            # currently databuilder is not published, so we ignore it when pulling
-            if image == "databuilder":
-                continue
             tag = f"{REGISTRY}/{image}"
             if force or tag in local_images:
                 updated = True
@@ -129,9 +126,6 @@ def get_local_images():
             continue
 
         name, sha = line.split("=", 1)
-        # currently databuilder is not published, so we ignore it
-        if "databuilder" in name:
-            continue
         images[name].append(sha)
 
     return images
