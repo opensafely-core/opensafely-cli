@@ -128,8 +128,8 @@ def test_check_version_out_of_date(run, capsys):
 
     assert len(pull.check_version()) == 1
     out, err = capsys.readouterr()
-    assert err == ""
-    assert out.splitlines() == [
+    assert out == ""
+    assert err.splitlines() == [
         "Warning: the OpenSAFELY docker images for python actions are out of date - please update by running:",
         "    opensafely pull",
         "",

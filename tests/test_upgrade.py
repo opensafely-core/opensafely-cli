@@ -115,8 +115,8 @@ def test_check_version_needs_updating(set_current_version, capsys):
     upgrade.CACHE_FILE.write_text("1.1.0")
     set_current_version("v1.0.0")
     assert upgrade.check_version()
-    out, _ = capsys.readouterr()
-    assert out.splitlines() == [
+    _, err = capsys.readouterr()
+    assert err.splitlines() == [
         "Warning: there is a newer version of opensafely available (1.1.0) - please upgrade by running:",
         "    opensafely upgrade",
         "",
