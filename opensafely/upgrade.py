@@ -98,6 +98,7 @@ def check_version():
     if update:
         print(
             f"Warning: there is a newer version of opensafely available ({latest}) - please upgrade by running:\n"
-            "    opensafely upgrade\n"
+            "    opensafely upgrade\n",
+            file=sys.stderr,
         )
     return update

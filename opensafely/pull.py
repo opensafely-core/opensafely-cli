@@ -197,6 +197,7 @@ def check_version():
     if need_update:
         print(
             f"Warning: the OpenSAFELY docker images for {', '.join(need_update)} actions are out of date - please update by running:\n"
-            "    opensafely pull\n"
+            "    opensafely pull\n",
+            file=sys.stderr,
         )
     return need_update
