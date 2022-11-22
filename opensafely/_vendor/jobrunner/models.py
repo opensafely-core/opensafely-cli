@@ -12,8 +12,10 @@ import dataclasses
 import datetime
 import hashlib
 import secrets
+import shlex
 from enum import Enum
 
+from opensafely._vendor.jobrunner.lib.commands import requires_db_access
 from opensafely._vendor.jobrunner.lib.database import databaseclass, migration
 from opensafely._vendor.jobrunner.lib.string_utils import slugify
 
@@ -46,6 +48,8 @@ class StatusCode(Enum):
     WAITING_ON_DEPENDENCIES = "waiting_on_dependencies"
     # waiting on available resources to run the job
     WAITING_ON_WORKERS = "waiting_on_workers"
+    # waiting on available db resources to run the job
+    WAITING_ON_DB_WORKERS = "waiting_on_db_workers"
     # reset for reboot
     WAITING_ON_REBOOT = "waiting_on_reboot"
 
@@ -66,6 +70,7 @@ class StatusCode(Enum):
     CANCELLED_BY_USER = "cancelled_by_user"
     UNMATCHED_PATTERNS = "unmatched_patterns"
     INTERNAL_ERROR = "internal_error"
+    KILLED_BY_ADMIN = "killed_by_admin"
 
 
 # used for tracing to know if a state is final or not
@@ -76,6 +81,7 @@ FINAL_STATUS_CODES = [
     StatusCode.CANCELLED_BY_USER,
     StatusCode.UNMATCHED_PATTERNS,
     StatusCode.INTERNAL_ERROR,
+    StatusCode.KILLED_BY_ADMIN,
 ]
 
 
@@ -287,6 +293,17 @@ class Job:
             return self.outputs.keys()
         else:
             return []
+
+    @property
+    def action_args(self):
+        if self.run_command:
+            return shlex.split(self.run_command)
+        else:
+            return []
+
+    @property
+    def requires_db(self):
+        return requires_db_access(self.action_args)
 
 
 def deterministic_id(seed):
