@@ -8,6 +8,10 @@ opensafely/hdruk-os-covid-paeds:
   allow: ['isaric']
 opensafely/renal-short-data-report:
   allow: ['ukrr']
+opensafely/ckd-coverage-ve:
+  allow: ['ukrr']
+opensafely/sotrovimab-and-molnupiravir:
+  allow: ['ukrr']
 opensafely/MH_pandemic:
   allow: ['ons_cis']
 opensafely/bias:
