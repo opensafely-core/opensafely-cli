@@ -16,3 +16,5 @@ opensafely/MH_pandemic:
   allow: ['ons_cis']
 opensafely/bias:
   allow: ['ons_cis']
+opensafely/ckd-healthcare-use:
+  allow: ['ukrr']
