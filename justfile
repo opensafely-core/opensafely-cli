@@ -38,7 +38,7 @@ _compile src dst *args: virtualenv
     #!/usr/bin/env bash
     # exit if src file is older than dst file (-nt = 'newer than', but we negate with || to avoid error exit code)
     test "${FORCE:-}" = "true" -o {{ src }} -nt {{ dst }} || exit 0
-    $BIN/pip-compile --allow-unsafe --generate-hashes --output-file={{ dst }} {{ src }} {{ args }}
+    {{ COMPILE }} --output-file={{ dst }} {{ src }} {{ args }}
 
 
 # This project currently has no production dependencies, as it vendors them
