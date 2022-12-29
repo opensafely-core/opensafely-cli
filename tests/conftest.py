@@ -1,15 +1,17 @@
 import subprocess
-import sys
 from collections import deque
 from pathlib import Path
 
 # ensure pkg_resources can find the package metadata we have included, as the
 # opentelemetry packages need it
 import pkg_resources
+
+
 opensafely_module_dir = Path(__file__).parent
 pkg_resources.working_set.add_entry(f"{opensafely_module_dir}/_vendor")
-    
-import pytest
+
+import pytest  # noqa: E402
+
 
 _actual_run = subprocess.run
 

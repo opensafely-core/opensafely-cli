@@ -5,6 +5,7 @@ import pytest
 
 from opensafely import pull
 
+
 project_fixture_path = Path(__file__).parent / "fixtures" / "projects"
 
 
@@ -15,7 +16,16 @@ def tag(image):
 def test_default_no_local_images(run, capsys):
 
     run.expect(["docker", "info"])
-    run.expect(["docker", "images", "ghcr.io/opensafely-core/*", "--no-trunc", "--format={{.Repository}}={{.ID}}"], stdout="")
+    run.expect(
+        [
+            "docker",
+            "images",
+            "ghcr.io/opensafely-core/*",
+            "--no-trunc",
+            "--format={{.Repository}}={{.ID}}",
+        ],
+        stdout="",
+    )
 
     pull.main(image="all", force=False)
     out, err = capsys.readouterr()
@@ -26,7 +36,16 @@ def test_default_no_local_images(run, capsys):
 def test_default_no_local_images_force(run, capsys):
 
     run.expect(["docker", "info"])
-    run.expect(["docker", "images", "ghcr.io/opensafely-core/*", "--no-trunc", "--format={{.Repository}}={{.ID}}"], stdout="")
+    run.expect(
+        [
+            "docker",
+            "images",
+            "ghcr.io/opensafely-core/*",
+            "--no-trunc",
+            "--format={{.Repository}}={{.ID}}",
+        ],
+        stdout="",
+    )
     run.expect(["docker", "pull", tag("cohortextractor")])
     run.expect(["docker", "pull", tag("jupyter")])
     run.expect(["docker", "pull", tag("python")])
@@ -53,7 +72,13 @@ def test_default_with_local_images(run, capsys):
 
     run.expect(["docker", "info"])
     run.expect(
-        ["docker", "images", "ghcr.io/opensafely-core/*", "--no-trunc", "--format={{.Repository}}={{.ID}}"],
+        [
+            "docker",
+            "images",
+            "ghcr.io/opensafely-core/*",
+            "--no-trunc",
+            "--format={{.Repository}}={{.ID}}",
+        ],
         stdout="ghcr.io/opensafely-core/r=sha",
     )
     run.expect(["docker", "pull", tag("r")])
@@ -71,7 +96,16 @@ def test_default_with_local_images(run, capsys):
 def test_specific_image(run, capsys):
 
     run.expect(["docker", "info"])
-    run.expect(["docker", "images", "ghcr.io/opensafely-core/*", "--no-trunc", "--format={{.Repository}}={{.ID}}"], stdout="")
+    run.expect(
+        [
+            "docker",
+            "images",
+            "ghcr.io/opensafely-core/*",
+            "--no-trunc",
+            "--format={{.Repository}}={{.ID}}",
+        ],
+        stdout="",
+    )
     run.expect(["docker", "pull", tag("r")])
     run.expect(["docker", "image", "prune", "--force"])
 
@@ -87,7 +121,16 @@ def test_specific_image(run, capsys):
 def test_project(run, capsys):
 
     run.expect(["docker", "info"])
-    run.expect(["docker", "images", "ghcr.io/opensafely-core/*", "--no-trunc", "--format={{.Repository}}={{.ID}}"], stdout="")
+    run.expect(
+        [
+            "docker",
+            "images",
+            "ghcr.io/opensafely-core/*",
+            "--no-trunc",
+            "--format={{.Repository}}={{.ID}}",
+        ],
+        stdout="",
+    )
     run.expect(["docker", "pull", tag("cohortextractor")])
     run.expect(["docker", "pull", tag("python")])
     run.expect(["docker", "pull", tag("jupyter")])
@@ -122,8 +165,14 @@ def test_remove_deprecated_images(run):
 def test_check_version_out_of_date(run, capsys):
 
     run.expect(
-        ["docker", "images", "ghcr.io/opensafely-core/*", "--no-trunc", "--format={{.Repository}}={{.ID}}"], 
-        stdout="ghcr.io/opensafely-core/python=sha256:oldsha"
+        [
+            "docker",
+            "images",
+            "ghcr.io/opensafely-core/*",
+            "--no-trunc",
+            "--format={{.Repository}}={{.ID}}",
+        ],
+        stdout="ghcr.io/opensafely-core/python=sha256:oldsha",
     )
 
     assert len(pull.check_version()) == 1
@@ -142,8 +191,14 @@ def test_check_version_up_to_date(run, capsys):
     pull.token = None
 
     run.expect(
-        ["docker", "images", "ghcr.io/opensafely-core/*", "--no-trunc", "--format={{.Repository}}={{.ID}}"], 
-        stdout=f"ghcr.io/opensafely-core/python={current_sha}"
+        [
+            "docker",
+            "images",
+            "ghcr.io/opensafely-core/*",
+            "--no-trunc",
+            "--format={{.Repository}}={{.ID}}",
+        ],
+        stdout=f"ghcr.io/opensafely-core/python={current_sha}",
     )
 
     assert len(pull.check_version()) == 0
@@ -158,7 +213,13 @@ def test_check_version_up_to_date_old_sha(run, capsys):
     pull.token = None
 
     run.expect(
-        ["docker", "images", "ghcr.io/opensafely-core/*", "--no-trunc", "--format={{.Repository}}={{.ID}}"], 
+        [
+            "docker",
+            "images",
+            "ghcr.io/opensafely-core/*",
+            "--no-trunc",
+            "--format={{.Repository}}={{.ID}}",
+        ],
         stdout=(
             f"ghcr.io/opensafely-core/python={current_sha}\n"
             f"ghcr.io/opensafely-core/python=oldsha"

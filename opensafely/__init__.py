@@ -1,17 +1,28 @@
-import sys
 import argparse
+import sys
 from pathlib import Path
 
 # ensure pkg_resources can find the package metadata we have included, as the
 # opentelemetry packages need it
 import pkg_resources
+
+
 opensafely_module_dir = Path(__file__).parent
 pkg_resources.working_set.add_entry(f"{opensafely_module_dir}/_vendor")
 
-from opensafely import (
-    check, codelists, execute, extract_stats, jupyter, pull, unzip, upgrade, info
+from opensafely import (  # noqa: E402
+    check,
+    codelists,
+    execute,
+    extract_stats,
+    info,
+    jupyter,
+    pull,
+    unzip,
+    upgrade,
 )
-from opensafely._vendor.jobrunner.cli import local_run
+from opensafely._vendor.jobrunner.cli import local_run  # noqa: E402
+
 
 __version__ = Path(__file__).parent.joinpath("VERSION").read_text().strip()
 

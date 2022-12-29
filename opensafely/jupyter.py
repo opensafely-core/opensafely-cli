@@ -11,6 +11,7 @@ import webbrowser
 from pathlib import Path
 from urllib import request
 
+
 DESCRIPTION = "Run a jupyter lab notebook using the OpenSAFELY environment"
 
 
@@ -73,13 +74,13 @@ def ensure_tty(docker_cmd):
 
     git-bash provides the `wintpy` tool as a workaround, so detect we are in
     that situation and use it if so.
-    
+
     """
     if platform.system() != "Windows":
         return docker_cmd
 
     winpty = shutil.which("winpty")
-    
+
     if winpty is None:
         # not git-bash
         return docker_cmd

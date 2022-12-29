@@ -6,6 +6,7 @@ import subprocess
 from opensafely._vendor.jobrunner import config
 from opensafely._vendor.jobrunner.cli.local_run import docker_preflight_check
 
+
 DESCRIPTION = "Run an OpenSAFELY action outside of the `project.yaml` pipeline"
 
 
