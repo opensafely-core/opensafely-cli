@@ -55,3 +55,12 @@ drop = [
 [tool.vendoring.license.directories]
 job-runner = "jobrunner"
 "ruamel.yaml" = "ruamel"
+
+[tool.isort]
+force_grid_wrap = 0
+include_trailing_comma = true
+line_length = 88
+lines_after_imports = 2
+multi_line_output = 3
+skip_glob = [".direnv", "venv", ".venv", "opensafely/_vendor"]
+use_parentheses = true

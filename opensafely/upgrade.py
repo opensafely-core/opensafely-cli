@@ -9,6 +9,7 @@ from pathlib import Path
 import opensafely
 from opensafely._vendor import requests
 
+
 DESCRIPTION = "Upgrade the opensafely cli tool."
 
 CACHE_FILE = Path(tempfile.gettempdir()) / "opensafely-latest-version"

@@ -9,8 +9,13 @@ from opensafely._vendor import requests
 from opensafely._vendor.jobrunner import config
 from opensafely._vendor.jobrunner.cli.local_run import docker_preflight_check
 from opensafely._vendor.ruamel.yaml import YAML
-from opensafely._vendor.ruamel.yaml.error import (YAMLError, YAMLFutureWarning,
-                                                  YAMLStreamError, YAMLWarning)
+from opensafely._vendor.ruamel.yaml.error import (
+    YAMLError,
+    YAMLFutureWarning,
+    YAMLStreamError,
+    YAMLWarning,
+)
+
 
 DESCRIPTION = (
     "Command for updating the docker images used to run OpenSAFELY studies locally"
@@ -87,9 +92,9 @@ def get_actions_from_project_file(project_yaml):
 
     try:
         with path.open() as f:
-            project = YAML(typ="safe", pure=True).load(path)
+            project = YAML(typ="safe", pure=True).load(f)
     except (YAMLError, YAMLStreamError, YAMLWarning, YAMLFutureWarning) as e:
-        raise RuntimeError(f"Could not parse {project_yaml}: str(e)")
+        raise RuntimeError(f"Could not parse {project_yaml}: {e}")
 
     images = []
     for action_name, action in project.get("actions", {}).items():

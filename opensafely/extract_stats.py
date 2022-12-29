@@ -6,6 +6,7 @@ from collections import Counter
 from datetime import datetime
 from pathlib import Path
 
+
 DESCRIPTION = "Parse and output cohortextractor-stats logs as JSONL"
 TIMESTAMP_PREFIX_REGEX = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{9}Z")
 COMPLETED_PREFIX_REGEX = re.compile(r"^Completed successfully|outputs:")

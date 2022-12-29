@@ -5,3 +5,5 @@ pip-wheel-metadata/*
 build/
 dist/
 venv/
+.venv
+.coverage

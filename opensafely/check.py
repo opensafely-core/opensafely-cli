@@ -1,11 +1,13 @@
+import configparser
 import glob
 import os
 import re
 import sys
 from pathlib import Path
-import configparser
+
 from opensafely._vendor import requests
 from opensafely._vendor.ruamel.yaml import YAML
+
 
 DESCRIPTION = "Check the opensafely project for correctness"
 

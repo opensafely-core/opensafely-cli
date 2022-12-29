@@ -10,6 +10,7 @@ import opensafely
 from opensafely import upgrade
 from opensafely._vendor import requests
 
+
 # Because we're using a vendored version of requests we need to monkeypatch the
 # requests_mock library so it references our vendored library instead
 mocker.requests = requests

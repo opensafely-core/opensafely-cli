@@ -9,6 +9,7 @@ from pathlib import Path
 
 from opensafely._vendor import requests
 
+
 DESCRIPTION = "Commands for interacting with https://codelists.opensafely.org/"
 
 CODELISTS_DIR = "codelists"
@@ -189,9 +190,7 @@ def parse_codelist_file(codelists_dir):
         existing_version = codelist_versions.get(line_without_version)
         line_version = tokens[-1]
         if existing_version == line_version:
-            exit_with_error(
-                f"{line} is a duplicate of a previous line"
-            )
+            exit_with_error(f"{line} is a duplicate of a previous line")
         if existing_version is not None:
             exit_with_error(
                 f"{line} conflicts with a different version of the same codelist: {existing_version}"

@@ -6,6 +6,7 @@ from pathlib import Path, PurePath
 
 import pytest
 
+
 BIN_DIR = "bin" if os.name != "nt" else "Scripts"
 
 
