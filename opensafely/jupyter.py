@@ -24,7 +24,6 @@ if os.environ.get("DEBUG", False):
         sys.stderr.write("DEBUG: " + msg.replace("\n", "\r\n") + "\r\n")
         sys.stderr.flush()
 
-
 else:
 
     def debug(msg):
