@@ -110,7 +110,7 @@ vendoring @ https://github.com/opensafely-core/vendoring/archive/add-preserve-me
     # via -r requirements.dev.in
 virtualenv==20.17.1
     # via pre-commit
-wheel==0.36.0
+wheel==0.38.1
     # via
     #   -r requirements.dev.in
     #   pip-tools
