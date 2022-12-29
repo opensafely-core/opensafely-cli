@@ -27,7 +27,7 @@ def main():
         )
         info = json.loads(ps.stdout)
 
-        memory = float(info["MemTotal"]) / (1024 ** 3)
+        memory = float(info["MemTotal"]) / (1024**3)
         print(
             INFO.format(
                 version=opensafely.__version__,

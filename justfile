@@ -4,9 +4,8 @@ set dotenv-load := true
 # so we shell out, as we need VIRTUAL_ENV in the justfile environment
 export VIRTUAL_ENV  := `echo ${VIRTUAL_ENV:-.venv}`
 
-# TODO: make it /scripts on windows?
-export BIN := VIRTUAL_ENV + "/bin"
-export PIP := BIN + "/python -m pip"
+export BIN := VIRTUAL_ENV + if os_family() == "unix" { "/bin" } else { "/Scripts" }
+export PIP := BIN + if os_family() == "unix" { "/python -m pip" } else { "/python.exe -m pip" }
 # enforce our chosen pip compile flags
 export COMPILE := BIN + "/pip-compile --allow-unsafe"
 
@@ -41,7 +40,8 @@ _compile src dst *args: virtualenv
     {{ COMPILE }} --output-file={{ dst }} {{ src }} {{ args }}
 
 
-# This project currently has no production dependencies, as it vendors them
+# This project currently has no production dependencies, as it vendors them. See DEVELOPERS.md.
+#
 # update requirements.prod.txt if requirements.prod.in has changed
 #requirements-prod *args:
 #    {{ just_executable() }} _compile requirements.prod.in requirements.prod.txt {{ args }}
@@ -94,6 +94,7 @@ upgrade env package="": virtualenv
 
 test *args: devenv
     $BIN/coverage run --module pytest {{ args }}
+    $BIN/coverage report || $BIN/coverage html
 
 
 # run the various dev checks but does not change any files

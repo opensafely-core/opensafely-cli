@@ -56,11 +56,23 @@ drop = [
 job-runner = "jobrunner"
 "ruamel.yaml" = "ruamel"
 
+[tool.coverage.run]
+branch = true
+dynamic_context = "test_function"
+omit = [
+  ".venv/*",
+  "opensafely/_vendor/*",
+]
+
+[tool.coverage.report]
+fail_under = 82
+skip_covered = true
+show_missing = true
+
+[tool.coverage.html]
+show_contexts = true
+
 [tool.isort]
-force_grid_wrap = 0
-include_trailing_comma = true
-line_length = 88
+profile = "black"
 lines_after_imports = 2
-multi_line_output = 3
 skip_glob = [".direnv", "venv", ".venv", "opensafely/_vendor"]
-use_parentheses = true
