@@ -1,4 +1,5 @@
 import subprocess
+import sys
 from collections import deque
 from pathlib import Path
 
@@ -42,25 +43,47 @@ class SubprocessRunFixture(deque):
 
     strict = True
 
-    def expect(self, cmd, returncode=0, stdout=None, stderr=None, check=False):
+    def expect(
+        self,
+        cmd,
+        returncode=0,
+        stdout=None,
+        stderr=None,
+        check=False,
+        winpty=False,
+    ):
         value = exc = None
         if check and returncode != 0:
             exc = subprocess.CalledProcessError(returncode, cmd, stdout, stderr)
         else:
             value = subprocess.CompletedProcess(cmd, returncode, stdout, stderr)
-        self.append((cmd, value, exc))
+        self.append((cmd, value, exc, winpty))
 
     def run(self, cmd, *args, **kwargs):
         """The replacement run() function."""
-        expected, value, exc = self.popleft()
+        expected, value, exc, winpty = self.popleft()
         # text and check affect the return value and behaviour of run()
         text = kwargs.get("text", False)
         check = kwargs.get("check", False)
 
+        # handle some windows calls being wrapped in winpty
+        if winpty and sys.platform == "win32":
+            if "winpty" in cmd[0] and cmd[1] == "--":
+                # strip winpty from cmd, do compare the wrapper
+                cmd = cmd[2:]
+
+        # windows calls may be wrapped in winpty
+        if winpty and sys.platform == "win32":
+            if "winpty" in cmd[0] and cmd[1] == "--":
+                # strip winpty from cmd, do compare the wrapper
+                cmd = cmd[2:]
+
         # first up, do we expect this cmd?
         if expected != cmd:
             if self.strict:
-                raise AssertionError(f"run fixture got unexpected call: {cmd}")
+                raise AssertionError(
+                    f"run fixture got unexpected call: {cmd}\nExpected {expected}"
+                )
             else:
                 # pass through to system
                 return _actual_run(cmd, *args, **kwargs)

@@ -1,7 +1,5 @@
 import json
 import os
-import platform
-import shutil
 import socket
 import subprocess
 import sys
@@ -11,23 +9,10 @@ import webbrowser
 from pathlib import Path
 from urllib import request
 
+from opensafely.windows import debug, ensure_tty
+
 
 DESCRIPTION = "Run a jupyter lab notebook using the OpenSAFELY environment"
-
-
-# poor mans debugging because debugging threads on windows is hard
-if os.environ.get("DEBUG", False):
-
-    def debug(msg):
-        # threaded output for some reason needs the carriage return or else
-        # it doesn't reset the cursor.
-        sys.stderr.write("DEBUG: " + msg.replace("\n", "\r\n") + "\r\n")
-        sys.stderr.flush()
-
-else:
-
-    def debug(msg):
-        pass
 
 
 def add_arguments(parser):
@@ -59,38 +44,6 @@ def add_arguments(parser):
     )
     # opt into looser argument parsing
     parser.set_defaults(handles_unknown_args=True)
-
-
-def ensure_tty(docker_cmd):
-    """Ensure that we have a valid tty to use to run docker.
-
-    This is needed as we want the user to be able to kill jupyter with Ctrl-C
-    as normal, which requires a tty on their end.
-
-    Nearly every terminal under the sun gives you a valid tty. Except
-    git-bash's default terminal, which happens to be the one a lot of our users
-    use.
-
-    git-bash provides the `wintpy` tool as a workaround, so detect we are in
-    that situation and use it if so.
-
-    """
-    if platform.system() != "Windows":
-        return docker_cmd
-
-    winpty = shutil.which("winpty")
-
-    if winpty is None:
-        # not git-bash
-        return docker_cmd
-
-    if sys.stdin.isatty() and sys.stdout.isatty():
-        # already sorted, possibly user already ran us with winpty
-        return docker_cmd
-
-    debug(f"detected no tty, found winpty at {winpty}, wrapping docker with it")
-    # avoid using explicit path, as it can trip things up.
-    return ["winpty", "--"] + docker_cmd
 
 
 def open_browser(name, port):

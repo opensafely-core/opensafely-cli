@@ -5,6 +5,7 @@ import subprocess
 
 from opensafely._vendor.jobrunner import config
 from opensafely._vendor.jobrunner.cli.local_run import docker_preflight_check
+from opensafely.windows import ensure_tty
 
 
 DESCRIPTION = "Run an OpenSAFELY action outside of the `project.yaml` pipeline"
@@ -42,15 +43,16 @@ def main(image, docker_args):
     else:
         user_args = ["--user", f"{uid}:{gid}"]
 
-    proc = subprocess.run(
-        [
-            "docker",
-            "run",
-            "--rm",
-            f"--volume={pathlib.Path.cwd()}:/workspace",
-            *user_args,
-            f"{config.DOCKER_REGISTRY}/{image}",
-            *docker_args,
-        ]
-    )
+    docker_cmd = [
+        "docker",
+        "run",
+        "--rm",
+        "-it",
+        f"--volume={pathlib.Path.cwd()}:/workspace",
+        *user_args,
+        f"{config.DOCKER_REGISTRY}/{image}",
+        *docker_args,
+    ]
+
+    proc = subprocess.run(ensure_tty(docker_cmd))
     return proc.returncode == 0

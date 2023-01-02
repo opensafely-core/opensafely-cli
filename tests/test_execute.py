@@ -14,6 +14,7 @@ def test_execute_main(mock_os, run):
             "docker",
             "run",
             "--rm",
+            "-it",
             f"--volume={pathlib.Path.cwd()}:/workspace",
             "--user",
             "12345:67890",
@@ -21,7 +22,8 @@ def test_execute_main(mock_os, run):
             "foo",
             "bar",
             "baz",
-        ]
+        ],
+        winpty=True,
     )
     execute.main("databuilder:v1", ["foo", "bar", "baz"])
 
@@ -36,11 +38,13 @@ def test_execute_main_on_windows(mock_os, run):
             "docker",
             "run",
             "--rm",
+            "-it",
             f"--volume={pathlib.Path.cwd()}:/workspace",
             "ghcr.io/opensafely-core/databuilder:v1",
             "foo",
             "bar",
             "baz",
-        ]
+        ],
+        winpty=True,
     )
     execute.main("databuilder:v1", ["foo", "bar", "baz"])
