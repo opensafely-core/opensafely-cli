@@ -11,37 +11,68 @@ from opensafely.windows import ensure_tty
 DESCRIPTION = "Run an OpenSAFELY action outside of the `project.yaml` pipeline"
 
 
+def get_default_user():
+    try:
+        # On ~unix, in order for any files that get created to have the
+        # appropriate owner/group we run the command using the current user's
+        # UID/GID
+        return f"{os.getuid()}:{os.getgid()}"
+    except Exception:
+        # These aren't available on Windows; but then on Windows we don't have to deal
+        # with the same file ownership problems which require us to match the UID in the
+        # first place.
+        return None
+
+
+DEFAULT_USER = get_default_user()
+
+
 def add_arguments(parser):
+    # these three arguments are direct copies of docker run arguments. The must be
+    # supplied before the image name, just like docker run.
+    parser.add_argument("--entrypoint", default=None, help="Set docker entrypoint")
+    parser.add_argument("--env", "-e", action="append", default=[], help="Set env vars")
+    parser.add_argument(
+        "--user",
+        "-u",
+        default=DEFAULT_USER,
+        help="Unix user/group to run as (uid:gid). Defaults to current user",
+    )
+
+    # this is specific to opensafely exec, and prints the full command line to
+    # the console before executing.
+    parser.add_argument(
+        "--verbose",
+        "-v",
+        action="store_true",
+        help="Print verbose debugging information",
+    )
+
     parser.add_argument(
         "image",
         metavar="IMAGE_NAME:VERSION",
         help="OpenSAFELY image and version (e.g. databuilder:v1)",
     )
     parser.add_argument(
-        "docker_args",
+        "cmd_args",
         nargs=argparse.REMAINDER,
         metavar="...",
         help="Any additional arguments to pass to the image",
     )
+
     return parser
 
 
-def main(image, docker_args):
+def main(
+    image,
+    entrypoint=None,
+    env=[],
+    user=None,
+    verbose=False,
+    cmd_args=[],
+):
     if not docker_preflight_check():
         return False
-
-    try:
-        # In order for any files that get created to have the appropriate owner/group we
-        # run the command using the current user's UID/GID
-        uid = os.getuid()
-        gid = os.getgid()
-    except Exception:
-        # These aren't available on Windows; but then on Windows we don't have to deal
-        # with the same file ownership problems which require us to match the UID in the
-        # first place.
-        user_args = []
-    else:
-        user_args = ["--user", f"{uid}:{gid}"]
 
     docker_cmd = [
         "docker",
@@ -49,10 +80,26 @@ def main(image, docker_args):
         "--rm",
         "-it",
         f"--volume={pathlib.Path.cwd()}:/workspace",
-        *user_args,
-        f"{config.DOCKER_REGISTRY}/{image}",
-        *docker_args,
     ]
+
+    if user and user.lower() not in ("none", "no", "false"):
+        docker_cmd.append(f"--user={user}")
+
+    for e in env:
+        docker_cmd.extend(["--env", e])
+
+    if entrypoint:
+        docker_cmd.append(f"--entrypoint={entrypoint}")
+
+    docker_cmd.extend(
+        [
+            f"{config.DOCKER_REGISTRY}/{image}",
+            *cmd_args,
+        ]
+    )
+
+    if verbose:
+        print(" ".join(docker_cmd))
 
     proc = subprocess.run(ensure_tty(docker_cmd))
     return proc.returncode == 0
