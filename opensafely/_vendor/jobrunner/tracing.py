@@ -1,16 +1,22 @@
 import logging
 import os
 
-from opensafely._vendor.opentelemetry import trace
-from opensafely._vendor.opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-from opensafely._vendor.opentelemetry.sdk.trace import TracerProvider
-from opensafely._vendor.opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
-from opensafely._vendor.opentelemetry.trace import propagation
-from opensafely._vendor.opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
-
 from opensafely._vendor.jobrunner import config
 from opensafely._vendor.jobrunner.lib import database
 from opensafely._vendor.jobrunner.models import Job, SavedJobRequest, State, StatusCode
+from opensafely._vendor.opentelemetry import trace
+from opensafely._vendor.opentelemetry.exporter.otlp.proto.http.trace_exporter import (
+    OTLPSpanExporter,
+)
+from opensafely._vendor.opentelemetry.sdk.trace import TracerProvider
+from opensafely._vendor.opentelemetry.sdk.trace.export import (
+    BatchSpanProcessor,
+    ConsoleSpanExporter,
+)
+from opensafely._vendor.opentelemetry.trace import propagation
+from opensafely._vendor.opentelemetry.trace.propagation.tracecontext import (
+    TraceContextTextMapPropagator,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -91,7 +97,7 @@ def _traceable(job):
     return True
 
 
-def finish_current_state(job, timestamp_ns, error=None, **attrs):
+def finish_current_state(job, timestamp_ns, error=None, results=None, **attrs):
     """Record a span representing the state we've just exited."""
     if not _traceable(job):
         return
@@ -101,13 +107,13 @@ def finish_current_state(job, timestamp_ns, error=None, **attrs):
     try:
         name = job.status_code.name
         start_time = job.status_code_updated_at
-        record_job_span(job, name, start_time, timestamp_ns, error, **attrs)
+        record_job_span(job, name, start_time, timestamp_ns, error, results, **attrs)
     except Exception:
         # make sure trace failures do not error the job
         logger.exception(f"failed to trace state for {job.id}")
 
 
-def record_final_state(job, timestamp_ns, error=None, **attrs):
+def record_final_state(job, timestamp_ns, error=None, results=None, **attrs):
     """Record a span representing the state we've just exited."""
     if not _traceable(job):
         return
@@ -120,30 +126,9 @@ def record_final_state(job, timestamp_ns, error=None, **attrs):
         # final states have no duration, so make last for 1 sec, just act
         # as a marker
         end_time = int(timestamp_ns + 1e9)
-        record_job_span(job, name, start_time, end_time, error, **attrs)
+        record_job_span(job, name, start_time, end_time, error, results, **attrs)
 
-        complete_job(job, timestamp_ns, error, **attrs)
-    except Exception:
-        # make sure trace failures do not error the job
-        logger.exception(f"failed to trace state for {job.id}")
-
-
-def start_new_state(job, timestamp_ns, error=None, **attrs):
-    """Record a marker span to say that we've entered a new state."""
-    if not _traceable(job):
-        return
-
-    # allow them to be filtered out easily
-    attrs["is_state"] = False
-    # legacy filter, remove once above is deployed for ~1 week
-    attrs["enter_state"] = True
-
-    try:
-        name = f"ENTER {job.status_code.name}"
-        start_time = timestamp_ns
-        # fix the time for these synthetic marker events at one second
-        end_time = int(start_time + 1e9)
-        record_job_span(job, name, start_time, end_time, error, **attrs)
+        complete_job(job, timestamp_ns, error, results, **attrs)
     except Exception:
         # make sure trace failures do not error the job
         logger.exception(f"failed to trace state for {job.id}")
@@ -181,7 +166,7 @@ def load_trace_context(job):
     return propagation.set_span_in_context(trace.NonRecordingSpan(span_context), {})
 
 
-def record_job_span(job, name, start_time, end_time, error, **attrs):
+def record_job_span(job, name, start_time, end_time, error, results, **attrs):
     """Record a span for a job."""
     if not _traceable(job):
         return
@@ -189,11 +174,11 @@ def record_job_span(job, name, start_time, end_time, error, **attrs):
     ctx = load_trace_context(job)
     tracer = trace.get_tracer("jobs")
     span = tracer.start_span(name, context=ctx, start_time=start_time)
-    set_span_metadata(span, job, error, **attrs)
+    set_span_metadata(span, job, error, results, **attrs)
     span.end(end_time)
 
 
-def complete_job(job, timestamp_ns, error=None, **attrs):
+def complete_job(job, timestamp_ns, error=None, results=None, **attrs):
     """Send the root span to record the full duration for this job."""
 
     root_ctx = load_root_span(job)
@@ -215,20 +200,20 @@ def complete_job(job, timestamp_ns, error=None, **attrs):
     root_span._context = root_ctx
 
     # annotate and send
-    set_span_metadata(root_span, job, error, **attrs)
+    set_span_metadata(root_span, job, error, results, **attrs)
     root_span.end(timestamp_ns)
 
 
 OTEL_ATTR_TYPES = (bool, str, bytes, int, float)
 
 
-def set_span_metadata(span, job, error=None, **attrs):
+def set_span_metadata(span, job, error=None, results=None, **attrs):
     """Set span metadata with everthing we know about a job."""
     attributes = {}
 
     if attrs:
         attributes.update(attrs)
-    attributes.update(trace_attributes(job))
+    attributes.update(trace_attributes(job, results))
 
     # opentelemetry can only handle serializing certain attribute types
     clean_attrs = {}
@@ -250,7 +235,7 @@ def set_span_metadata(span, job, error=None, **attrs):
         span.record_exception(error)
 
 
-def trace_attributes(job):
+def trace_attributes(job, results=None):
     """These attributes are added to every span in order to slice and dice by
     each as needed.
     """
@@ -277,6 +262,8 @@ def trace_attributes(job):
         state=job.state.name,
         message=job.status_message,
         requires_db=job.requires_db,
+        jobrunner_version=config.VERSION,
+        jobrunner_sha=config.GIT_SHA,
     )
 
     # local_run jobs don't have a commit
@@ -287,6 +274,19 @@ def trace_attributes(job):
         attrs["reusable_action"] = job.action_repo_url
         if job.action_commit:
             attrs["reusable_action"] += ":" + job.action_commit
+
+    if results:
+        attrs["exit_code"] = results.exit_code
+        attrs["image_id"] = results.image_id
+        attrs["outputs"] = len(results.outputs)
+        attrs["unmatched_patterns"] = len(results.unmatched_patterns)
+        attrs["unmatched_outputs"] = len(results.unmatched_outputs)
+        attrs["executor_message"] = results.message
+        attrs["action_version"] = results.action_version
+        attrs["action_revision"] = results.action_revision
+        attrs["action_created"] = results.action_created
+        attrs["base_revision"] = results.base_revision
+        attrs["base_created"] = results.base_created
 
     return attrs
 

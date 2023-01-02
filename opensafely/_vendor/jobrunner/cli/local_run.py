@@ -34,8 +34,6 @@ import textwrap
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from opensafely._vendor.pipeline import RUN_ALL_COMMAND, ProjectValidationError, load_pipeline
-
 from opensafely._vendor.jobrunner import config, executors, tracing
 from opensafely._vendor.jobrunner.actions import UnknownActionError
 from opensafely._vendor.jobrunner.create_or_update_jobs import (
@@ -50,13 +48,24 @@ from opensafely._vendor.jobrunner.lib import database, docker
 from opensafely._vendor.jobrunner.lib.log_utils import configure_logging
 from opensafely._vendor.jobrunner.lib.string_utils import tabulate
 from opensafely._vendor.jobrunner.lib.subprocess_utils import subprocess_run
-from opensafely._vendor.jobrunner.models import Job, JobRequest, State, StatusCode, random_id
+from opensafely._vendor.jobrunner.models import (
+    Job,
+    JobRequest,
+    State,
+    StatusCode,
+    random_id,
+)
 from opensafely._vendor.jobrunner.queries import calculate_workspace_state
 from opensafely._vendor.jobrunner.reusable_actions import (
     ReusableActionError,
     resolve_reusable_action_references,
 )
 from opensafely._vendor.jobrunner.run import main as run_main
+from opensafely._vendor.pipeline import (
+    RUN_ALL_COMMAND,
+    ProjectValidationError,
+    load_pipeline,
+)
 
 
 # First paragraph of docstring
@@ -64,6 +73,23 @@ DESCRIPTION = __doc__.partition("\n\n")[0]
 
 # local run logging format
 LOCAL_RUN_FORMAT = "{action}{message}"
+
+
+STATA_ERROR_MESSGE = """
+The docker image 'stata-mp' requires a license to function.
+
+If you are a member of OpenSAFELY we should have been able to fetch
+the license automatically, so something has gone wrong. Please open
+a new discussion here so we can help:
+
+    https://github.com/opensafely/documentation/discussions
+
+If you are not a member of OpenSAFELY you will have to provide your
+own license. See the dicussion here for pointers:
+
+    https://github.com/opensafely/documentation/discussions/299
+
+"""
 
 
 # Super-crude support for colourised/formatted output inside Github Actions. It
@@ -316,18 +342,7 @@ def create_and_run_jobs(
     if uses_stata and config.STATA_LICENSE is None:
         config.STATA_LICENSE = get_stata_license()
         if config.STATA_LICENSE is None:
-            print(
-                "The docker image 'stata-mp' requires a license to function.\n"
-                "\n"
-                "If you are a member of OpenSAFELY we should have been able to fetch\n"
-                "the license automatically, so something has gone wrong. Please open\n"
-                "a new discussion here so we can help:\n"
-                "  https://github.com/opensafely/documentation/discussions\n"
-                "\n"
-                "If you are not a member of OpenSAFELY you will have to provide your\n"
-                "own license. See the dicussion here for pointers:\n"
-                " https://github.com/opensafely/documentation/discussions/299"
-            )
+            print(STATA_ERROR_MESSGE)
             return False
 
     for image in docker_images:

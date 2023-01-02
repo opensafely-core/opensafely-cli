@@ -1,2 +1,2 @@
---requirement https://raw.githubusercontent.com/opensafely-core/job-runner/v2.62.4/requirements.prod.txt
-git+https://github.com/opensafely-core/job-runner@v2.62.4
+--requirement https://raw.githubusercontent.com/opensafely-core/job-runner/v2.62.11/requirements.prod.txt
+git+https://github.com/opensafely-core/job-runner@v2.62.11
