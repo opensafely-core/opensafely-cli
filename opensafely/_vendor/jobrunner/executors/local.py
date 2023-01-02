@@ -6,12 +6,11 @@ import tempfile
 import time
 from pathlib import Path
 
-from opensafely._vendor.pipeline.legacy import get_all_output_patterns_from_project_file
-
 from opensafely._vendor.jobrunner import config
 from opensafely._vendor.jobrunner.executors.volumes import copy_file, get_volume_api
 from opensafely._vendor.jobrunner.job_executor import (
     ExecutorAPI,
+    ExecutorRetry,
     ExecutorState,
     JobDefinition,
     JobResults,
@@ -22,6 +21,7 @@ from opensafely._vendor.jobrunner.lib import docker
 from opensafely._vendor.jobrunner.lib.git import checkout_commit
 from opensafely._vendor.jobrunner.lib.path_utils import list_dir_with_ignore_patterns
 from opensafely._vendor.jobrunner.lib.string_utils import tabulate
+from opensafely._vendor.pipeline.legacy import get_all_output_patterns_from_project_file
 
 
 # Directory inside working directory where manifest and logs are created
@@ -54,6 +54,14 @@ def get_medium_privacy_workspace(workspace):
     if config.MEDIUM_PRIVACY_WORKSPACES_DIR:
         return config.MEDIUM_PRIVACY_WORKSPACES_DIR / workspace
     else:
+        return None
+
+
+def timestamp_from_iso(iso):
+    """Attempt to convert iso formatted date to unix timestamp."""
+    try:
+        return int(datetime.fromisoformat(iso))
+    except Exception:
         return None
 
 
@@ -187,23 +195,38 @@ class LocalDockerAPI(ExecutorAPI):
 
     def get_status(self, job):
         name = container_name(job)
-        job_running = docker.container_inspect(
-            name, "State.Running", none_if_not_exists=True
-        )
+        try:
+            container = docker.container_inspect(
+                name,
+                none_if_not_exists=True,
+                timeout=10,
+            )
+        except docker.DockerTimeoutError:
+            raise ExecutorRetry("timed out inspecting container {name}")
 
-        if job_running is None:
-            # no volume for this job found
-            if volume_api.volume_exists(job):
-                return JobStatus(ExecutorState.PREPARED)
-            else:
+        if container is None:  # container doesn't exist
+            # timestamp file presence means we have finished preparing
+            timestamp = volume_api.file_timestamp(job, TIMESTAMP_REFERENCE_FILE, 10)
+            # TODO: maybe log the case where the volume exists, but the
+            # timestamp file does not? It's not a problems as the loop should
+            # re-prepare it anyway.
+            if timestamp is None:
+                # we are Jon Snow
                 return JobStatus(ExecutorState.UNKNOWN)
+            else:
+                # we've finish preparing
+                return JobStatus(ExecutorState.PREPARED, timestamp=timestamp)
 
-        elif job_running:
-            return JobStatus(ExecutorState.EXECUTING)
+        if container["State"]["Running"]:
+            timestamp = timestamp_from_iso(container["State"]["StartedAt"])
+            return JobStatus(ExecutorState.EXECUTING, timestamp=timestamp)
         elif job.id in RESULTS:
-            return JobStatus(ExecutorState.FINALIZED)
+            return JobStatus(
+                ExecutorState.FINALIZED, timestamp=RESULTS[job.id].timestamp
+            )
         else:  # container present but not running, i.e. finished
-            return JobStatus(ExecutorState.EXECUTED)
+            timestamp = timestamp_from_iso(container["State"]["FinishedAt"])
+            return JobStatus(ExecutorState.EXECUTED, timestamp=timestamp)
 
     def get_results(self, job):
         if job.id not in RESULTS:
@@ -278,6 +301,7 @@ def finalize_job(job):
     outputs, unmatched_patterns = find_matching_outputs(job)
     unmatched_outputs = get_unmatched_outputs(job, outputs)
     exit_code = container_metadata["State"]["ExitCode"]
+    labels = container_metadata.get("Config", {}).get("Labels", {})
 
     # First get the user-friendly message for known database exit codes, for jobs
     # that have db access
@@ -300,16 +324,23 @@ def finalize_job(job):
         exit_code=container_metadata["State"]["ExitCode"],
         image_id=container_metadata["Image"],
         message=message,
+        timestamp=int(time.time()),
+        action_version=labels.get("org.opencontainers.image.version", "unknown"),
+        action_revision=labels.get("org.opencontainers.image.revision", "unknown"),
+        action_created=labels.get("org.opencontainers.image.created", "unknown"),
+        base_revision=labels.get("org.opensafely.base.vcs-ref", "unknown"),
+        base_created=labels.get("org.opencontainers.base.build-date", "unknown"),
     )
-    persist_outputs(job, results.outputs, container_metadata)
+    job.completed_at = int(time.time())
+    job_metadata = get_job_metadata(job, outputs, container_metadata)
+    write_job_logs(job, job_metadata)
+    persist_outputs(job, results.outputs, job_metadata)
     RESULTS[job.id] = results
 
 
-def persist_outputs(job, outputs, container_metadata):
-    """Copy logs and generated outputs to persistant storage."""
+def get_job_metadata(job, outputs, container_metadata):
     # job_metadata is a big dict capturing everything we know about the state
     # of the job
-    job.completed_at = int(time.time())
     job_metadata = dict()
     job_metadata["job_id"] = job.id
     job_metadata["job_request_id"] = job.job_request_id
@@ -321,31 +352,43 @@ def persist_outputs(job, outputs, container_metadata):
     job_metadata["container_metadata"] = container_metadata
     job_metadata["outputs"] = outputs
     job_metadata["commit"] = job.study.commit
+    return job_metadata
 
+
+def write_job_logs(job, job_metadata, copy_log_to_workspace=True):
+    """Copy logs to log dir and workspace."""
     # Dump useful info in log directory
     log_dir = get_log_dir(job)
     write_log_file(job, job_metadata, log_dir / "logs.txt")
     with open(log_dir / "metadata.json", "w") as f:
         json.dump(job_metadata, f, indent=2)
 
-    # Copy logs to workspace
-    workspace_dir = get_high_privacy_workspace(job.workspace)
-    metadata_log_file = workspace_dir / METADATA_DIR / f"{job.action}.log"
-    copy_file(log_dir / "logs.txt", metadata_log_file)
-    log.info(f"Logs written to: {metadata_log_file}")
+    if copy_log_to_workspace:
+        workspace_dir = get_high_privacy_workspace(job.workspace)
+        workspace_log_file = workspace_dir / METADATA_DIR / f"{job.action}.log"
+        copy_file(log_dir / "logs.txt", workspace_log_file)
+        log.info(f"Logs written to: {workspace_log_file}")
 
+        medium_privacy_dir = get_medium_privacy_workspace(job.workspace)
+        if medium_privacy_dir:
+            copy_file(
+                workspace_log_file,
+                medium_privacy_dir / METADATA_DIR / f"{job.action}.log",
+            )
+
+
+def persist_outputs(job, outputs, job_metadata):
+    """Copy generated outputs to persistant storage."""
     # Extract outputs to workspace
+    workspace_dir = get_high_privacy_workspace(job.workspace)
+
     for filename in outputs.keys():
         log.info(f"Extracting output file: {filename}")
         volume_api.copy_from_volume(job, filename, workspace_dir / filename)
 
-    # Copy out logs and medium privacy files
+    # Copy out medium privacy files
     medium_privacy_dir = get_medium_privacy_workspace(job.workspace)
     if medium_privacy_dir:
-        copy_file(
-            workspace_dir / METADATA_DIR / f"{job.action}.log",
-            medium_privacy_dir / METADATA_DIR / f"{job.action}.log",
-        )
         for filename, privacy_level in outputs.items():
             if privacy_level == "moderately_sensitive":
                 copy_file(workspace_dir / filename, medium_privacy_dir / filename)
@@ -519,6 +562,7 @@ def redact_environment_variables(container_metadata):
 
 def write_manifest_file(workspace_dir, manifest):
     manifest_file = workspace_dir / METADATA_DIR / MANIFEST_FILE
+    manifest_file.parent.mkdir(exist_ok=True)
     manifest_file_tmp = manifest_file.with_suffix(".tmp")
     manifest_file_tmp.write_text(json.dumps(manifest, indent=2))
     manifest_file_tmp.replace(manifest_file)

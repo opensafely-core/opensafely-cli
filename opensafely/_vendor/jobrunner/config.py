@@ -1,6 +1,7 @@
 import configparser
 import os
 import re
+import subprocess
 from multiprocessing import cpu_count
 from pathlib import Path
 
@@ -14,6 +15,26 @@ def _is_valid_backend_name(name):
 
 
 default_work_dir = Path(__file__) / "../../workdir"
+
+
+VERSION = os.environ.get("VERSION", "unknown")
+if VERSION == "unknown":
+    try:
+        VERSION = subprocess.check_output(
+            ["git", "describe", "--tags"], text=True
+        ).strip()
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        pass
+
+
+GIT_SHA = os.environ.get("GIT_SHA", "unknown")
+if GIT_SHA == "unknown":
+    try:
+        GIT_SHA = subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"], text=True
+        ).strip()
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        pass
 
 
 WORKDIR = Path(os.environ.get("WORKDIR", default_work_dir)).resolve()
@@ -96,6 +117,7 @@ if PRESTO_TLS_CERT_PATH:
 
 MAX_WORKERS = int(os.environ.get("MAX_WORKERS") or max(cpu_count() - 1, 1))
 MAX_DB_WORKERS = int(os.environ.get("MAX_DB_WORKERS") or MAX_WORKERS)
+MAX_RETRIES = int(os.environ.get("MAX_RETRIES", 0))
 
 # This is a crude mechanism for preventing a single large JobRequest with lots
 # of associated Jobs from hogging all the resources. We want this configurable
@@ -190,7 +212,9 @@ DEFAULT_JOB_CPU_COUNT = float(os.environ.get("DEFAULT_JOB_CPU_COUNT", 2))
 DEFAULT_JOB_MEMORY_LIMIT = os.environ.get("DEFAULT_JOB_MEMORY_LIMIT", "4G")
 
 
-EXECUTOR = os.environ.get("EXECUTOR", "opensafely._vendor.jobrunner.executors.local:LocalDockerAPI")
+EXECUTOR = os.environ.get(
+    "EXECUTOR", "opensafely._vendor.jobrunner.executors.local:LocalDockerAPI"
+)
 
 # LocalDockerAPI executor specific configuration
 # Note: the local backend also reuses the main GIT_REPO_DIR config

@@ -49,6 +49,7 @@ class ExecutorState(Enum):
 class JobStatus:
     state: ExecutorState
     message: Optional[str] = None
+    timestamp: int = None
 
 
 @dataclass
@@ -59,6 +60,20 @@ class JobResults:
     exit_code: int
     image_id: str
     message: str = None
+    timestamp: int = None  # timestamp these results were finalized
+
+    # to be extracted from the image labels
+    action_version: str = "unknown"
+    action_revision: str = "unknown"
+    action_created: str = "unknown"
+    base_revision: str = "unknown"
+    base_created: str = "unknown"
+
+
+class ExecutorRetry(Exception):
+    """Indicates to the job scheduler that there's a temporary issue and to try again later."""
+
+    pass
 
 
 class ExecutorAPI:

@@ -14,18 +14,39 @@ from opensafely._vendor.jobrunner import config, tracing
 from opensafely._vendor.jobrunner.executors import get_executor_api
 from opensafely._vendor.jobrunner.job_executor import (
     ExecutorAPI,
+    ExecutorRetry,
     ExecutorState,
     JobDefinition,
     Privacy,
     Study,
 )
 from opensafely._vendor.jobrunner.lib.database import find_where, select_values, update
-from opensafely._vendor.jobrunner.lib.log_utils import configure_logging, set_log_context
-from opensafely._vendor.jobrunner.models import FINAL_STATUS_CODES, Job, State, StatusCode
-from opensafely._vendor.jobrunner.queries import calculate_workspace_state, get_flag_value
+from opensafely._vendor.jobrunner.lib.log_utils import (
+    configure_logging,
+    set_log_context,
+)
+from opensafely._vendor.jobrunner.models import (
+    FINAL_STATUS_CODES,
+    Job,
+    State,
+    StatusCode,
+)
+from opensafely._vendor.jobrunner.queries import (
+    calculate_workspace_state,
+    get_flag_value,
+)
+from opensafely._vendor.opentelemetry import trace
 
 
 log = logging.getLogger(__name__)
+tracer = trace.get_tracer("loop")
+
+# used to track the number of times an executor has asked to retry a job
+EXECUTOR_RETRIES = {}
+
+
+class RetriesExceeded(Exception):
+    pass
 
 
 class InvalidTransition(Exception):
@@ -41,7 +62,8 @@ def main(exit_callback=lambda _: False):
     api = get_executor_api()
 
     while True:
-        active_jobs = handle_jobs(api)
+        with tracer.start_as_current_span("LOOP", attributes={"loop": True}):
+            active_jobs = handle_jobs(api)
 
         if exit_callback(active_jobs):
             break
@@ -65,7 +87,6 @@ def handle_jobs(api: Optional[ExecutorAPI]):
         # further down the stack will have `job` set on them
         with set_log_context(job=job):
             handle_single_job(job, api)
-
     return active_jobs
 
 
@@ -115,14 +136,14 @@ def handle_single_job(job, api):
     mode = get_flag_value("mode")
     paused = str(get_flag_value("paused", "False")).lower() == "true"
     try:
-        synchronous_transition = handle_job(job, api, mode, paused)
+        synchronous_transition = trace_handle_job(job, api, mode, paused)
 
         # provide a way to shortcut moving a job on to the next state right away
         # this is intended to support executors where some state transitions
         # are synchronous, particularly the local executor where prepare is
         # synchronous and can be time consuming.
         if synchronous_transition:
-            handle_job(job, api, mode, paused)
+            trace_handle_job(job, api, mode, paused)
     except Exception as exc:
         mark_job_as_failed(
             job,
@@ -140,6 +161,29 @@ def handle_single_job(job, api):
         # it has failed. If we have an internal error, a full restart
         # might recover better.
         raise
+
+
+def trace_handle_job(job, api, mode, paused):
+    """Call handle job with tracing."""
+    attrs = {
+        "loop": True,
+        "job": job.id,
+        "initial_state": job.state.name,
+        "initial_code": job.status_code.name,
+    }
+
+    with tracer.start_as_current_span("LOOP_JOB", attributes=attrs) as span:
+        try:
+            synchronous_transition = handle_job(job, api, mode, paused)
+        except Exception as exc:
+            span.set_status(trace.Status(trace.StatusCode.ERROR, str(exc)))
+            span.record_exception(exc)
+            raise
+        else:
+            span.set_attribute("final_state", job.state.name)
+            span.set_attribute("final_code", job.status_code.name)
+
+    return synchronous_transition
 
 
 def handle_job(job, api, mode=None, paused=None):
@@ -188,7 +232,19 @@ def handle_job(job, api, mode=None, paused=None):
         )
         return
 
-    initial_status = api.get_status(definition)
+    try:
+        initial_status = api.get_status(definition)
+    except ExecutorRetry:
+        retries = EXECUTOR_RETRIES.get(job.id, 0)
+        if retries >= config.MAX_RETRIES:
+            raise RetriesExceeded(
+                f"Too many retries for job {job.id} from executor"
+            ) from ExecutorRetry
+        else:
+            EXECUTOR_RETRIES[job.id] = retries + 1
+            return
+    else:
+        EXECUTOR_RETRIES.pop(job.id, None)
 
     # handle the simple no change needed states.
     if initial_status.state in STABLE_STATES:
@@ -328,7 +384,7 @@ def save_results(job, definition, results):
     if results.exit_code != 0:
         state = State.FAILED
         code = StatusCode.NONZERO_EXIT
-        message = f"Job exited with error code {results.exit_code}"
+        message = "Job exited with an error"
         if results.message:
             message += f": {results.message}"
         elif definition.allow_database_access:
@@ -352,15 +408,7 @@ def save_results(job, definition, results):
         code = StatusCode.SUCCEEDED
         message = "Completed successfully"
 
-    trace_attrs = dict(
-        exit_code=results.exit_code,
-        image_id=results.image_id,
-        outputs=len(results.outputs),
-        unmatched_patterns=len(results.unmatched_patterns),
-        unmatched_outputs=len(results.unmatched_outputs),
-    )
-
-    set_state(job, state, code, message, error=state == State.FAILED, **trace_attrs)
+    set_state(job, state, code, message, error=state == State.FAILED, results=results)
 
 
 def get_obsolete_files(definition, outputs):
@@ -459,7 +507,7 @@ def mark_job_as_failed(job, code, message, error=None, **attrs):
     set_state(job, State.FAILED, code, message, error=error, attrs=attrs)
 
 
-def set_state(job, state, code, message, error=None, **attrs):
+def set_state(job, state, code, message, error=None, results=None, **attrs):
     """Update the high level state transitions.
 
     Error can be an exception or a string message.
@@ -482,10 +530,10 @@ def set_state(job, state, code, message, error=None, **attrs):
     elif state == State.PENDING:  # restarting the job gracefully
         job.started_at = None
 
-    set_code(job, code, message, error=error, **attrs)
+    set_code(job, code, message, error=error, results=results, **attrs)
 
 
-def set_code(job, code, message, error=None, **attrs):
+def set_code(job, code, message, error=None, results=None, **attrs):
     """Set the granular status code state.
 
     We also trace this transition with OpenTelemetry traces.
@@ -503,9 +551,9 @@ def set_code(job, code, message, error=None, **attrs):
     # if code has changed then log
     if job.status_code != code:
 
-        # trace we finished the previous state
+        # job trace: we finished the previous state
         tracing.finish_current_state(
-            job, timestamp_ns, error=error, message=message, **attrs
+            job, timestamp_ns, error=error, message=message, results=results, **attrs
         )
 
         # update db object
@@ -520,11 +568,13 @@ def set_code(job, code, message, error=None, **attrs):
         if code in FINAL_STATUS_CODES:
             # transitioning to a final state, so just record that state
             tracing.record_final_state(
-                job, timestamp_ns, error=error, message=message, **attrs
+                job,
+                timestamp_ns,
+                error=error,
+                message=message,
+                results=results,
+                **attrs,
             )
-        else:
-            # trace that we've started the next state
-            tracing.start_new_state(job, timestamp_ns, error=error, **attrs)
 
         log.info(job.status_message, extra={"status_code": job.status_code})
 
