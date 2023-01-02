@@ -170,3 +170,25 @@ def test_execute_main_user_linux_disble(run, monkeypatch):
         winpty=True,
     )
     run_main("-u None databuilder:v1")
+
+
+def test_execute_main_stata_license(run, monkeypatch, no_user):
+    monkeypatch.setattr(execute, "get_stata_license", lambda: "LICENSE")
+
+    run.expect(["docker", "info"])
+    run.expect(
+        [
+            "docker",
+            "run",
+            "--rm",
+            "-it",
+            f"--volume={pathlib.Path.cwd()}:/workspace",
+            "--env",
+            "STATA_LICENSE",
+            "ghcr.io/opensafely-core/stata-mp",
+            "analysis.do",
+        ],
+        env={"STATA_LICENSE": "LICENSE"},
+        winpty=True,
+    )
+    run_main("stata-mp analysis.do")

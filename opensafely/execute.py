@@ -4,7 +4,11 @@ import pathlib
 import subprocess
 
 from opensafely._vendor.jobrunner import config
-from opensafely._vendor.jobrunner.cli.local_run import docker_preflight_check
+from opensafely._vendor.jobrunner.cli.local_run import (
+    STATA_ERROR_MESSGE,
+    docker_preflight_check,
+    get_stata_license,
+)
 from opensafely.windows import ensure_tty
 
 
@@ -70,9 +74,12 @@ def main(
     user=None,
     verbose=False,
     cmd_args=[],
+    environ=os.environ,
 ):
     if not docker_preflight_check():
         return False
+
+    cmd_env = environ.copy()
 
     docker_cmd = [
         "docker",
@@ -88,6 +95,17 @@ def main(
     for e in env:
         docker_cmd.extend(["--env", e])
 
+    if image.startswith("stata"):
+        if "STATA_LICENSE" not in cmd_env:
+            license = get_stata_license()
+            if license is None:
+                print(STATA_ERROR_MESSGE)
+                return False
+            else:
+                cmd_env["STATA_LICENSE"] = license
+
+        docker_cmd.extend(["--env", "STATA_LICENSE"])
+
     if entrypoint:
         docker_cmd.append(f"--entrypoint={entrypoint}")
 
@@ -101,5 +119,5 @@ def main(
     if verbose:
         print(" ".join(docker_cmd))
 
-    proc = subprocess.run(ensure_tty(docker_cmd))
+    proc = subprocess.run(ensure_tty(docker_cmd), env=cmd_env)
     return proc.returncode == 0
