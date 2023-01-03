@@ -34,7 +34,7 @@ def main():
         parser.print_help()
         parser.exit()
 
-    parser.set_defaults(function=show_help, handles_unknown_args=False)
+    parser.set_defaults(function=show_help)
     parser.add_argument(
         "--version", action="version", version=f"opensafely {__version__}"
     )
@@ -48,10 +48,7 @@ def main():
 
     def add_subcommand(cmd, module):
         subparser = subparsers.add_parser(cmd, help=module.DESCRIPTION)
-        subparser.set_defaults(
-            handles_unknown_args=False,
-            function=module.main,
-        )
+        subparser.set_defaults(function=module.main)
         module.add_arguments(subparser)
 
     add_subcommand("run", local_run)
@@ -81,27 +78,25 @@ def main():
         except Exception:
             pass
 
-    # start by using looser parsing only known args, so we can get the sub command
-    args, unknown = parser.parse_known_args()
-
-    if args.handles_unknown_args:
-        kwargs = vars(args)
-        kwargs["unknown_args"] = unknown
-    # allow supparsers to opt out of looser parser_known_args parsing
-    else:
-        # reparse args with stricter semantics
-        args = parser.parse_args()
-        kwargs = vars(args)
+    args = parser.parse_args()
+    kwargs = vars(args)
 
     function = kwargs.pop("function")
-    kwargs.pop("handles_unknown_args")
     success = function(**kwargs)
 
     # if `run`ning locally, run `check` in warn mode
     if function == local_run.main and "format-output-for-github" not in kwargs:
         check.main(continue_on_error=True)
 
-    sys.exit(0 if success is not False else 1)
+    # allow functions to return True/False, or an explicit exit code
+    if success is False:
+        exit_code = 1
+    elif success is True:
+        exit_code = 0
+    else:
+        exit_code = success
+
+    sys.exit(exit_code)
 
 
 if __name__ == "__main__":

@@ -53,4 +53,4 @@ def main(image, docker_args):
             *docker_args,
         ]
     )
-    return proc.returncode == 0
+    return proc.returncode

@@ -1,3 +1,4 @@
+import argparse
 import json
 import os
 import platform
@@ -57,8 +58,12 @@ def add_arguments(parser):
         default=None,
         help="Port to run on",
     )
-    # opt into looser argument parsing
-    parser.set_defaults(handles_unknown_args=True)
+    parser.add_argument(
+        "jupyter_args",
+        nargs=argparse.REMAINDER,
+        metavar="...",
+        help="Any additional arguments to pass to the jupyter lab command",
+    )
 
 
 def ensure_tty(docker_cmd):
@@ -157,7 +162,7 @@ def get_free_port():
     return port
 
 
-def main(directory, name, port, no_browser, unknown_args):
+def main(directory, name, port, no_browser, jupyter_args):
     if name is None:
         name = f"os-jupyter-{directory.name}"
 
@@ -176,6 +181,7 @@ def main(directory, name, port, no_browser, unknown_args):
         "--no-browser",
         # display the url from the hosts perspective
         f"--LabApp.custom_display_url=http://localhost:{port}/",
+        *jupyter_args,
     ]
 
     print(f"Running following jupyter cmd in OpenSAFELY docker container {name}...")
@@ -209,6 +215,5 @@ def main(directory, name, port, no_browser, unknown_args):
     docker_cmd = ensure_tty(docker_cmd)
 
     debug("docker: " + " ".join(docker_cmd))
-    ps = subprocess.Popen(docker_cmd + jupyter_cmd)
-    ps.wait()
-    sys.exit(ps.returncode)
+    ps = subprocess.run(docker_cmd + jupyter_cmd)
+    return ps.returncode
