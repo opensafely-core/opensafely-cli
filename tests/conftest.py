@@ -1,3 +1,5 @@
+import argparse
+import shlex
 import subprocess
 import sys
 from collections import deque
@@ -12,6 +14,8 @@ opensafely_module_dir = Path(__file__).parent
 pkg_resources.working_set.add_entry(f"{opensafely_module_dir}/_vendor")
 
 import pytest  # noqa: E402
+
+from opensafely import utils  # noqa: E402
 
 
 _actual_run = subprocess.run
@@ -109,3 +113,29 @@ def run(monkeypatch):
         raise AssertionError(
             f"run fixture had unused remaining expected cmds:\n{remaining}"
         )
+
+
+@pytest.fixture
+def no_user(monkeypatch):
+    """run a test without any default user, as if it was windows.
+
+    This avoids needing to handle --user only appearing in run calls on linux
+    when running tests.
+    """
+    monkeypatch.setattr(utils, "DEFAULT_USER", None)
+
+
+def run_main(module, cli_args):
+    """Helper for testing a subcommand.
+
+    Builds parser for a module, parsesarguments, then execute the main function
+    with those arguments.
+
+    This helps us functionally test our logic from a user perspective, and make
+    sure we don't miss match arg parsing and function arguments.
+    """
+    parser = argparse.ArgumentParser()
+    module.add_arguments(parser)
+    argv = shlex.split(cli_args)
+    args = parser.parse_args(argv)
+    return module.main(**vars(args))
