@@ -1,4 +1,5 @@
 import subprocess
+import sys
 from collections import deque
 from pathlib import Path
 
@@ -57,10 +58,20 @@ class SubprocessRunFixture(deque):
         text = kwargs.get("text", False)
         check = kwargs.get("check", False)
 
+        # handle some windows calls being wrapped in winpty
+        if sys.platform == "win32":
+            if "winpty" in cmd[0] and cmd[1] == "--":
+                # strip winpty from cmd, do compare the wrapper
+                cmd = cmd[2:]
+
         # first up, do we expect this cmd?
         if expected != cmd:
             if self.strict:
-                raise AssertionError(f"run fixture got unexpected call: {cmd}")
+                raise AssertionError(
+                    f"run fixture got unexpected call:\n"
+                    f"Received: {cmd}\n"
+                    f"Expected: {expected}"
+                )
             else:
                 # pass through to system
                 return _actual_run(cmd, *args, **kwargs)
