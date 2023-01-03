@@ -1,8 +1,6 @@
 import argparse
 import json
 import os
-import platform
-import shutil
 import socket
 import subprocess
 import sys
@@ -11,6 +9,8 @@ import time
 import webbrowser
 from pathlib import Path
 from urllib import request
+
+from opensafely import utils
 
 
 DESCRIPTION = "Run a jupyter lab notebook using the OpenSAFELY environment"
@@ -66,43 +66,11 @@ def add_arguments(parser):
     )
 
 
-def ensure_tty(docker_cmd):
-    """Ensure that we have a valid tty to use to run docker.
-
-    This is needed as we want the user to be able to kill jupyter with Ctrl-C
-    as normal, which requires a tty on their end.
-
-    Nearly every terminal under the sun gives you a valid tty. Except
-    git-bash's default terminal, which happens to be the one a lot of our users
-    use.
-
-    git-bash provides the `wintpy` tool as a workaround, so detect we are in
-    that situation and use it if so.
-
-    """
-    if platform.system() != "Windows":
-        return docker_cmd
-
-    winpty = shutil.which("winpty")
-
-    if winpty is None:
-        # not git-bash
-        return docker_cmd
-
-    if sys.stdin.isatty() and sys.stdout.isatty():
-        # already sorted, possibly user already ran us with winpty
-        return docker_cmd
-
-    debug(f"detected no tty, found winpty at {winpty}, wrapping docker with it")
-    # avoid using explicit path, as it can trip things up.
-    return ["winpty", "--"] + docker_cmd
-
-
 def open_browser(name, port):
 
     try:
         metadata = None
-        metadata_path = "/root/.local/share/jupyter/runtime/nbserver-*.json"
+        metadata_path = "/tmp/.local/share/jupyter/runtime/nbserver-*.json"
 
         # wait for jupyter to be set up
         start = time.time()
@@ -194,26 +162,17 @@ def main(directory, name, port, no_browser, jupyter_args):
         debug("starting open_browser thread")
         thread.start()
 
-    docker_cmd = [
-        "docker",
-        "run",
-        # running with -t gives us colors and Ctrl-C interupts.
-        "-it",
-        "--rm",
-        "--init",
+    docker_args = [
         # we use our port on both sides of the docker port mapping so that
-        # jupyter has all the info
+        # jupyter's logging uses the correct port from the user's perspective
         f"-p={port}:{port}",
         f"--name={name}",
         f"--hostname={name}",
-        "--label=opensafely",
-        # note: // is to avoid git-bash path translation
-        f"-v={directory.resolve()}://workspace",
-        "ghcr.io/opensafely-core/python",
+        "--env",
+        "HOME=/tmp",
     ]
 
-    docker_cmd = ensure_tty(docker_cmd)
-
-    debug("docker: " + " ".join(docker_cmd))
-    ps = subprocess.run(docker_cmd + jupyter_cmd)
+    debug("docker: " + " ".join(docker_args))
+    ps = utils.run_docker(docker_args, "python", jupyter_cmd, interactive=True)
+    # we want to exit with the same code that jupyter did
     return ps.returncode
