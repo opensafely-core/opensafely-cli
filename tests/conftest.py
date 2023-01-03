@@ -47,20 +47,29 @@ class SubprocessRunFixture(deque):
 
     strict = True
 
-    def expect(self, cmd, returncode=0, stdout=None, stderr=None, check=False):
+    def expect(
+        self,
+        cmd,
+        returncode=0,
+        stdout=None,
+        stderr=None,
+        check=False,
+        env=None,
+    ):
         value = exc = None
         if check and returncode != 0:
             exc = subprocess.CalledProcessError(returncode, cmd, stdout, stderr)
         else:
             value = subprocess.CompletedProcess(cmd, returncode, stdout, stderr)
-        self.append((cmd, value, exc))
+        self.append((cmd, value, exc, env))
 
     def run(self, cmd, *args, **kwargs):
         """The replacement run() function."""
-        expected, value, exc = self.popleft()
+        expected, value, exc, env = self.popleft()
         # text and check affect the return value and behaviour of run()
         text = kwargs.get("text", False)
         check = kwargs.get("check", False)
+        actual_env = kwargs.get("env", None)
 
         # handle some windows calls being wrapped in winpty
         if sys.platform == "win32":
@@ -99,6 +108,18 @@ class SubprocessRunFixture(deque):
             assert isinstance(
                 output_value, valid_type
             ), f"run fixture called with text={text} but expected {output} is of type {type(output_value)}"
+
+        # check it was called with the expected env items in the actual env
+        if env:
+            for k, v in env.items():
+                if k in actual_env:
+                    assert (
+                        actual_env[k] == v
+                    ), "run fixture called with env value {k}={actual_env[k]}, expected {k}={v}"
+                else:
+                    raise AssertionError(
+                        "run fixture called with no value {k}, expected {k}={v}"
+                    )
 
         return value
 
