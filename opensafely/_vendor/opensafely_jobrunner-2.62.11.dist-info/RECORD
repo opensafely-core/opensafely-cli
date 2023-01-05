@@ -1,10 +1,10 @@
-../../bin/add_job,sha256=xctltvXc7gmvt8f4AMCXx3n4AD5_0OTGVHtG6_xd9Z0,256
-../../bin/flags,sha256=ZFjsbfjTvqBtzo0kERw1vk4W4xfxKkVnvRkef4Lc85E,254
-../../bin/kill_job,sha256=Tg3eBs_C0yJPANmGGkuMUodxJxDOxJ8KnjsJkMujby8,257
-../../bin/local_run,sha256=jspt9TZi2HIP-CMRXGmolWGR8zYZG1KL3CZAouhlie4,258
-../../bin/migrate,sha256=G94vfSOGOtXAS_tFtrqNHxxXSY-DaZI8X2xyCbom6mc,256
-../../bin/prepare_for_reboot,sha256=sbE-IjOkJW1EEl7IZE6_VEheLV-a3RpEHq01lmyjjMI,267
-../../bin/retry_job,sha256=QXr0jmdGN0tb5KxGgKKtSLIajSlBTpJTVRZrPGKVOb4,258
+../../bin/add_job,sha256=3FKZAy388TteRr2Xx5DULpU7MNjBc3BqhEAMb7Yw8O4,252
+../../bin/flags,sha256=hhcEoRBBepT8fRK58tH1TbNgHFAcW3AQy-Ze_GW6CDY,250
+../../bin/kill_job,sha256=Uppg-PcKM85e90l6Qv7hbxQtohTvcgFJ1nDkFhR9vZ0,253
+../../bin/local_run,sha256=oD9CvG6KQ9OAzW8tNNCvv_BoL-tY2-vfZJTUQT4TW3o,254
+../../bin/migrate,sha256=01wKKUcnZ0KMJuIpX5BFBBSSZKYWWvtprJ5SStadoIg,252
+../../bin/prepare_for_reboot,sha256=qaOUP298vP2oxYKLLO4wEgaS50kvzVkmALvRq8NurpU,263
+../../bin/retry_job,sha256=aO9Pjf1BgdxuNqLdPnTfstZoerlZvUWsc2IitKR5fNg,254
 jobrunner/__init__.py,sha256=47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU,0
 jobrunner/actions.py,sha256=R6WmYqh_KIdEjm_oDxGeuMU5GhuGmPA9e2dplKzQQ5c,3582
 jobrunner/cli/__init__.py,sha256=47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU,0

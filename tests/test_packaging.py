@@ -9,6 +9,8 @@ import pytest
 
 BIN_DIR = "bin" if os.name != "nt" else "Scripts"
 
+project_fixture_path = Path(__file__).parent / "fixtures" / "projects"
+
 
 @pytest.mark.parametrize(
     "package_type,ext", [("sdist", "tar.gz"), ("bdist_wheel", "whl")]
@@ -42,6 +44,15 @@ def test_packaging(package_type, ext, tmp_path):
     # This always triggers an upgrade because the development version is always
     # considered lower than any other version
     subprocess_run([tmp_path / BIN_DIR / "opensafely", "upgrade", "1.7.0"], check=True)
+
+    # only on linux, as that has docker installed in GH
+    if sys.platform == "linux":
+        # deeper integration test
+        subprocess_run(
+            [tmp_path / BIN_DIR / "opensafely", "run", "python"],
+            check=True,
+            cwd=str(project_fixture_path),
+        )
 
 
 def subprocess_run(cmd_args, **kwargs):

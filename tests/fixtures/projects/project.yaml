@@ -10,12 +10,12 @@ actions:
       highly_sensitive:
         cohort: output/a.csv
   python:
-    run: python:latest python
+    run: python:latest touch output/b.csv
     outputs:
       highly_sensitive:
         cohort: output/b.csv
   jupyter:
-    run: jupyter:latest python
+    run: jupyter:latest touch output/c.csv
     outputs:
       highly_sensitive:
         cohort: output/c.csv

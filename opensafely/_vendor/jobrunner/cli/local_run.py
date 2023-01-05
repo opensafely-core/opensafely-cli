@@ -34,6 +34,8 @@ import textwrap
 from datetime import datetime, timedelta
 from pathlib import Path
 
+from opensafely._vendor.pipeline import RUN_ALL_COMMAND, ProjectValidationError, load_pipeline
+
 from opensafely._vendor.jobrunner import config, executors, tracing
 from opensafely._vendor.jobrunner.actions import UnknownActionError
 from opensafely._vendor.jobrunner.create_or_update_jobs import (
@@ -48,24 +50,13 @@ from opensafely._vendor.jobrunner.lib import database, docker
 from opensafely._vendor.jobrunner.lib.log_utils import configure_logging
 from opensafely._vendor.jobrunner.lib.string_utils import tabulate
 from opensafely._vendor.jobrunner.lib.subprocess_utils import subprocess_run
-from opensafely._vendor.jobrunner.models import (
-    Job,
-    JobRequest,
-    State,
-    StatusCode,
-    random_id,
-)
+from opensafely._vendor.jobrunner.models import Job, JobRequest, State, StatusCode, random_id
 from opensafely._vendor.jobrunner.queries import calculate_workspace_state
 from opensafely._vendor.jobrunner.reusable_actions import (
     ReusableActionError,
     resolve_reusable_action_references,
 )
 from opensafely._vendor.jobrunner.run import main as run_main
-from opensafely._vendor.pipeline import (
-    RUN_ALL_COMMAND,
-    ProjectValidationError,
-    load_pipeline,
-)
 
 
 # First paragraph of docstring

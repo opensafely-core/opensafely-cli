@@ -1,22 +1,16 @@
 import logging
 import os
 
+from opensafely._vendor.opentelemetry import trace
+from opensafely._vendor.opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opensafely._vendor.opentelemetry.sdk.trace import TracerProvider
+from opensafely._vendor.opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
+from opensafely._vendor.opentelemetry.trace import propagation
+from opensafely._vendor.opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
+
 from opensafely._vendor.jobrunner import config
 from opensafely._vendor.jobrunner.lib import database
 from opensafely._vendor.jobrunner.models import Job, SavedJobRequest, State, StatusCode
-from opensafely._vendor.opentelemetry import trace
-from opensafely._vendor.opentelemetry.exporter.otlp.proto.http.trace_exporter import (
-    OTLPSpanExporter,
-)
-from opensafely._vendor.opentelemetry.sdk.trace import TracerProvider
-from opensafely._vendor.opentelemetry.sdk.trace.export import (
-    BatchSpanProcessor,
-    ConsoleSpanExporter,
-)
-from opensafely._vendor.opentelemetry.trace import propagation
-from opensafely._vendor.opentelemetry.trace.propagation.tracecontext import (
-    TraceContextTextMapPropagator,
-)
 
 
 logger = logging.getLogger(__name__)
