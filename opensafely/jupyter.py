@@ -170,6 +170,9 @@ def main(directory, name, port, no_browser, jupyter_args):
         f"--hostname={name}",
         "--env",
         "HOME=/tmp",
+        # allow importing from the top level
+        "--env",
+        "PYTHONPATH=/workspace",
     ]
 
     debug("docker: " + " ".join(docker_args))
