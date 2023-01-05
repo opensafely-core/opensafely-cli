@@ -1,4 +1,7 @@
+import argparse
+import shlex
 import subprocess
+import sys
 from collections import deque
 from pathlib import Path
 
@@ -11,6 +14,8 @@ opensafely_module_dir = Path(__file__).parent
 pkg_resources.working_set.add_entry(f"{opensafely_module_dir}/_vendor")
 
 import pytest  # noqa: E402
+
+from opensafely import utils  # noqa: E402
 
 
 _actual_run = subprocess.run
@@ -42,25 +47,44 @@ class SubprocessRunFixture(deque):
 
     strict = True
 
-    def expect(self, cmd, returncode=0, stdout=None, stderr=None, check=False):
+    def expect(
+        self,
+        cmd,
+        returncode=0,
+        stdout=None,
+        stderr=None,
+        check=False,
+        env=None,
+    ):
         value = exc = None
         if check and returncode != 0:
             exc = subprocess.CalledProcessError(returncode, cmd, stdout, stderr)
         else:
             value = subprocess.CompletedProcess(cmd, returncode, stdout, stderr)
-        self.append((cmd, value, exc))
+        self.append((cmd, value, exc, env))
 
     def run(self, cmd, *args, **kwargs):
         """The replacement run() function."""
-        expected, value, exc = self.popleft()
+        expected, value, exc, env = self.popleft()
         # text and check affect the return value and behaviour of run()
         text = kwargs.get("text", False)
         check = kwargs.get("check", False)
+        actual_env = kwargs.get("env", None)
+
+        # handle some windows calls being wrapped in winpty
+        if sys.platform == "win32":
+            if "winpty" in cmd[0] and cmd[1] == "--":
+                # strip winpty from cmd, do compare the wrapper
+                cmd = cmd[2:]
 
         # first up, do we expect this cmd?
         if expected != cmd:
             if self.strict:
-                raise AssertionError(f"run fixture got unexpected call: {cmd}")
+                raise AssertionError(
+                    f"run fixture got unexpected call:\n"
+                    f"Received: {cmd}\n"
+                    f"Expected: {expected}"
+                )
             else:
                 # pass through to system
                 return _actual_run(cmd, *args, **kwargs)
@@ -85,6 +109,18 @@ class SubprocessRunFixture(deque):
                 output_value, valid_type
             ), f"run fixture called with text={text} but expected {output} is of type {type(output_value)}"
 
+        # check it was called with the expected env items in the actual env
+        if env:
+            for k, v in env.items():
+                if k in actual_env:
+                    assert (
+                        actual_env[k] == v
+                    ), "run fixture called with env value {k}={actual_env[k]}, expected {k}={v}"
+                else:
+                    raise AssertionError(
+                        "run fixture called with no value {k}, expected {k}={v}"
+                    )
+
         return value
 
 
@@ -98,3 +134,29 @@ def run(monkeypatch):
         raise AssertionError(
             f"run fixture had unused remaining expected cmds:\n{remaining}"
         )
+
+
+@pytest.fixture
+def no_user(monkeypatch):
+    """run a test without any default user, as if it was windows.
+
+    This avoids needing to handle --user only appearing in run calls on linux
+    when running tests.
+    """
+    monkeypatch.setattr(utils, "DEFAULT_USER", None)
+
+
+def run_main(module, cli_args):
+    """Helper for testing a subcommand.
+
+    Builds parser for a module, parsesarguments, then execute the main function
+    with those arguments.
+
+    This helps us functionally test our logic from a user perspective, and make
+    sure we don't miss match arg parsing and function arguments.
+    """
+    parser = argparse.ArgumentParser()
+    module.add_arguments(parser)
+    argv = shlex.split(cli_args)
+    args = parser.parse_args(argv)
+    return module.main(**vars(args))

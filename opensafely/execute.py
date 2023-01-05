@@ -1,56 +1,89 @@
 import argparse
 import os
-import pathlib
-import subprocess
 
-from opensafely._vendor.jobrunner import config
-from opensafely._vendor.jobrunner.cli.local_run import docker_preflight_check
+from opensafely import utils
+from opensafely._vendor.jobrunner.cli.local_run import (
+    STATA_ERROR_MESSGE,
+    docker_preflight_check,
+    get_stata_license,
+)
 
 
 DESCRIPTION = "Run an OpenSAFELY action outside of the `project.yaml` pipeline"
 
 
 def add_arguments(parser):
+    # these three arguments are direct copies of docker run arguments. The must be
+    # supplied before the image name, just like docker run.
+    parser.add_argument("--entrypoint", default=None, help="Set docker entrypoint")
+    parser.add_argument("--env", "-e", action="append", default=[], help="Set env vars")
+    parser.add_argument(
+        "--user",
+        "-u",
+        help=f"Unix user/group to run as (uid:gid). Defaults to current uid/gid {utils.DEFAULT_USER}",
+    )
+
+    # this is specific to opensafely exec, and prints the full command line to
+    # the console before executing.
+    parser.add_argument(
+        "--verbose",
+        "-v",
+        action="store_true",
+        help="Print verbose debugging information",
+    )
+
     parser.add_argument(
         "image",
         metavar="IMAGE_NAME:VERSION",
         help="OpenSAFELY image and version (e.g. databuilder:v1)",
     )
     parser.add_argument(
-        "docker_args",
+        "cmd_args",
         nargs=argparse.REMAINDER,
         metavar="...",
         help="Any additional arguments to pass to the image",
     )
+
     return parser
 
 
-def main(image, docker_args):
+def main(
+    image,
+    entrypoint=None,
+    env=[],
+    user=None,
+    verbose=False,
+    cmd_args=[],
+    environ=os.environ,
+):
     if not docker_preflight_check():
         return False
 
-    try:
-        # In order for any files that get created to have the appropriate owner/group we
-        # run the command using the current user's UID/GID
-        uid = os.getuid()
-        gid = os.getgid()
-    except Exception:
-        # These aren't available on Windows; but then on Windows we don't have to deal
-        # with the same file ownership problems which require us to match the UID in the
-        # first place.
-        user_args = []
-    else:
-        user_args = ["--user", f"{uid}:{gid}"]
+    docker_args = []
+    cmd_env = environ.copy()
 
-    proc = subprocess.run(
-        [
-            "docker",
-            "run",
-            "--rm",
-            f"--volume={pathlib.Path.cwd()}:/workspace",
-            *user_args,
-            f"{config.DOCKER_REGISTRY}/{image}",
-            *docker_args,
-        ]
+    # let user disable default uid:gid usage on linux (e.g. rootless docker)
+    if user and user.lower() in ("none", "no", "false"):
+        user = False
+
+    for e in env:
+        docker_args.extend(["--env", e])
+
+    if image.startswith("stata"):
+        if "STATA_LICENSE" not in cmd_env:
+            license = get_stata_license()
+            if license is None:
+                print(STATA_ERROR_MESSGE)
+                return False
+            else:
+                cmd_env["STATA_LICENSE"] = license
+
+        docker_args.extend(["--env", "STATA_LICENSE"])
+
+    if entrypoint:
+        docker_args.append(f"--entrypoint={entrypoint}")
+
+    proc = utils.run_docker(
+        docker_args, image, cmd_args, interactive=True, user=user, env=cmd_env
     )
-    return proc.returncode == 0
+    return proc.returncode
