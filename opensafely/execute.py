@@ -66,6 +66,8 @@ def main(
     if user and user.lower() in ("none", "no", "false"):
         user = False
 
+    docker_args.extend(["--env", "OPENSAFELY_BACKEND=expectations"])
+
     for e in env:
         docker_args.extend(["--env", e])
 
