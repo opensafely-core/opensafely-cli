@@ -6,6 +6,8 @@ import tempfile
 import time
 from pathlib import Path
 
+from opensafely._vendor.pipeline.legacy import get_all_output_patterns_from_project_file
+
 from opensafely._vendor.jobrunner import config
 from opensafely._vendor.jobrunner.executors.volumes import copy_file, get_volume_api
 from opensafely._vendor.jobrunner.job_executor import (
@@ -21,7 +23,6 @@ from opensafely._vendor.jobrunner.lib import docker
 from opensafely._vendor.jobrunner.lib.git import checkout_commit
 from opensafely._vendor.jobrunner.lib.path_utils import list_dir_with_ignore_patterns
 from opensafely._vendor.jobrunner.lib.string_utils import tabulate
-from opensafely._vendor.pipeline.legacy import get_all_output_patterns_from_project_file
 
 
 # Directory inside working directory where manifest and logs are created

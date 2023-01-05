@@ -212,9 +212,7 @@ DEFAULT_JOB_CPU_COUNT = float(os.environ.get("DEFAULT_JOB_CPU_COUNT", 2))
 DEFAULT_JOB_MEMORY_LIMIT = os.environ.get("DEFAULT_JOB_MEMORY_LIMIT", "4G")
 
 
-EXECUTOR = os.environ.get(
-    "EXECUTOR", "opensafely._vendor.jobrunner.executors.local:LocalDockerAPI"
-)
+EXECUTOR = os.environ.get("EXECUTOR", "opensafely._vendor.jobrunner.executors.local:LocalDockerAPI")
 
 # LocalDockerAPI executor specific configuration
 # Note: the local backend also reuses the main GIT_REPO_DIR config

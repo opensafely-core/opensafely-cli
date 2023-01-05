@@ -10,19 +10,12 @@ import logging
 import re
 import time
 
+from opensafely._vendor.pipeline import RUN_ALL_COMMAND, ProjectValidationError, load_pipeline
+
 from opensafely._vendor.jobrunner import config, tracing
 from opensafely._vendor.jobrunner.actions import get_action_specification
-from opensafely._vendor.jobrunner.lib.database import (
-    exists_where,
-    insert,
-    transaction,
-    update_where,
-)
-from opensafely._vendor.jobrunner.lib.git import (
-    GitError,
-    GitFileNotFoundError,
-    read_file_from_repo,
-)
+from opensafely._vendor.jobrunner.lib.database import exists_where, insert, transaction, update_where
+from opensafely._vendor.jobrunner.lib.git import GitError, GitFileNotFoundError, read_file_from_repo
 from opensafely._vendor.jobrunner.lib.github_validators import (
     GithubValidationError,
     validate_branch_and_commit,
@@ -33,11 +26,6 @@ from opensafely._vendor.jobrunner.queries import calculate_workspace_state
 from opensafely._vendor.jobrunner.reusable_actions import (
     ReusableActionError,
     resolve_reusable_action_references,
-)
-from opensafely._vendor.pipeline import (
-    RUN_ALL_COMMAND,
-    ProjectValidationError,
-    load_pipeline,
 )
 
 
