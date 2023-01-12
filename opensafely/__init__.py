@@ -1,4 +1,5 @@
 import argparse
+import logging
 import sys
 from pathlib import Path
 
@@ -22,6 +23,10 @@ from opensafely import (  # noqa: E402
     upgrade,
 )
 from opensafely._vendor.jobrunner.cli import local_run  # noqa: E402
+
+
+# quieten uneeded loggers
+logging.getLogger("opensafely._vendor.jobrunner.tracing").setLevel(logging.ERROR)
 
 
 __version__ = Path(__file__).parent.joinpath("VERSION").read_text().strip()
