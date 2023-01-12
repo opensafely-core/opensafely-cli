@@ -25,7 +25,7 @@ from opensafely import (  # noqa: E402
 from opensafely._vendor.jobrunner.cli import local_run  # noqa: E402
 
 
-# quieten uneeded loggers
+# quieten unneeded loggers
 logging.getLogger("opensafely._vendor.jobrunner.tracing").setLevel(logging.ERROR)
 
 
