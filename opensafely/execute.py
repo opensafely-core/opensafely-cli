@@ -86,6 +86,12 @@ def main(
         docker_args.append(f"--entrypoint={entrypoint}")
 
     proc = utils.run_docker(
-        docker_args, image, cmd_args, interactive=True, user=user, env=cmd_env
+        docker_args,
+        image,
+        cmd_args,
+        interactive=True,
+        user=user,
+        env=cmd_env,
+        verbose=verbose,
     )
     return proc.returncode
