@@ -19,6 +19,8 @@ def test_execute_main_args(run, no_user):
             f"--volume={pathlib.Path.cwd()}://workspace",
             "--env",
             "OPENSAFELY_BACKEND=expectations",
+            "--cpu=2.0",
+            "--memory=4G",
             "ghcr.io/opensafely-core/databuilder:v1",
             "foo",
             "bar",
@@ -42,6 +44,8 @@ def test_execute_main_entrypoint(run, no_user):
             "--env",
             "OPENSAFELY_BACKEND=expectations",
             "--entrypoint=/entrypoint",
+            "--cpu=2.0",
+            "--memory=4G",
             "ghcr.io/opensafely-core/databuilder:v1",
         ],
     )
@@ -67,6 +71,8 @@ def test_execute_main_env(run, no_user):
             "BAR",
             "--env",
             "BAZ=1",
+            "--cpu=2.0",
+            "--memory=4G",
             "ghcr.io/opensafely-core/databuilder:v1",
         ],
     )
@@ -90,6 +96,8 @@ def test_execute_main_user_cli_arg_overrides(default, run, monkeypatch):
             f"--volume={pathlib.Path.cwd()}://workspace",
             "--env",
             "OPENSAFELY_BACKEND=expectations",
+            "--cpu=2.0",
+            "--memory=4G",
             "ghcr.io/opensafely-core/databuilder:v1",
         ],
     )
@@ -111,6 +119,8 @@ def test_execute_main_user_linux_disble(run, monkeypatch):
             f"--volume={pathlib.Path.cwd()}://workspace",
             "--env",
             "OPENSAFELY_BACKEND=expectations",
+            "--cpu=2.0",
+            "--memory=4G",
             "ghcr.io/opensafely-core/databuilder:v1",
         ],
     )
@@ -134,6 +144,8 @@ def test_execute_main_stata_license(run, monkeypatch, no_user):
             "OPENSAFELY_BACKEND=expectations",
             "--env",
             "STATA_LICENSE",
+            "--cpu=2.0",
+            "--memory=4G",
             "ghcr.io/opensafely-core/stata-mp",
             "analysis.do",
         ],
