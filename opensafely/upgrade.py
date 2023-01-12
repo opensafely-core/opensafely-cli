@@ -2,8 +2,6 @@ import os
 import shutil
 import subprocess
 import sys
-import tempfile
-from datetime import datetime, timedelta
 from pathlib import Path
 
 import opensafely
@@ -11,8 +9,6 @@ from opensafely._vendor import requests
 
 
 DESCRIPTION = "Upgrade the opensafely cli tool."
-
-CACHE_FILE = Path(tempfile.gettempdir()) / "opensafely-latest-version"
 
 
 def add_arguments(parser):
@@ -26,7 +22,7 @@ def add_arguments(parser):
 
 def main(version):
     if version == "latest":
-        version = get_latest_version(force=True)
+        version = get_latest_version()
 
     if not need_to_update(version):
         print(f"opensafely is already at version {version}")
@@ -62,20 +58,9 @@ def main(version):
         sys.exit(exc)
 
 
-def get_latest_version(force=False):
-    latest = None
-    two_hours_ago = datetime.utcnow() - timedelta(hours=2)
-
-    if CACHE_FILE.exists():
-        if CACHE_FILE.stat().st_mtime > two_hours_ago.timestamp():
-            latest = CACHE_FILE.read_text().strip()
-
-    if force or latest is None:
-        resp = requests.get("https://pypi.org/pypi/opensafely/json").json()
-        latest = resp["info"]["version"]
-        CACHE_FILE.write_text(latest)
-
-    return latest
+def get_latest_version():
+    resp = requests.get("https://pypi.org/pypi/opensafely/json").json()
+    return resp["info"]["version"]
 
 
 def comparable(version_string):

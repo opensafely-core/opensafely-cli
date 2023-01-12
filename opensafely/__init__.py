@@ -1,5 +1,7 @@
 import argparse
 import sys
+import tempfile
+from datetime import datetime, timedelta
 from pathlib import Path
 
 # ensure pkg_resources can find the package metadata we have included, as the
@@ -25,6 +27,22 @@ from opensafely._vendor.jobrunner.cli import local_run  # noqa: E402
 
 
 __version__ = Path(__file__).parent.joinpath("VERSION").read_text().strip()
+
+
+VERSION_FILE = Path(tempfile.gettempdir()) / "opensafely-version-check"
+
+
+def should_version_check():
+    if not VERSION_FILE.exists():
+        return True
+
+    four_hours_ago = datetime.utcnow() - timedelta(hours=4)
+
+    return VERSION_FILE.stat().st_mtime < four_hours_ago.timestamp()
+
+
+def update_version_check():
+    VERSION_FILE.touch()
 
 
 def main():
@@ -62,21 +80,25 @@ def main():
     add_subcommand("info", info)
     add_subcommand("exec", execute)
 
-    # we version check before parse_args is called so that if a user is
-    # following recent documentation but has an old opensafely installed,
-    # there's some hint as to why their invocation is failing before being told
-    # by argparse.
-    if len(sys.argv) == 1 or sys.argv[1] != "upgrade":
-        try:
-            upgrade.check_version()
-        except Exception:
-            pass
+    # we only check for new versions periodically
+    if should_version_check():
+        # we version check before parse_args is called so that if a user is
+        # following recent documentation but has an old opensafely installed,
+        # there's some hint as to why their invocation is failing before being told
+        # by argparse.
+        if len(sys.argv) == 1 or sys.argv[1] != "upgrade":
+            try:
+                upgrade.check_version()
+            except Exception:
+                pass
 
-    if len(sys.argv) == 1 or sys.argv[1] != "pull":
-        try:
-            pull.check_version()
-        except Exception:
-            pass
+        if len(sys.argv) == 1 or sys.argv[1] != "pull":
+            try:
+                pull.check_version()
+            except Exception:
+                pass
+
+        update_version_check()
 
     args = parser.parse_args()
     kwargs = vars(args)
