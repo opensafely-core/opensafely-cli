@@ -32,7 +32,7 @@ def add_arguments(parser):
         default=config.DEFAULT_JOB_MEMORY_LIMIT,
     )
     parser.add_argument(
-        "--cpu",
+        "--cpus",
         type=int,
         help=f"The per-job cpu limit. How many cpus the job can use. Defaults to {config.DEFAULT_JOB_CPU_COUNT}",
         default=config.DEFAULT_JOB_CPU_COUNT,
@@ -67,7 +67,7 @@ def main(
     entrypoint=None,
     env=[],
     user=None,
-    cpu=None,
+    cpus=None,
     memory=None,
     verbose=False,
     cmd_args=[],
@@ -102,8 +102,8 @@ def main(
     if entrypoint:
         docker_args.append(f"--entrypoint={entrypoint}")
 
-    if cpu:
-        docker_args.append(f"--cpu={cpu}")
+    if cpus:
+        docker_args.append(f"--cpus={cpus}")
 
     if memory:
         docker_args.append(f"--memory={memory}")
