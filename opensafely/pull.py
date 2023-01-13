@@ -65,14 +65,12 @@ def main(image="all", force=False, project=None):
     try:
         updated = False
         for image in images:
-            # currently databuilder is not published, so we ignore it when pulling
-            if image == "databuilder":
-                continue
             tag = f"{REGISTRY}/{image}"
             if force or tag in local_images:
                 updated = True
                 print(f"Updating OpenSAFELY {image} image")
-                subprocess.run(["docker", "pull", tag + ":latest"], check=True)
+                version = get_default_version_for_image(image)
+                subprocess.run(["docker", "pull", tag + f":{version}"], check=True)
 
         if updated:
             print("Cleaning up old images")
@@ -134,9 +132,6 @@ def get_local_images():
             continue
 
         name, sha = line.split("=", 1)
-        # currently databuilder is not published, so we ignore it
-        if "databuilder" in name:
-            continue
         images[name].append(sha)
 
     return images
@@ -149,6 +144,13 @@ def remove_deprecated_images(local_images):
             tag = f"{registry}/{image}"
             if tag in local_images:
                 subprocess.run(["docker", "image", "rm", tag], capture_output=True)
+
+
+def get_default_version_for_image(name):
+    if name == "databuilder":
+        return "v0"
+    else:
+        return "latest"
 
 
 session = requests.Session()
@@ -195,7 +197,8 @@ def check_version():
         full_name = f"{REGISTRY}/{image}"
         local_shas = local_images.get(full_name, [])
         if local_shas:
-            latest_sha = get_remote_sha(full_name, "latest")
+            version = get_default_version_for_image(image)
+            latest_sha = get_remote_sha(full_name, version)
             if latest_sha not in local_shas:
                 need_update.append(image)
 
