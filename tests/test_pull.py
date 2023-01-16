@@ -9,8 +9,8 @@ from opensafely import pull
 project_fixture_path = Path(__file__).parent / "fixtures" / "projects"
 
 
-def tag(image):
-    return f"{pull.REGISTRY}/{image}:latest"
+def tag(image, version="latest"):
+    return f"{pull.REGISTRY}/{image}:{version}"
 
 
 def test_default_no_local_images(run, capsys):
@@ -47,6 +47,7 @@ def test_default_no_local_images_force(run, capsys):
         stdout="",
     )
     run.expect(["docker", "pull", tag("cohortextractor")])
+    run.expect(["docker", "pull", tag("databuilder", version="v0")])
     run.expect(["docker", "pull", tag("jupyter")])
     run.expect(["docker", "pull", tag("python")])
     run.expect(["docker", "pull", tag("r")])
@@ -59,6 +60,7 @@ def test_default_no_local_images_force(run, capsys):
     assert err == ""
     assert out.splitlines() == [
         "Updating OpenSAFELY cohortextractor image",
+        "Updating OpenSAFELY databuilder image",
         "Updating OpenSAFELY jupyter image",
         "Updating OpenSAFELY python image",
         "Updating OpenSAFELY r image",
