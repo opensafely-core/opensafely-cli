@@ -19,6 +19,8 @@ def test_jupyter(run, no_user):
             "--hostname=test_jupyter",
             "--env",
             "HOME=/tmp",
+            "--env",
+            "PYTHONPATH=/workspace",
             "ghcr.io/opensafely-core/python",
             "jupyter",
             "lab",
