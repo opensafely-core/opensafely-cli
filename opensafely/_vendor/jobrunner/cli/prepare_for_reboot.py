@@ -4,10 +4,10 @@ automatically re-run after a reboot.
 """
 import argparse
 
-from opensafely._vendor.jobrunner.executors.local import container_name, docker, volume_api
+from opensafely._vendor.jobrunner.executors.local import container_name, docker, get_volume_api
 from opensafely._vendor.jobrunner.lib.database import find_where
 from opensafely._vendor.jobrunner.models import Job, State, StatusCode
-from opensafely._vendor.jobrunner.run import set_state
+from opensafely._vendor.jobrunner.run import set_code
 
 
 def main(pause=True):
@@ -26,16 +26,15 @@ def main(pause=True):
 
     for job in find_where(Job, state=State.RUNNING):
         print(f"reseting job {job.id} to PENDING")
-        set_state(
+        set_code(
             job,
-            State.PENDING,
             StatusCode.WAITING_ON_REBOOT,
             "Job restarted - waiting for server to reboot",
         )
         # these are idempotent
         docker.kill(container_name(job))
         docker.delete_container(container_name(job))
-        volume_api.delete_volume(job)
+        get_volume_api(job).delete_volume(job)
 
 
 def run():

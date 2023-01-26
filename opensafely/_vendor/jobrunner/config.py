@@ -20,9 +20,12 @@ default_work_dir = Path(__file__) / "../../workdir"
 VERSION = os.environ.get("VERSION", "unknown")
 if VERSION == "unknown":
     try:
-        VERSION = subprocess.check_output(
-            ["git", "describe", "--tags"], text=True
-        ).strip()
+        ps = subprocess.run(
+            ["git", "describe", "--tags"],
+            text=True,
+            capture_output=True,
+        )
+        VERSION = ps.stdout.strip()
     except (FileNotFoundError, subprocess.CalledProcessError):
         pass
 
@@ -30,9 +33,12 @@ if VERSION == "unknown":
 GIT_SHA = os.environ.get("GIT_SHA", "unknown")
 if GIT_SHA == "unknown":
     try:
-        GIT_SHA = subprocess.check_output(
-            ["git", "rev-parse", "--short", "HEAD"], text=True
-        ).strip()
+        ps = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            text=True,
+            capture_output=True,
+        )
+        GIT_SHA = ps.stdout.strip()
     except (FileNotFoundError, subprocess.CalledProcessError):
         pass
 
@@ -177,10 +183,6 @@ def parse_job_resource_weights(config_file):
 
 JOB_RESOURCE_WEIGHTS = parse_job_resource_weights("job-resource-weights.ini")
 
-
-STATS_DATABASE_FILE = os.environ.get("STATS_DATABASE_FILE")
-if STATS_DATABASE_FILE:
-    STATS_DATABASE_FILE = Path(STATS_DATABASE_FILE)
 
 STATS_POLL_INTERVAL = float(os.environ.get("STATS_POLL_INTERVAL", "10"))
 MAINTENANCE_POLL_INTERVAL = float(

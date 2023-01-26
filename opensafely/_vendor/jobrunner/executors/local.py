@@ -19,7 +19,7 @@ from opensafely._vendor.jobrunner.job_executor import (
     JobStatus,
     Privacy,
 )
-from opensafely._vendor.jobrunner.lib import docker
+from opensafely._vendor.jobrunner.lib import datestr_to_ns_timestamp, docker
 from opensafely._vendor.jobrunner.lib.git import checkout_commit
 from opensafely._vendor.jobrunner.lib.path_utils import list_dir_with_ignore_patterns
 from opensafely._vendor.jobrunner.lib.string_utils import tabulate
@@ -40,7 +40,6 @@ RESULTS = {}
 LABEL = "jobrunner-local"
 
 log = logging.getLogger(__name__)
-volume_api = get_volume_api()
 
 
 def container_name(job):
@@ -55,14 +54,6 @@ def get_medium_privacy_workspace(workspace):
     if config.MEDIUM_PRIVACY_WORKSPACES_DIR:
         return config.MEDIUM_PRIVACY_WORKSPACES_DIR / workspace
     else:
-        return None
-
-
-def timestamp_from_iso(iso):
-    """Attempt to convert iso formatted date to unix timestamp."""
-    try:
-        return int(datetime.fromisoformat(iso))
-    except Exception:
         return None
 
 
@@ -99,10 +90,6 @@ class LocalDockerAPI(ExecutorAPI):
     synchronous_transitions = [ExecutorState.PREPARING, ExecutorState.FINALIZING]
 
     def prepare(self, job):
-        current = self.get_status(job)
-        if current.state != ExecutorState.UNKNOWN:
-            return current
-
         # Check the workspace is not archived
         workspace_dir = get_high_privacy_workspace(job.workspace)
         if not workspace_dir.exists():
@@ -124,6 +111,10 @@ class LocalDockerAPI(ExecutorAPI):
                 f"Docker image {job.image} is not currently available",
             )
 
+        current = self.get_status(job)
+        if current.state != ExecutorState.UNKNOWN:
+            return current
+
         try:
             prepare_job(job)
         except docker.DockerDiskSpaceError as e:
@@ -132,10 +123,8 @@ class LocalDockerAPI(ExecutorAPI):
                 ExecutorState.ERROR, "Out of disk space, please try again later"
             )
 
-        # technically, we're acutally PREPARED, as we did in synchronously, but
-        # the loop code is expecting PREPARING, so return that. The next time
-        # around the loop, it will pick up that it is PREPARED, and move on.
-        return JobStatus(ExecutorState.PREPARING)
+        # this API is synchronous, so we are PREPARED now
+        return JobStatus(ExecutorState.PREPARED)
 
     def execute(self, job):
         current = self.get_status(job)
@@ -152,7 +141,7 @@ class LocalDockerAPI(ExecutorAPI):
             docker.run(
                 container_name(job),
                 [job.image] + job.args,
-                volume=(volume_api.volume_name(job), "/workspace"),
+                volume=(get_volume_api(job).volume_name(job), "/workspace"),
                 env=job.env,
                 allow_network_access=job.allow_database_access,
                 label=LABEL,
@@ -177,7 +166,8 @@ class LocalDockerAPI(ExecutorAPI):
         except LocalDockerError as exc:
             return JobStatus(ExecutorState.ERROR, f"failed to finalize job: {exc}")
 
-        return JobStatus(ExecutorState.FINALIZING)
+        # this api is synchronous, so we are now FINALIZED
+        return JobStatus(ExecutorState.FINALIZED)
 
     def terminate(self, job):
         docker.kill(container_name(job))
@@ -187,47 +177,51 @@ class LocalDockerAPI(ExecutorAPI):
         if config.CLEAN_UP_DOCKER_OBJECTS:
             log.info("Cleaning up container and volume")
             docker.delete_container(container_name(job))
-            volume_api.delete_volume(job)
+            get_volume_api(job).delete_volume(job)
         else:
             log.info("Leaving container and volume in place for debugging")
 
         RESULTS.pop(job.id, None)
         return JobStatus(ExecutorState.UNKNOWN)
 
-    def get_status(self, job):
+    def get_status(self, job, timeout=15):
         name = container_name(job)
         try:
             container = docker.container_inspect(
                 name,
                 none_if_not_exists=True,
-                timeout=10,
+                timeout=timeout,
             )
         except docker.DockerTimeoutError:
-            raise ExecutorRetry("timed out inspecting container {name}")
+            raise ExecutorRetry(
+                f"docker timed out after {timeout}s inspecting container {name}"
+            )
 
         if container is None:  # container doesn't exist
             # timestamp file presence means we have finished preparing
-            timestamp = volume_api.file_timestamp(job, TIMESTAMP_REFERENCE_FILE, 10)
+            timestamp_ns = get_volume_api(job).read_timestamp(
+                job, TIMESTAMP_REFERENCE_FILE, 10
+            )
             # TODO: maybe log the case where the volume exists, but the
             # timestamp file does not? It's not a problems as the loop should
             # re-prepare it anyway.
-            if timestamp is None:
+            if timestamp_ns is None:
                 # we are Jon Snow
                 return JobStatus(ExecutorState.UNKNOWN)
             else:
                 # we've finish preparing
-                return JobStatus(ExecutorState.PREPARED, timestamp=timestamp)
+                return JobStatus(ExecutorState.PREPARED, timestamp_ns=timestamp_ns)
 
         if container["State"]["Running"]:
-            timestamp = timestamp_from_iso(container["State"]["StartedAt"])
-            return JobStatus(ExecutorState.EXECUTING, timestamp=timestamp)
+            timestamp_ns = datestr_to_ns_timestamp(container["State"]["StartedAt"])
+            return JobStatus(ExecutorState.EXECUTING, timestamp_ns=timestamp_ns)
         elif job.id in RESULTS:
             return JobStatus(
-                ExecutorState.FINALIZED, timestamp=RESULTS[job.id].timestamp
+                ExecutorState.FINALIZED, timestamp_ns=RESULTS[job.id].timestamp_ns
             )
         else:  # container present but not running, i.e. finished
-            timestamp = timestamp_from_iso(container["State"]["FinishedAt"])
-            return JobStatus(ExecutorState.EXECUTED, timestamp=timestamp)
+            timestamp_ns = datestr_to_ns_timestamp(container["State"]["FinishedAt"])
+            return JobStatus(ExecutorState.EXECUTED, timestamp_ns=timestamp_ns)
 
     def get_results(self, job):
         if job.id not in RESULTS:
@@ -259,6 +253,7 @@ def prepare_job(job):
     """Creates a volume and populates it with the repo and input files."""
     workspace_dir = get_high_privacy_workspace(job.workspace)
 
+    volume_api = get_volume_api(job)
     volume_api.create_volume(job, get_job_labels(job))
 
     # `docker cp` can't create parent directories for us so we make sure all
@@ -287,8 +282,8 @@ def prepare_job(job):
             )
         volume_api.copy_to_volume(job, workspace_dir / filename, filename)
 
-    # Hack: see `get_unmatched_outputs`
-    volume_api.touch_file(job, TIMESTAMP_REFERENCE_FILE)
+    # Used to record state for telemetry, and also see `get_unmatched_outputs`
+    volume_api.write_timestamp(job, TIMESTAMP_REFERENCE_FILE)
 
 
 def finalize_job(job):
@@ -325,14 +320,13 @@ def finalize_job(job):
         exit_code=container_metadata["State"]["ExitCode"],
         image_id=container_metadata["Image"],
         message=message,
-        timestamp=int(time.time()),
+        timestamp_ns=time.time_ns(),
         action_version=labels.get("org.opencontainers.image.version", "unknown"),
         action_revision=labels.get("org.opencontainers.image.revision", "unknown"),
         action_created=labels.get("org.opencontainers.image.created", "unknown"),
         base_revision=labels.get("org.opensafely.base.vcs-ref", "unknown"),
         base_created=labels.get("org.opencontainers.base.build-date", "unknown"),
     )
-    job.completed_at = int(time.time())
     job_metadata = get_job_metadata(job, outputs, container_metadata)
     write_job_logs(job, job_metadata)
     persist_outputs(job, results.outputs, job_metadata)
@@ -385,7 +379,7 @@ def persist_outputs(job, outputs, job_metadata):
 
     for filename in outputs.keys():
         log.info(f"Extracting output file: {filename}")
-        volume_api.copy_from_volume(job, filename, workspace_dir / filename)
+        get_volume_api(job).copy_from_volume(job, filename, workspace_dir / filename)
 
     # Copy out medium privacy files
     medium_privacy_dir = get_medium_privacy_workspace(job.workspace)
@@ -406,7 +400,7 @@ def find_matching_outputs(job):
     Returns a dict mapping output filenames to their privacy level, plus a list
     of any patterns that had no matches at all
     """
-    all_matches = volume_api.glob_volume_files(job)
+    all_matches = get_volume_api(job).glob_volume_files(job)
     unmatched_patterns = []
     outputs = {}
     for pattern, privacy_level in job.output_spec.items():
@@ -432,7 +426,7 @@ def get_unmatched_outputs(job, outputs):
     debugging info and not for Serious Business Purposes, it should be
     sufficient.
     """
-    all_outputs = volume_api.find_newer_files(job, TIMESTAMP_REFERENCE_FILE)
+    all_outputs = get_volume_api(job).find_newer_files(job, TIMESTAMP_REFERENCE_FILE)
     return [filename for filename in all_outputs if filename not in outputs]
 
 
@@ -481,7 +475,7 @@ def copy_git_commit_to_volume(job, repo_url, commit, extra_dirs):
         for directory in extra_dirs:
             tmpdir.joinpath(directory).mkdir(parents=True, exist_ok=True)
         try:
-            volume_api.copy_to_volume(job, tmpdir, ".", timeout=60)
+            get_volume_api(job).copy_to_volume(job, tmpdir, ".", timeout=60)
         except docker.DockerTimeoutError:
             # Aborting a `docker cp` into a container at the wrong time can
             # leave the container in a completely broken state where any
@@ -523,6 +517,7 @@ def copy_local_workspace_to_volume(job, workspace_dir, extra_dirs):
     directories = set(Path(filename).parent for filename in code_files)
     directories.update(extra_dirs)
     directories.discard(Path("."))
+    volume_api = get_volume_api(job)
     if directories:
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir = Path(tmpdir)
@@ -532,7 +527,7 @@ def copy_local_workspace_to_volume(job, workspace_dir, extra_dirs):
 
     log.info(f"Copying in code from {workspace_dir}")
     for filename in code_files:
-        volume_api.copy_to_volume(job, workspace_dir / filename, filename)
+        get_volume_api(job).copy_to_volume(job, workspace_dir / filename, filename)
 
 
 # Environment variables whose values do not need to be hidden from the debug
