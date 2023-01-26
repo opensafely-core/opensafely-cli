@@ -1,6 +1,8 @@
 import importlib
 import logging
 import shutil
+import tempfile
+import time
 from collections import defaultdict
 from pathlib import Path
 
@@ -46,11 +48,14 @@ class DockerVolumeAPI:
     def delete_volume(job):
         docker.delete_volume(docker_volume_name(job))
 
-    def touch_file(job, path, timeout=None):
-        docker.touch_file(docker_volume_name(job), path, timeout)
+    def write_timestamp(job, path, timeout=None):
+        with tempfile.NamedTemporaryFile() as f:
+            p = Path(f.name)
+            p.write_text(str(time.time_ns()))
+            docker.copy_to_volume(docker_volume_name(job), p, path, timeout)
 
-    def file_timestamp(job, path, timeout=None):
-        return docker.file_timestamp(docker_volume_name(job), path, timeout)
+    def read_timestamp(job, path, timeout=None):
+        return docker.read_timestamp(docker_volume_name(job), path, timeout)
 
     def glob_volume_files(job):
         return docker.glob_volume_files(docker_volume_name(job), job.output_spec.keys())
@@ -59,9 +64,13 @@ class DockerVolumeAPI:
         return docker.find_newer_files(docker_volume_name(job), path)
 
 
-def host_volume_path(job):
+def host_volume_path(job, create=True):
     path = config.HIGH_PRIVACY_VOLUME_DIR / job.id
-    path.parent.mkdir(parents=True, exist_ok=True)
+    if create:
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+        except PermissionError:
+            raise Exception(f"Could not create {path.parent} due to permissions error")
     return path
 
 
@@ -84,7 +93,9 @@ class BindMountVolumeAPI:
         host_volume_path(job).mkdir()
 
     def volume_exists(job):
-        return host_volume_path(job).exists()
+        # create=False means this won't raise if we're not configured
+        # to use BindMountVolumeAPI
+        return host_volume_path(job, create=False).exists()
 
     def copy_to_volume(job, src, dst, timeout=None):
         # We don't respect the timeout.
@@ -108,18 +119,23 @@ class BindMountVolumeAPI:
     def delete_volume(job):
         shutil.rmtree(host_volume_path(job), ignore_errors=True)
 
-    def touch_file(job, path, timeout=None):
-        (host_volume_path(job) / path).touch()
+    def write_timestamp(job, path, timeout=None):
+        (host_volume_path(job) / path).write_text(str(time.time_ns()))
 
-    def file_timestamp(job, path, timeout=None):
+    def read_timestamp(job, path, timeout=None):
         abs_path = host_volume_path(job) / path
         try:
-            stat = abs_path.stat()
+            contents = abs_path.read_text()
+            if contents:
+                return int(contents)
+            else:
+                # linux host filesystem provides untruncated timestamps
+                stat = abs_path.stat()
+                return int(stat.st_ctime * 1e9)
+
         except Exception:
-            logger.exception("Failed to stat volume file {abs_path}")
+            logger.exception("Failed to read timestamp from volume file {abs_path}")
             return None
-        else:
-            return stat.st_ctime
 
     def glob_volume_files(job):
         volume = host_volume_path(job)
@@ -144,7 +160,18 @@ class BindMountVolumeAPI:
         return found
 
 
-def get_volume_api():
+def default_volume_api():
     module_name, cls = config.LOCAL_VOLUME_API.split(":", 1)
     module = importlib.import_module(module_name)
     return getattr(module, cls)
+
+
+DEFAULT_VOLUME_API = default_volume_api()
+
+
+def get_volume_api(job):
+    for api in [BindMountVolumeAPI, DockerVolumeAPI]:
+        if api.volume_exists(job):
+            return api
+
+    return DEFAULT_VOLUME_API
