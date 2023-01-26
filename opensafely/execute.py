@@ -62,6 +62,14 @@ def add_arguments(parser):
     return parser
 
 
+def in_env_args(var, env):
+    for e in env:
+        if e == var or e.startswith(f"{var}="):
+            return True
+
+    return False
+
+
 def main(
     image,
     entrypoint=None,
@@ -83,7 +91,13 @@ def main(
     if user and user.lower() in ("none", "no", "false"):
         user = False
 
-    docker_args.extend(["--env", "OPENSAFELY_BACKEND=expectations"])
+    if not in_env_args("OPENSAFELY_BACKEND", env):
+        docker_args.extend(["--env", "OPENSAFELY_BACKEND=expectations"])
+
+    if not in_env_args("HOME", env):
+        # ensure there is a writable home directory for the user, so tools like
+        # ipython can use it to store temporary files, e.g. for tab completion
+        docker_args.extend(["--env", "HOME=/tmp"])
 
     for e in env:
         docker_args.extend(["--env", e])
