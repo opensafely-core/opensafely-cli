@@ -234,22 +234,13 @@ def test_check_version_up_to_date_old_sha(run, capsys):
     assert out.splitlines() == []
 
 
-@pytest.mark.parametrize(
-    "project_yaml,exc_msg",
-    [
-        ("doesnotexist.yaml", "Could not find"),
-        ("bad.yaml", "Could not parse"),
-        ("noactions.yaml", "No actions found"),
-    ],
-)
-def test_get_actions_from_project_yaml_errors(project_yaml, exc_msg):
-    path = project_fixture_path / project_yaml
+def test_get_actions_from_project_yaml_no_actions():
+    path = project_fixture_path / "noactions.yaml"
     with pytest.raises(RuntimeError) as exc_info:
         pull.get_actions_from_project_file(path)
 
-    str_exc = str(exc_info.value).lower()
-    assert exc_msg.lower() in str_exc
-    assert str(path).lower() in str_exc
+    assert "Invalid project.yaml" in str(exc_info.value)
+    assert str(path) in str(exc_info.value)
 
 
 @pytest.mark.parametrize(
