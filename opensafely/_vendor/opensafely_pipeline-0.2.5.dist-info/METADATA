@@ -1,0 +1,47 @@
+Metadata-Version: 2.1
+Name: opensafely-pipeline
+Version: 0.2.5
+Summary: OpenSAFELY pipeline configuration parsing library
+Author-email: OpenSAFELY <tech@opensafely.org>
+License: ${GITHUB_REPOSITORY_NAME}
+        Copyright (C) University of Oxford
+        
+        This program is free software: you can redistribute it and/or modify
+        it under the terms of the GNU General Public License as published by
+        the Free Software Foundation, either version 3 of the License, or
+        (at your option) any later version.
+        
+        This program is distributed in the hope that it will be useful,
+        but WITHOUT ANY WARRANTY; without even the implied warranty of
+        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+        GNU General Public License for more details.
+        
+        You should have received a copy of the GNU General Public License
+        along with this program.  If not, see <https://www.gnu.org/licenses/>.
+        
+Project-URL: Home, https://opensafely.org
+Project-URL: Documentation, https://docs.opensafely.org
+Project-URL: Source, https://github.com/opensafely-core/pipeline
+Classifier: License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: pydantic
+Requires-Dist: ruyaml
+
+# OpenSAFELY Pipeline Parser
+
+This library takes the contents of an OpenSAFELY pipeline configuration file (`project.yaml` or `pipeline.yaml`), validates it, and parses it into a typed structure.
+
+For example:
+
+    with open("/path/to/project.yaml") as f:
+        data = load_pipeline(f.read())
+
+
+The returned object is a Pydantic model, `Pipeline`, defined in `pipeline/models.py`.
+
+
+## Developer docs
+
+Please see the [additional information](DEVELOPERS.md).
