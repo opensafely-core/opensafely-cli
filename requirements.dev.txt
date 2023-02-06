@@ -12,7 +12,7 @@ black==22.12.0
     # via -r requirements.dev.in
 build==0.9.0
     # via pip-tools
-certifi==2020.11.8
+certifi==2022.12.7
     # via requests
 cfgv==3.3.1
     # via pre-commit
@@ -29,8 +29,6 @@ coverage==7.0.1
     # via -r requirements.dev.in
 distlib==0.3.6
     # via virtualenv
-exceptiongroup==1.1.0
-    # via pytest
 filelock==3.9.0
     # via virtualenv
 flake8==6.0.0
@@ -98,14 +96,8 @@ six==1.15.0
     #   requests-mock
 tomli==1.2.2
     # via
-    #   black
-    #   build
-    #   pytest
+    #   pep517
     #   vendoring
-typing-extensions==4.4.0
-    # via
-    #   black
-    #   rich
 urllib3==1.26.5
     # via requests
 vendoring @ https://github.com/opensafely-core/vendoring/archive/add-preserve-metadata-option.zip ; python_version >= "3.8"
