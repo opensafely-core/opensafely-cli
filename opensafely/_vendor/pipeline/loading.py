@@ -3,7 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Union
 
-from opensafely._vendor.ruamel.yaml.error import (
+from opensafely._vendor.ruyaml import YAML
+from opensafely._vendor.ruyaml.error import (
     MarkedYAMLError,
     MarkedYAMLFutureWarning,
     MarkedYAMLWarning,
@@ -12,7 +13,6 @@ from opensafely._vendor.ruamel.yaml.error import (
     YAMLStreamError,
     YAMLWarning,
 )
-from opensafely._vendor.ruamel.yaml.main import YAML
 
 from . import exceptions
 
@@ -26,21 +26,21 @@ from . import exceptions
 # class is incorrect for this variable.  It's defined as Optional[Text] [1] but
 # the implementation accepts a list or string [2].
 #
-# 1: https://sourceforge.net/p/ruamel-yaml/code/ci/0.17.20/tree/main.py#l55
-# 2: https://sourceforge.net/p/ruamel-yaml/code/ci/0.17.20/tree/main.py#l66
+# 1: https://github.com/pycontribs/ruyaml/blob/main/lib/ruyaml/main.py#L70
+# 2: https://github.com/pycontribs/ruyaml/blob/main/lib/ruyaml/main.py#L81
 PARSER = YAML(typ=["safe", "rt"], pure=True)  # type: ignore[arg-type]
 
 
-RuamelMarkedError = Union[MarkedYAMLError, MarkedYAMLFutureWarning, MarkedYAMLWarning]
+RuyamlMarkedError = Union[MarkedYAMLError, MarkedYAMLFutureWarning, MarkedYAMLWarning]
 
 
 def make_yaml_error_more_helpful(
-    exc: RuamelMarkedError, name: str | None
-) -> RuamelMarkedError:
+    exc: RuyamlMarkedError, name: str | None
+) -> RuyamlMarkedError:
     """
     Improve the error message we expose when encountering errors.
 
-    ruamel produces quite helpful error messages but they refer to the file as
+    ruyaml produces quite helpful error messages but they refer to the file as
     `<byte_string>` (which will be confusing for users) and they also include
     notes and warnings to developers about API changes. This function attempts
     to fix these issues, but just returns the exception unchanged if the type
@@ -58,7 +58,7 @@ def make_yaml_error_more_helpful(
 def parse_yaml_file(data: str | Path, filename: str | None = None) -> dict[str, Any]:
     try:
         return PARSER.load(data)  # type: ignore[no-any-return]
-    # ruamel doesn't have a nice exception hierarchy so we have to catch these
+    # ruyaml doesn't have a nice exception hierarchy so we have to catch these
     # four separate base classes
     except (
         YAMLError,

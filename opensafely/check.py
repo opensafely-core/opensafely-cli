@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 from opensafely._vendor import requests
-from opensafely._vendor.ruamel.yaml import YAML
+from opensafely._vendor.ruyaml import YAML
 
 
 DESCRIPTION = "Check the opensafely project for correctness"

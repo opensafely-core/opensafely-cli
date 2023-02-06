@@ -12,8 +12,8 @@ from requests_mock import mocker
 from opensafely import check
 from opensafely._vendor import requests
 from opensafely._vendor.requests.exceptions import RequestException
-from opensafely._vendor.ruamel.yaml import YAML
-from opensafely._vendor.ruamel.yaml.comments import CommentedMap
+from opensafely._vendor.ruyaml import YAML
+from opensafely._vendor.ruyaml.comments import CommentedMap
 
 
 # Because we're using a vendored version of requests we need to monkeypatch the

@@ -5,16 +5,9 @@ from http.cookiejar import split_header_words
 from pathlib import Path
 from urllib.parse import urlparse
 
-from opensafely._vendor import requests
+from opensafely._vendor import pipeline, requests
 from opensafely._vendor.jobrunner import config
 from opensafely._vendor.jobrunner.cli.local_run import docker_preflight_check
-from opensafely._vendor.ruamel.yaml import YAML
-from opensafely._vendor.ruamel.yaml.error import (
-    YAMLError,
-    YAMLFutureWarning,
-    YAMLStreamError,
-    YAMLWarning,
-)
 
 
 DESCRIPTION = (
@@ -84,27 +77,16 @@ def main(image="all", force=False, project=None):
 
 
 def get_actions_from_project_file(project_yaml):
-    path = Path(project_yaml)
-    if not path.exists():
-        raise RuntimeError(f"Could not find {project_yaml}")
-
     try:
-        with path.open() as f:
-            project = YAML(typ="safe", pure=True).load(f)
-    except (YAMLError, YAMLStreamError, YAMLWarning, YAMLFutureWarning) as e:
-        raise RuntimeError(f"Could not parse {project_yaml}: {e}")
+        project = pipeline.load_pipeline(Path(project_yaml))
+    except pipeline.ProjectValidationError as exc:
+        raise RuntimeError(f"Invalid project.yaml {project_yaml}: {exc}")
 
     images = []
-    for action_name, action in project.get("actions", {}).items():
-        if not action:
-            continue
-        command = action.get("run", None)
-        if command is None:
-            continue
 
-        name, _, version = command.partition(":")
-        if name in IMAGES:
-            images.append(name)
+    for name, action in project.actions.items():
+        if action.run.name in IMAGES and action.run.name not in images:
+            images.append(action.run.name)
 
     if not images:
         raise RuntimeError(f"No actions found in {project_yaml}")

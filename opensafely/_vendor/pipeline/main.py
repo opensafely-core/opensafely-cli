@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from opensafely._vendor import pydantic
+
 from .exceptions import ProjectValidationError, YAMLError
 from .loading import parse_yaml_file
 from .models import Pipeline
@@ -24,4 +26,9 @@ def load_pipeline(pipeline_config: str | Path, filename: str | None = None) -> P
         raise ProjectValidationError(*e.args)
 
     # validate
-    return Pipeline(**parsed_data)
+    try:
+        return Pipeline(**parsed_data)
+    except pydantic.ValidationError as exc:
+        raise ProjectValidationError(
+            f"Invalid project: {filename or ''}\n{exc}"
+        ) from exc
