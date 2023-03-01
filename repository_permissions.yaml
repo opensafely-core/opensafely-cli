@@ -18,3 +18,5 @@ opensafely/bias:
   allow: ['ons_cis']
 opensafely/ckd-healthcare-use:
   allow: ['ukrr']
+opensafely/isaric-exploration:
+  allow: ['isaric']
