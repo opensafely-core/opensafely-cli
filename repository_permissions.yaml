@@ -20,3 +20,4 @@ opensafely/ckd-healthcare-use:
   allow: ['ukrr']
 opensafely/isaric-exploration:
   allow: ['isaric']
+  
