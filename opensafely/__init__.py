@@ -61,6 +61,13 @@ def main():
     parser.add_argument(
         "--version", action="version", version=f"opensafely {__version__}"
     )
+    parser.add_argument(
+        "--debug",
+        "-d",
+        dest="global_debug",
+        action="store_true",
+        help="display debugging information",
+    )
 
     subparsers = parser.add_subparsers(
         title="available commands", description="", metavar="COMMAND"
@@ -109,7 +116,16 @@ def main():
     kwargs = vars(args)
 
     function = kwargs.pop("function")
-    success = function(**kwargs)
+    debug = kwargs.pop("global_debug")
+
+    try:
+        success = function(**kwargs)
+    except Exception as exc:
+        if debug:
+            raise
+        else:
+            print(str(exc), file=sys.stderr)
+        success = False
 
     # if `run`ning locally, run `check` in warn mode
     if function == local_run.main and "format-output-for-github" not in kwargs:
