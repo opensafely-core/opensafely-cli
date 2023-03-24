@@ -72,13 +72,24 @@ class SubprocessRunFixture(deque):
         actual_env = kwargs.get("env", None)
 
         # handle some windows calls being wrapped in winpty
+        winpty = False
         if sys.platform == "win32":
             if "winpty" in cmd[0] and cmd[1] == "--":
                 # strip winpty from cmd, do compare the wrapper
                 cmd = cmd[2:]
+                winpty = True
 
         # first up, do we expect this cmd?
-        if expected != cmd:
+        cmd_matches = expected == cmd
+
+        # windows/git-bash interative docker commands will always include tty,
+        # so check if we match w/o it
+        if not cmd_matches and winpty and "--tty" in cmd:
+            cmd_no_tty = cmd[:]
+            cmd_no_tty.remove("--tty")
+            cmd_matches = expected == cmd_no_tty
+
+        if not cmd_matches:
             if self.strict:
                 raise AssertionError(
                     f"run fixture got unexpected call:\n"

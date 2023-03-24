@@ -25,7 +25,7 @@ def get_default_user():
 DEFAULT_USER = get_default_user()
 
 
-def ensure_tty(docker_cmd):
+def git_bash_tty_wrapper():
     """Ensure that we have a valid tty to use to run docker.
 
     This is needed as we want the user to be able to kill jupyter with Ctrl-C
@@ -41,20 +41,20 @@ def ensure_tty(docker_cmd):
     """
     # Note: we don't use platform.system(), as it uses subprocess.run, and this mucks up our test expectations
     if sys.platform != "win32":
-        return docker_cmd
+        return
 
     winpty = shutil.which("winpty")
 
     if winpty is None:
         # not git-bash
-        return docker_cmd
+        return
 
     if sys.stdin.isatty() and sys.stdout.isatty():
         # already sorted, possibly user already ran us with winpty
-        return docker_cmd
+        return
 
     # avoid using explicit path, as it can trip things up.
-    return [winpty, "--"] + docker_cmd
+    return [winpty, "--"]
 
 
 def run_docker(
@@ -88,7 +88,13 @@ def run_docker(
     ]
 
     if interactive:
-        base_cmd = ensure_tty(base_cmd + ["-it"])
+        base_cmd += ["--interactive"]
+        wrapper = git_bash_tty_wrapper()
+        if (sys.stdin.isatty() and sys.stdout.isatty()) or wrapper:
+            base_cmd += ["--tty"]
+
+        if wrapper:
+            base_cmd = wrapper + base_cmd
 
     if user:
         base_cmd.append(f"--user={user}")
