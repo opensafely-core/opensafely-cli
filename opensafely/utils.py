@@ -92,6 +92,7 @@ def run_docker(
         wrapper = git_bash_tty_wrapper()
         if (sys.stdin.isatty() and sys.stdout.isatty()) or wrapper:
             base_cmd += ["--tty"]
+
         if wrapper:
             base_cmd = wrapper + base_cmd
 
