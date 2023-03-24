@@ -18,31 +18,31 @@ def test_get_default_user_windows(mock_os):
     assert utils.get_default_user() is None
 
 
-def test_ensure_tty_not_utils(monkeypatch):
+def test_git_bash_tty_wrapper_not_utils(monkeypatch):
     monkeypatch.setattr(utils.sys, "platform", "linux")
-    assert utils.ensure_tty(["cmd"]) == ["cmd"]
+    assert utils.git_bash_tty_wrapper() is None
 
 
-def test_ensure_tty_no_winpty(monkeypatch):
+def test_git_bash_tty_wrapper_no_winpty(monkeypatch):
     monkeypatch.setattr(utils.sys, "platform", "win32")
     monkeypatch.setattr(utils.shutil, "which", lambda x: None)
-    assert utils.ensure_tty(["cmd"]) == ["cmd"]
+    assert utils.git_bash_tty_wrapper() is None
 
 
-def test_ensure_tty_isatty(monkeypatch):
+def test_git_bash_tty_wrapper_isatty(monkeypatch):
     monkeypatch.setattr(utils.sys, "platform", "win32")
     monkeypatch.setattr(utils.shutil, "which", lambda x: "/path/winpty")
     monkeypatch.setattr(utils.sys.stdin, "isatty", lambda: True)
     monkeypatch.setattr(utils.sys.stdout, "isatty", lambda: True)
-    assert utils.ensure_tty(["cmd"]) == ["cmd"]
+    assert utils.git_bash_tty_wrapper() is None
 
 
-def test_ensure_tty_winpty(monkeypatch):
+def test_git_bash_tty_wrapper_winpty(monkeypatch):
     monkeypatch.setattr(utils.sys, "platform", "win32")
     monkeypatch.setattr(utils.shutil, "which", lambda x: "/path/winpty")
     monkeypatch.setattr(utils.sys.stdin, "isatty", lambda: False)
     monkeypatch.setattr(utils.sys.stdout, "isatty", lambda: False)
-    assert utils.ensure_tty(["cmd"]) == ["/path/winpty", "--", "cmd"]
+    assert utils.git_bash_tty_wrapper() == ["/path/winpty", "--"]
 
 
 def test_run_docker_user_default(run, monkeypatch):
@@ -87,7 +87,26 @@ def test_run_docker_interactive(run, no_user):
             "--rm",
             "--init",
             "--label=opensafely",
-            "-it",
+            "--interactive",
+            f"--volume={pathlib.Path.cwd()}://workspace",
+            "ghcr.io/opensafely-core/databuilder:v1",
+        ],
+    )
+    utils.run_docker([], "databuilder:v1", [], interactive=True)
+
+
+def test_run_docker_interactive_tty(run, no_user, monkeypatch):
+    monkeypatch.setattr(utils.sys.stdin, "isatty", lambda: True)
+    monkeypatch.setattr(utils.sys.stdout, "isatty", lambda: True)
+    run.expect(
+        [
+            "docker",
+            "run",
+            "--rm",
+            "--init",
+            "--label=opensafely",
+            "--interactive",
+            "--tty",
             f"--volume={pathlib.Path.cwd()}://workspace",
             "ghcr.io/opensafely-core/databuilder:v1",
         ],

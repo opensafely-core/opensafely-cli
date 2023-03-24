@@ -12,7 +12,7 @@ def test_jupyter(run, no_user):
             "--rm",
             "--init",
             "--label=opensafely",
-            "-it",
+            "--interactive",
             f"--volume={pathlib.Path.cwd()}://workspace",
             "-p=1234:1234",
             "--name=test_jupyter",
