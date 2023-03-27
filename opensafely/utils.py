@@ -53,6 +53,18 @@ def git_bash_tty_wrapper():
         # already sorted, possibly user already ran us with winpty
         return
 
+    if "MSYSTEM" not in os.environ:
+        # not in MINGW terminal, so we can trust isatty
+        return
+
+    # At this point, we know that we are almost certainly in git-bash terminal on windows.
+    # Because isatty() always returns false in this situation, we don't know if
+    # we have a terminal or not, and we don't know any other way to test.
+    #
+    # So, we chose to always assume a tty in this scenario, so that a bare
+    # `opensafely exec ...` will work as expected. This means that piping input
+    # into `opensafely exec` will not work in this scenario.
+
     # avoid using explicit path, as it can trip things up.
     return [winpty, "--"]
 
