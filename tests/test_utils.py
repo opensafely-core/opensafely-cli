@@ -1,3 +1,4 @@
+import os
 import pathlib
 from unittest import mock
 
@@ -34,6 +35,13 @@ def test_git_bash_tty_wrapper_isatty(monkeypatch):
     monkeypatch.setattr(utils.shutil, "which", lambda x: "/path/winpty")
     monkeypatch.setattr(utils.sys.stdin, "isatty", lambda: True)
     monkeypatch.setattr(utils.sys.stdout, "isatty", lambda: True)
+
+
+def test_git_bash_tty_wrapper_not_mingw(monkeypatch):
+    monkeypatch.setattr(utils.sys, "platform", "win32")
+    monkeypatch.setattr(utils.shutil, "which", lambda x: "/path/winpty")
+    monkeypatch.setattr(utils.sys.stdin, "isatty", lambda: False)
+    monkeypatch.setattr(utils.sys.stdout, "isatty", lambda: False)
     assert utils.git_bash_tty_wrapper() is None
 
 
@@ -42,6 +50,7 @@ def test_git_bash_tty_wrapper_winpty(monkeypatch):
     monkeypatch.setattr(utils.shutil, "which", lambda x: "/path/winpty")
     monkeypatch.setattr(utils.sys.stdin, "isatty", lambda: False)
     monkeypatch.setattr(utils.sys.stdout, "isatty", lambda: False)
+    monkeypatch.setitem(os.environ, "MSYSTEM", "foo")
     assert utils.git_bash_tty_wrapper() == ["/path/winpty", "--"]
 
 
