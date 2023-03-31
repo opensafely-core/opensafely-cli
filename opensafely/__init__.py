@@ -15,6 +15,7 @@ pkg_resources.working_set.add_entry(f"{opensafely_module_dir}/_vendor")
 
 from opensafely import (  # noqa: E402
     check,
+    clean,
     codelists,
     execute,
     extract_stats,
@@ -91,6 +92,7 @@ def main():
     add_subcommand("extract-stats", extract_stats)
     add_subcommand("info", info)
     add_subcommand("exec", execute)
+    add_subcommand("clean", clean)
 
     # we only check for new versions periodically
     if should_version_check():
