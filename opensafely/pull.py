@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 from opensafely._vendor import pipeline, requests
 from opensafely._vendor.jobrunner import config
 from opensafely._vendor.jobrunner.cli.local_run import docker_preflight_check
+from opensafely.clean import clean_images
 
 
 DESCRIPTION = (
@@ -66,9 +67,8 @@ def main(image="all", force=False, project=None):
                 subprocess.run(["docker", "pull", tag + f":{version}"], check=True)
 
         if updated:
-            print("Cleaning up old images")
             remove_deprecated_images(local_images)
-            subprocess.run(["docker", "image", "prune", "--force"], check=True)
+            clean_images()
         else:
             print("No OpenSAFELY docker images found to update.")
 

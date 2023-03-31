@@ -40,6 +40,11 @@ def docker_output(cmd, verbose=False):
             print(exc.stderr, file=sys.stderr)
 
 
+def clean_images(verbose=False):
+    print("Pruning old OpenSAFELY docker images...")
+    docker_output(["image", "prune", "--force", "--filter", label_filter], verbose)
+
+
 def main(verbose=False):
     filters = [label_filter, busybox_filter, name_filter, volume_filter]
     containers = set()
@@ -53,7 +58,7 @@ def main(verbose=False):
 
     if containers:
         print(f"Removing {len(containers)} OpenSAFELY containers...")
-        docker_output(["rm", "--force"] + list(containers), verbose)
+        docker_output(["rm", "--force"] + list(sorted(containers)), verbose)
 
     # find and remove any volumes (not labelled currently)
     volumes = docker_output(
@@ -63,5 +68,4 @@ def main(verbose=False):
         print(f"Removing {len(volumes)} OpenSAFELY volumes...")
         docker_output(["volume", "rm", "--force"] + volumes, verbose)
 
-    print("Pruning old OpenSAFELY docker images...")
-    docker_output(["image", "prune", "--force", "--filter", label_filter], verbose)
+    clean_images(verbose)

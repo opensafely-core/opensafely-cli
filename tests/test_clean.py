@@ -17,82 +17,76 @@ class Call:
     return_value: list
 
 
-def test_main(monkeypatch):
-    # hard to test w/o docker, so test expected calls
-    expected = [
-        # list jobs with all filters
-        Call(
-            [
-                "container",
-                "ls",
-                "--all",
-                "--format={{ .ID }}",
-                "--filter",
-                clean.label_filter,
-            ],
-            ["os-job-1"],
-        ),
-        Call(
-            [
-                "container",
-                "ls",
-                "--all",
-                "--format={{ .ID }}",
-                "--filter",
-                clean.busybox_filter,
-            ],
-            ["os-volume-1"],
-        ),
-        # these two will typically return the same results as the first two
-        Call(
-            [
-                "container",
-                "ls",
-                "--all",
-                "--format={{ .ID }}",
-                "--filter",
-                clean.name_filter,
-            ],
-            ["os-job-1"],
-        ),
-        Call(
-            [
-                "container",
-                "ls",
-                "--all",
-                "--format={{ .ID }}",
-                "--filter",
-                clean.volume_filter,
-            ],
-            ["os-volume-1"],
-        ),
-        # remove containers
-        Call(
-            ["rm", "--force", "os-job-1", "os-volume-1"],
-            [],
-        ),
-        # list volumes
-        Call(
-            ["volume", "ls", "--format={{ .Name }}", "--filter", clean.volume_filter],
-            ["os-volume-1"],
-        ),
-        # remove volumes
-        Call(
-            ["volume", "rm", "--force", "os-volume-1"],
-            [],
-        ),
-        # prunemove containers
-        Call(
-            ["image", "prune", "--force", "--filter", clean.label_filter],
-            [],
-        ),
-    ]
+def test_main(run):
 
-    def mock_docker_output(cmd, verbose):
-        next_call = expected.pop(0)
-        assert cmd == next_call.expected
-        return next_call.return_value
+    run.expect(
+        [
+            "docker",
+            "container",
+            "ls",
+            "--all",
+            "--format={{ .ID }}",
+            "--filter",
+            clean.label_filter,
+        ],
+        stdout="os-job-1",
+    )
 
-    monkeypatch.setattr(clean, "docker_output", mock_docker_output)
+    run.expect(
+        [
+            "docker",
+            "container",
+            "ls",
+            "--all",
+            "--format={{ .ID }}",
+            "--filter",
+            clean.busybox_filter,
+        ],
+        stdout="os-volume-manager-1",
+    ),
+    # these two will typically return the same results as the first two
+    run.expect(
+        [
+            "docker",
+            "container",
+            "ls",
+            "--all",
+            "--format={{ .ID }}",
+            "--filter",
+            clean.name_filter,
+        ],
+        stdout="os-job-1",
+    ),
+    run.expect(
+        [
+            "docker",
+            "container",
+            "ls",
+            "--all",
+            "--format={{ .ID }}",
+            "--filter",
+            clean.volume_filter,
+        ],
+        stdout="os-volume-manager-1",
+    ),
+    # remove containers
+    run.expect(["docker", "rm", "--force", "os-job-1", "os-volume-manager-1"])
+
+    # list volumes
+    run.expect(
+        [
+            "docker",
+            "volume",
+            "ls",
+            "--format={{ .Name }}",
+            "--filter",
+            clean.volume_filter,
+        ],
+        stdout="os-volume-1",
+    ),
+    # remove volumes
+    run.expect(["docker", "volume", "rm", "--force", "os-volume-1"])
+    # prunemove containers
+    run.expect(["docker", "image", "prune", "--force", "--filter", clean.label_filter])
 
     clean.main()
