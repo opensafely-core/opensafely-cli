@@ -53,7 +53,16 @@ def test_default_no_local_images_force(run, capsys):
     run.expect(["docker", "pull", tag("r")])
     run.expect(["docker", "pull", tag("sqlrunner")])
     run.expect(["docker", "pull", tag("stata-mp")])
-    run.expect(["docker", "image", "prune", "--force"])
+    run.expect(
+        [
+            "docker",
+            "image",
+            "prune",
+            "--force",
+            "--filter",
+            "label=org.opencontainers.image.vendor=OpenSAFELY",
+        ]
+    )
 
     pull.main(image="all", force=True)
     out, err = capsys.readouterr()
@@ -66,7 +75,7 @@ def test_default_no_local_images_force(run, capsys):
         "Updating OpenSAFELY r image",
         "Updating OpenSAFELY sqlrunner image",
         "Updating OpenSAFELY stata-mp image",
-        "Cleaning up old images",
+        "Pruning old OpenSAFELY docker images...",
     ]
 
 
@@ -84,14 +93,23 @@ def test_default_with_local_images(run, capsys):
         stdout="ghcr.io/opensafely-core/r=sha",
     )
     run.expect(["docker", "pull", tag("r")])
-    run.expect(["docker", "image", "prune", "--force"])
+    run.expect(
+        [
+            "docker",
+            "image",
+            "prune",
+            "--force",
+            "--filter",
+            "label=org.opencontainers.image.vendor=OpenSAFELY",
+        ]
+    )
 
     pull.main(image="all", force=False)
     out, err = capsys.readouterr()
     assert err == ""
     assert out.splitlines() == [
         "Updating OpenSAFELY r image",
-        "Cleaning up old images",
+        "Pruning old OpenSAFELY docker images...",
     ]
 
 
@@ -109,14 +127,23 @@ def test_specific_image(run, capsys):
         stdout="",
     )
     run.expect(["docker", "pull", tag("r")])
-    run.expect(["docker", "image", "prune", "--force"])
+    run.expect(
+        [
+            "docker",
+            "image",
+            "prune",
+            "--force",
+            "--filter",
+            "label=org.opencontainers.image.vendor=OpenSAFELY",
+        ]
+    )
 
     pull.main(image="r", force=False)
     out, err = capsys.readouterr()
     assert err == ""
     assert out.splitlines() == [
         "Updating OpenSAFELY r image",
-        "Cleaning up old images",
+        "Pruning old OpenSAFELY docker images...",
     ]
 
 
@@ -136,7 +163,16 @@ def test_project(run, capsys):
     run.expect(["docker", "pull", tag("cohortextractor")])
     run.expect(["docker", "pull", tag("python")])
     run.expect(["docker", "pull", tag("jupyter")])
-    run.expect(["docker", "image", "prune", "--force"])
+    run.expect(
+        [
+            "docker",
+            "image",
+            "prune",
+            "--force",
+            "--filter",
+            "label=org.opencontainers.image.vendor=OpenSAFELY",
+        ]
+    )
 
     pull.main(project=project_fixture_path / "project.yaml")
     out, err = capsys.readouterr()
@@ -145,7 +181,7 @@ def test_project(run, capsys):
         "Updating OpenSAFELY cohortextractor image",
         "Updating OpenSAFELY python image",
         "Updating OpenSAFELY jupyter image",
-        "Cleaning up old images",
+        "Pruning old OpenSAFELY docker images...",
     ]
 
 

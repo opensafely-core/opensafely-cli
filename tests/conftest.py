@@ -109,11 +109,13 @@ class SubprocessRunFixture(deque):
                 # expected to raise exception, but run was called without check
                 raise AssertionError(f"run fixture expected check=True: {cmd}")
 
-        # check bytes/string
+        # validate stdout/stderr are correct bytes/string
         valid_type = str if text else bytes
         for output in ["stdout", "stderr"]:
             output_value = getattr(value, output)
             if output_value is None:
+                # if was set to None, set instead to empty string of correct type
+                setattr(value, output, valid_type())
                 continue
 
             assert isinstance(
