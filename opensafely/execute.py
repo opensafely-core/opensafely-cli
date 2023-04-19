@@ -50,7 +50,7 @@ def add_arguments(parser):
     parser.add_argument(
         "image",
         metavar="IMAGE_NAME:VERSION",
-        help="OpenSAFELY image and version (e.g. databuilder:v1)",
+        help="OpenSAFELY image and version (e.g. ehrql:v0)",
     )
     parser.add_argument(
         "cmd_args",

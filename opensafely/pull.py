@@ -129,7 +129,7 @@ def remove_deprecated_images(local_images):
 
 
 def get_default_version_for_image(name):
-    if name == "databuilder":
+    if name in ["databuilder", "ehrql"]:
         return "v0"
     else:
         return "latest"
