@@ -91,6 +91,11 @@ def run_docker(
     if user is None:
         user = DEFAULT_USER
 
+    image_name= image.split(":")[0]
+    alias = config.IMAGE_ALIASES.get(image_name)
+    if alias is not None:
+        image = image.replace(image_name, alias) 
+
     base_cmd = [
         "docker",
         "run",
