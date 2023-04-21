@@ -4,7 +4,8 @@ automatically re-run after a reboot.
 """
 import argparse
 
-from opensafely._vendor.jobrunner.executors.local import container_name, docker, get_volume_api
+from opensafely._vendor.jobrunner.executors.local import container_name, docker
+from opensafely._vendor.jobrunner.executors.volumes import get_volume_api
 from opensafely._vendor.jobrunner.lib.database import find_where
 from opensafely._vendor.jobrunner.models import Job, State, StatusCode
 from opensafely._vendor.jobrunner.run import set_code

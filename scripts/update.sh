@@ -9,7 +9,7 @@ if test -z "$version"; then
     echo " found $version"
 fi
 
-grep -q "$version" vendor.in && { echo "Already at version $version"; exit; }
+#grep -q "$version" vendor.in && { echo "Already at version $version"; exit; }
 
 echo "Compiling vendor.txt from vendor.in with latest dependencies"
 

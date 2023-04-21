@@ -2,6 +2,7 @@ import importlib
 import logging
 import os
 import shutil
+import sys
 import tempfile
 import time
 from collections import defaultdict
@@ -31,6 +32,11 @@ def docker_volume_name(job):
 
 
 class DockerVolumeAPI:
+
+    # don't run with UIDs for now. We maybe be able to support this in future.
+    requires_root = True
+    supported_platforms = ("linux", "win32", "darwin")
+
     def volume_name(job):
         return docker_volume_name(job)
 
@@ -83,6 +89,11 @@ def host_volume_path(job, create=True):
 
 
 class BindMountVolumeAPI:
+
+    # Only works running jobs with uid:gid
+    requires_root = False
+    supported_platforms = ("linux",)
+
     def volume_name(job):
         """Return the absolute path to the volume directory.
 
@@ -98,7 +109,14 @@ class BindMountVolumeAPI:
         )
 
     def create_volume(job, labels=None):
-        host_volume_path(job).mkdir()
+        """Create a volume dir.
+
+        This can be called when the dir exists from a previous call to
+        create_volume (e.g. retry_job or db maintainence mode), but the files
+        didn't get properly written so its ok if it already exists - we'll
+        re-copy all the files in that case.
+        """
+        host_volume_path(job).mkdir(exist_ok=True)
 
     def volume_exists(job):
         # create=False means this won't raise if we're not configured
@@ -125,7 +143,24 @@ class BindMountVolumeAPI:
         copy_file(path, dst)
 
     def delete_volume(job):
-        shutil.rmtree(host_volume_path(job), ignore_errors=True)
+
+        failed_files = {}
+
+        # if we logged each file error directly, it would spam the logs, so we collect them
+        def onerror(function, path, excinfo):
+            failed_files[Path(path)] = str(excinfo[1])
+
+        path = host_volume_path(job)
+        try:
+            shutil.rmtree(str(path), onerror=onerror)
+
+            if failed_files:
+                relative_paths = [str(p.relative_to(path)) for p in failed_files]
+                logger.error(
+                    f"could not remove {len(failed_files)} files from {path}: {','.join(relative_paths)}"
+                )
+        except Exception:
+            logger.exception(f"Failed to cleanup job volume {path}")
 
     def write_timestamp(job, path, timeout=None):
         (host_volume_path(job) / path).write_text(str(time.time_ns()))
@@ -173,7 +208,13 @@ class BindMountVolumeAPI:
 def default_volume_api():
     module_name, cls = config.LOCAL_VOLUME_API.split(":", 1)
     module = importlib.import_module(module_name)
-    return getattr(module, cls)
+    api = getattr(module, cls)
+    if sys.platform not in api.supported_platforms:
+        raise Exception(
+            f"LOCAL_VOLUME_API={config.LOCAL_VOLUME_API} is not supported on this machine ({sys.platform})"
+        )
+
+    return api
 
 
 DEFAULT_VOLUME_API = default_volume_api()
