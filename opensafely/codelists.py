@@ -162,7 +162,7 @@ def make_temporary_manifest(codelists_dir):
 
 @dataclasses.dataclass
 class Codelist:
-    id: str
+    id: str  # noqa: A003
     url: str
     download_url: str
     filename: Path
