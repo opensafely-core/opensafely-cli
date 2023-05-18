@@ -99,7 +99,7 @@ def open_browser(name, port):
         while time.time() - start < 60.0:
             try:
                 response = request.urlopen(url, timeout=1)
-            except (request.URLError, socket.error):
+            except (request.URLError, OSError):
                 pass
             else:
                 break
