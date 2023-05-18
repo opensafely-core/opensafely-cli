@@ -14,7 +14,6 @@ def tag(image, version="latest"):
 
 
 def test_default_no_local_images(run, capsys):
-
     run.expect(["docker", "info"])
     run.expect(
         [
@@ -34,7 +33,6 @@ def test_default_no_local_images(run, capsys):
 
 
 def test_default_no_local_images_force(run, capsys):
-
     run.expect(["docker", "info"])
     run.expect(
         [
@@ -82,7 +80,6 @@ def test_default_no_local_images_force(run, capsys):
 
 
 def test_default_with_local_images(run, capsys):
-
     run.expect(["docker", "info"])
     run.expect(
         [
@@ -116,7 +113,6 @@ def test_default_with_local_images(run, capsys):
 
 
 def test_specific_image(run, capsys):
-
     run.expect(["docker", "info"])
     run.expect(
         [
@@ -150,7 +146,6 @@ def test_specific_image(run, capsys):
 
 
 def test_project(run, capsys):
-
     run.expect(["docker", "info"])
     run.expect(
         [
@@ -203,7 +198,6 @@ def test_remove_deprecated_images(run):
 
 
 def test_check_version_out_of_date(run, capsys):
-
     run.expect(
         [
             "docker",
@@ -226,7 +220,6 @@ def test_check_version_out_of_date(run, capsys):
 
 
 def test_check_version_up_to_date(run, capsys):
-
     current_sha = pull.get_remote_sha("ghcr.io/opensafely-core/python", "latest")
     pull.token = None
 
@@ -248,7 +241,6 @@ def test_check_version_up_to_date(run, capsys):
 
 
 def test_check_version_up_to_date_old_sha(run, capsys):
-
     current_sha = pull.get_remote_sha("ghcr.io/opensafely-core/python", "latest")
     pull.token = None
 

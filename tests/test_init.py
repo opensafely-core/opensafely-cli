@@ -5,7 +5,6 @@ import opensafely
 
 
 def test_should_version_check():
-
     opensafely.VERSION_FILE.unlink(missing_ok=True)
 
     assert opensafely.should_version_check() is True

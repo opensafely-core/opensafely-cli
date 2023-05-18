@@ -67,7 +67,6 @@ def add_arguments(parser):
 
 
 def open_browser(name, port):
-
     try:
         metadata = None
         metadata_path = "/tmp/.local/share/jupyter/runtime/nbserver-*.json"

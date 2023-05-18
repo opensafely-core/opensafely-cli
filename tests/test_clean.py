@@ -18,7 +18,6 @@ class Call:
 
 
 def test_main(run):
-
     run.expect(
         [
             "docker",
