@@ -104,12 +104,12 @@ def main(
 
     if image.startswith("stata"):
         if "STATA_LICENSE" not in cmd_env:
-            license = get_stata_license()
-            if license is None:
+            stata_license = get_stata_license()
+            if stata_license is None:
                 print(STATA_ERROR_MESSGE)
                 return False
             else:
-                cmd_env["STATA_LICENSE"] = license
+                cmd_env["STATA_LICENSE"] = stata_license
 
         docker_args.extend(["--env", "STATA_LICENSE"])
 

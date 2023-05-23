@@ -3,20 +3,20 @@ default_language_version:
 
 exclude: opensafely/_vendor/
 repos:
-  - repo: https://github.com/psf/black
-    rev: 22.12.0
+  - repo: local
     hooks:
     - id: black
-
-  - repo: https://github.com/PyCQA/flake8
-    rev: 6.0.0
-    hooks:
-    - id: flake8
-
-  - repo: https://github.com/PyCQA/isort
-    rev: 5.11.4
-    hooks:
-    - id: isort
+      name: black
+      entry: just black
+      language: system
+      types: [python]
+      require_serial: true
+    - id: ruff
+      name: ruff
+      entry: just ruff
+      language: system
+      types: [python]
+      require_serial: true
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.3.0

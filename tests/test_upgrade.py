@@ -17,7 +17,7 @@ mocker._original_send = requests.Session.send
 
 @pytest.fixture
 def set_current_version(monkeypatch):
-    def set(value):
+    def set(value):  # noqa: A001
         assert value[0] == "v", "Current __version__ must start with v"
         monkeypatch.setattr(opensafely, "__version__", value)
 
@@ -26,7 +26,7 @@ def set_current_version(monkeypatch):
 
 @pytest.fixture
 def set_pypi_version(requests_mock):
-    def set(version):
+    def set(version):  # noqa: A001
         requests_mock.get(
             "https://pypi.org/pypi/opensafely/json",
             json={"info": {"version": version}},

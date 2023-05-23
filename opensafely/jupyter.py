@@ -67,7 +67,6 @@ def add_arguments(parser):
 
 
 def open_browser(name, port):
-
     try:
         metadata = None
         metadata_path = "/tmp/.local/share/jupyter/runtime/nbserver-*.json"
@@ -99,7 +98,7 @@ def open_browser(name, port):
         while time.time() - start < 60.0:
             try:
                 response = request.urlopen(url, timeout=1)
-            except (request.URLError, socket.error):
+            except (request.URLError, OSError):
                 pass
             else:
                 break

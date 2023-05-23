@@ -4,10 +4,9 @@ pip-tools
 https://github.com/opensafely-core/vendoring/archive/add-preserve-metadata-option.zip; python_version >= '3.8'
 # regular test dependencies
 black
-isort
-flake8
 pytest
 requests-mock
 wheel
 pre-commit
 coverage
+ruff

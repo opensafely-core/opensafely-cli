@@ -97,14 +97,17 @@ test *args: devenv
     $BIN/coverage report || $BIN/coverage html
 
 
+black *args=".": devenv
+    $BIN/black --check {{ args }}
+
+ruff *args=".": devenv
+    $BIN/ruff check {{ args }}
+
 # run the various dev checks but does not change any files
-check: devenv
-    $BIN/black --check .
-    $BIN/isort --check-only --diff .
-    $BIN/flake8
+check: black ruff
 
 
 # fix formatting and import sort ordering
 fix: devenv
     $BIN/black .
-    $BIN/isort .
+    $BIN/ruff --fix .
