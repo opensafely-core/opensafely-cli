@@ -23,7 +23,7 @@ mocker._original_send = requests.Session.send
 
 
 def flatten_list(nested_list):
-    return sum([sublist for sublist in nested_list], [])
+    return [x for sublist in nested_list for x in sublist]
 
 
 class Protocol(Enum):
