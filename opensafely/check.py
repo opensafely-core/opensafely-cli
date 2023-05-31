@@ -131,7 +131,7 @@ def get_repository_name(continue_on_error):
         )
 
 
-def get_allowed_datasets(respository_name, permissions):
-    if not respository_name or respository_name not in permissions:
+def get_allowed_datasets(repository_name, permissions):
+    if not repository_name or repository_name not in permissions:
         return []
-    return permissions[respository_name]["allow"]
+    return permissions[repository_name]["allow"]
