@@ -102,6 +102,7 @@ extend-ignore = [
   "E501",
   "E731",
 ]
+target-version = "py38"
 
 [tool.ruff.isort]
 lines-after-imports = 2

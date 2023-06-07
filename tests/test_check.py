@@ -23,7 +23,7 @@ mocker._original_send = requests.Session.send
 
 
 def flatten_list(nested_list):
-    return sum([sublist for sublist in nested_list], [])
+    return [x for sublist in nested_list for x in sublist]
 
 
 class Protocol(Enum):
@@ -33,6 +33,7 @@ class Protocol(Enum):
 
 
 UNRESTRICTED_FUNCTION = "with_these_medications"
+UNRESTRICTED_TABLE = "clinical_events"
 
 
 @pytest.fixture
@@ -73,7 +74,12 @@ def format_function_call(func):
 
 def write_study_def(path, include_restricted):
     filename_part = "restricted" if include_restricted else "unrestricted"
-    all_restricted_functions = flatten_list(check.RESTRICTED_DATASETS.values())
+    all_restricted_functions = flatten_list(
+        [
+            dataset.cohort_extractor_function_names
+            for dataset in check.RESTRICTED_DATASETS
+        ]
+    )
 
     for a in [1, 2]:
         # generate the filename; we make 2 versions to test that all study defs are checked
@@ -120,6 +126,50 @@ def write_study_def(path, include_restricted):
         )
 
 
+def write_dataset_def(path, include_restricted):
+    filename_part = "restricted" if include_restricted else "unrestricted"
+    all_restricted_tables = flatten_list(
+        [dataset.ehrql_table_names for dataset in check.RESTRICTED_DATASETS]
+    )
+
+    for a in [1, 2]:
+        # generate the filename; we make 2 versions to test that all dataset defs are checked
+        filepath = path / f"dataset_definition_{filename_part}_{a}.py"
+
+        # Build the function calls for the test's dataset definition.  We name each variable with
+        # the function name itself, to make checking the outputs easier
+
+        # if we're included restricted functions, create an import for each one
+        # these will cause check fails depending on the test repo's permissions
+        if include_restricted:
+            restricted = [
+                f"{name}_column = {name}.column" for name in all_restricted_tables
+            ]
+        else:
+            restricted = []
+        restricted_lines = "\n".join(restricted)
+        # create a commented-out import for each restricted function
+        # include these in all test dataset defs; always allowed
+        restricted_commented_lines = "\n".join(
+            [f"#{name}_commented = {name}.column" for name in all_restricted_tables]
+        )
+        # create an unrestricted table import;
+        # include in all test dataset defs; this is always allowed
+        unrestricted = f"{UNRESTRICTED_TABLE}_column = {UNRESTRICTED_TABLE}.column"
+
+        filepath.write_text(
+            textwrap.dedent(
+                f"""
+                from ehrql import Dataset
+
+                {restricted_lines}
+                {restricted_commented_lines}
+                {unrestricted}
+                )"""
+            )
+        )
+
+
 def git_init(url):
     subprocess.run(["git", "init"])
     subprocess.run(["git", "remote", "add", "origin", url])
@@ -139,23 +189,38 @@ def validate_fail(capsys, continue_on_error, permissions):
     def validate_fail_output(stdout, stderr):
         assert stdout != "Success\n"
         assert "Usage of restricted datasets found:" in stderr
+        assert "Usage of restricted tables found:" in stderr
 
-        for dataset_name, function_list in check.RESTRICTED_DATASETS.items():
-            for function_name in function_list:
+        for dataset in check.RESTRICTED_DATASETS:
+            for function_name in dataset.cohort_extractor_function_names:
                 # commented out functions are never in error output, even if restricted
                 assert f"#{function_name}_commented" not in stderr
-            if dataset_name in permissions:
-                assert dataset_name not in stderr
-                assert f"{function_name}_name" not in stderr
-            else:
-                assert dataset_name in stderr, permissions
-                assert f"{function_name}_name" in stderr
+                if dataset.name in permissions:
+                    assert dataset.name not in stderr
+                    assert f"{function_name}_name" not in stderr
+                else:
+                    assert dataset.name in stderr, permissions
+                    assert f"{function_name}_name" in stderr
 
-        # unrestricted function is never in error output
+            for table_name in dataset.ehrql_table_names:
+                # commented out tables are never in error output, even if restricted
+                assert f"#{table_name}_commented" not in stderr
+                if dataset.name in permissions:
+                    assert dataset.name not in stderr
+                    assert f"{table_name}.column" not in stderr
+                else:
+                    assert dataset.name in stderr, permissions
+                    assert f"{table_name}.column" in stderr
+
+        # unrestricted functions and tables are never in error output
         assert UNRESTRICTED_FUNCTION not in stderr
+        assert UNRESTRICTED_TABLE not in stderr
         # Both study definition files are reported
         assert "study_definition_restricted_1.py" in stderr
         assert "study_definition_restricted_2.py" in stderr
+        # Both dataset definition files are reported
+        assert "dataset_definition_restricted_1.py" in stderr
+        assert "dataset_definition_restricted_2.py" in stderr
 
     if not continue_on_error:
         with pytest.raises(SystemExit):
@@ -191,7 +256,7 @@ def test_permissions_fixture_data_complete():
     """
     _, permissions_dict = get_permissions_fixture_data()
 
-    restricted_datasets = set(check.RESTRICTED_DATASETS.keys())
+    restricted_datasets = set(dataset.name for dataset in check.RESTRICTED_DATASETS)
 
     all_allowed_repo = None
     # find repo with all restricted datasets
@@ -250,6 +315,7 @@ def test_check(
     requests_mock.get(check.PERMISSIONS_URL, text=permissions_text)
 
     write_study_def(repo_path, include_restricted)
+    write_dataset_def(repo_path, include_restricted)
 
     if repo:
         if protocol == Protocol.ENVIRON:
@@ -267,7 +333,10 @@ def test_check(
     # are the restricted datasets all in repo's permitted dataset?
     # Some repos in the test fixtures list "ons", which is an allowed dataset;
     # ignore any datasets listed in the repo's permissions that are not restricted
-    all_allowed = not (set(check.RESTRICTED_DATASETS.keys()) - set(repo_permissions))
+    all_allowed = not (
+        set(dataset.name for dataset in check.RESTRICTED_DATASETS)
+        - set(repo_permissions)
+    )
 
     if not repo and not include_restricted:
         validate_norepo(capsys, continue_on_error)

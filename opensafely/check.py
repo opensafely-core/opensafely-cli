@@ -3,7 +3,9 @@ import glob
 import os
 import re
 import sys
+from dataclasses import dataclass
 from pathlib import Path
+from typing import List
 
 from opensafely._vendor import requests
 from opensafely._vendor.ruyaml import YAML
@@ -11,12 +13,56 @@ from opensafely._vendor.ruyaml import YAML
 
 DESCRIPTION = "Check the opensafely project for correctness"
 
-RESTRICTED_DATASETS = {
-    "icnarc": ["admitted_to_icu"],
-    "isaric": ["with_an_isaric_record"],
-    "ons_cis": ["with_an_ons_cis_record"],
-    "ukrr": ["with_record_in_ukrr"],
-}
+
+@dataclass(frozen=True)
+class RestrictedDataset:
+    name: str
+    cohort_extractor_function_names: List[str]
+    ehrql_table_names: List[str]
+
+
+RESTRICTED_DATASETS = [
+    RestrictedDataset(
+        name="icnarc",
+        cohort_extractor_function_names=[
+            "admitted_to_icu",
+        ],
+        ehrql_table_names=[],
+    ),
+    RestrictedDataset(
+        name="isaric",
+        cohort_extractor_function_names=[
+            "with_an_isaric_record",
+        ],
+        ehrql_table_names=["isaric_new"],
+    ),
+    RestrictedDataset(
+        name="ons_cis",
+        cohort_extractor_function_names=[
+            "with_an_ons_cis_record",
+        ],
+        ehrql_table_names=["ons_cis"],
+    ),
+    RestrictedDataset(
+        name="ukrr",
+        cohort_extractor_function_names=[
+            "with_record_in_ukrr",
+        ],
+        ehrql_table_names=[],
+    ),
+    RestrictedDataset(
+        name="icnarc",
+        cohort_extractor_function_names=[
+            "admitted_to_icu",
+        ],
+        ehrql_table_names=[],
+    ),
+    RestrictedDataset(
+        name="open_prompt",
+        cohort_extractor_function_names=[],
+        ehrql_table_names=["open_prompt"],
+    ),
+]
 
 PERMISSIONS_URL = "https://raw.githubusercontent.com/opensafely-core/opensafely-cli/main/repository_permissions.yaml"
 
@@ -32,29 +78,61 @@ def main(continue_on_error=False):
         sys.exit("Unable to find repository name")
     permissions = get_datasource_permissions(permissions_url)
     allowed_datasets = get_allowed_datasets(repo_name, permissions)
-    datasets_to_check = {
-        k: v for k, v in RESTRICTED_DATASETS.items() if k not in allowed_datasets
-    }
+
     files_to_check = glob.glob("**/*.py", recursive=True)
 
-    found_datasets = {
-        dataset: check_dataset(functions, files_to_check)
-        for dataset, functions in datasets_to_check.items()
-        if check_dataset(functions, files_to_check)
+    datasets_to_check = [
+        dataset
+        for dataset in RESTRICTED_DATASETS
+        if dataset.name not in allowed_datasets
+    ]
+
+    found_cohort_datasets = {
+        dataset.name: dataset_check
+        for dataset in datasets_to_check
+        if (
+            dataset_check := check_restricted_names(
+                restricted_names=dataset.cohort_extractor_function_names,
+                # Check for the use of `.function_name`.
+                regex_template=r"\.{name}\(",
+                files_to_check=files_to_check,
+            )
+        )
     }
 
-    if found_datasets:
-        violations = "\n".join(format_violations(found_datasets))
+    found_ehrql_datasets = {
+        dataset.name: dataset_check
+        for dataset in datasets_to_check
+        if (
+            dataset_check := check_restricted_names(
+                restricted_names=dataset.ehrql_table_names,
+                # Check for the use of `table_name.`
+                regex_template=r"{name}\.",
+                files_to_check=files_to_check,
+            )
+        )
+    }
+
+    violations = []
+
+    if found_ehrql_datasets:
+        violations.extend(list(format_ehrql_violations(found_ehrql_datasets)))
+
+    if found_cohort_datasets:
+        violations.extend(list(format_cohort_violations(found_cohort_datasets)))
+
+    if violations:
+        violations_text = "\n".join(violations)
         if not continue_on_error:
-            sys.exit(violations)
+            sys.exit(violations_text)
         print("*** WARNING ***\n")
-        print(violations)
+        print(violations_text)
     else:
         if not continue_on_error:
             print("Success")
 
 
-def format_violations(found_datasets):
+def format_cohort_violations(found_datasets):
     yield "Usage of restricted datasets found:\n"
     for d, functions in found_datasets.items():
         yield f"{d}: https://docs.opensafely.org/study-def-variables/#{d}"
@@ -66,18 +144,34 @@ def format_violations(found_datasets):
                     yield f"    line {ln}: {line}"
 
 
-def check_dataset(functions, files_to_check):
-    found_functions = {}
-    for function in functions:
-        regex = re.compile(rf"\.{function}\(")
+def format_ehrql_violations(found_datasets):
+    # Unlike for cohort-extractor,
+    # there is no specific reference we can currently link to for restricted tables.
+    # We may be able to add such a link in future,
+    # which might make it more reasonable to unify this function
+    # with the analogous function for cohort-extractor.
+    yield "Usage of restricted tables found:\n"
+    for d, tables in found_datasets.items():
+        for table, files in tables.items():
+            yield f"{table}"
+            for f, lines in files.items():
+                yield f"  - {f}:"
+                for ln, line in lines.items():
+                    yield f"    line {ln}: {line}"
+
+
+def check_restricted_names(restricted_names, regex_template, files_to_check):
+    found_names = {}
+    for name in restricted_names:
+        regex = re.compile(regex_template.format(name=name))
         found_files = {}
         for f in files_to_check:
             matches = check_file(f, regex)
             if matches:
                 found_files[f] = matches
         if found_files:
-            found_functions[function] = found_files
-    return found_functions
+            found_names[name] = found_files
+    return found_names
 
 
 def check_file(filename, regex):
@@ -131,7 +225,7 @@ def get_repository_name(continue_on_error):
         )
 
 
-def get_allowed_datasets(respository_name, permissions):
-    if not respository_name or respository_name not in permissions:
+def get_allowed_datasets(repository_name, permissions):
+    if not repository_name or repository_name not in permissions:
         return []
-    return permissions[respository_name]["allow"]
+    return permissions[repository_name]["allow"]
