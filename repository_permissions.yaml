@@ -20,4 +20,5 @@ opensafely/ckd-healthcare-use:
   allow: ['ukrr']
 opensafely/isaric-exploration:
   allow: ['isaric']
-  
+opensafely/openprompt-hrqol:
+  allow: ['open_prompt']
