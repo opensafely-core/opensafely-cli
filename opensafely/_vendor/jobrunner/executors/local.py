@@ -1,9 +1,11 @@
 import datetime
 import json
 import logging
+import socket
 import subprocess
 import tempfile
 import time
+import urllib.parse
 from pathlib import Path
 
 from opensafely._vendor.pipeline.legacy import get_all_output_patterns_from_project_file
@@ -84,6 +86,20 @@ def workspace_is_archived(workspace):
     return False
 
 
+def was_oomkilled(container):
+    # Nb. this flag has been observed to be unreliable on some versions of Linux
+    return container["State"]["ExitCode"] == 137 and container["State"]["OOMKilled"]
+
+
+def oomkilled_message(container):
+    message = "Job ran out of memory"
+    memory_limit = container.get("HostConfig", {}).get("Memory", 0)
+    if memory_limit > 0:
+        gb_limit = memory_limit / (1024**3)
+        message += f" (limit was {gb_limit:.2f}GB)"
+    return message
+
+
 class LocalDockerAPI(ExecutorAPI):
     """ExecutorAPI implementation using local docker service."""
 
@@ -139,6 +155,13 @@ class LocalDockerAPI(ExecutorAPI):
             extra_args.extend(["--cpus", str(job_definition.cpu_count)])
         if job_definition.memory_limit:
             extra_args.extend(["--memory", job_definition.memory_limit])
+        # We use a custom Docker network configured so that database jobs can access the
+        # database and nothing else
+        if job_definition.allow_database_access and config.DATABASE_ACCESS_NETWORK:
+            extra_args.extend(["--network", config.DATABASE_ACCESS_NETWORK])
+            extra_args.extend(
+                get_dns_args_for_docker(job_definition.env.get("DATABASE_URL"))
+            )
 
         if not volume_api.requires_root:
             if config.DOCKER_USER_ID and config.DOCKER_GROUP_ID:
@@ -175,9 +198,12 @@ class LocalDockerAPI(ExecutorAPI):
 
     def finalize(self, job_definition):
 
-        current = self.get_status(job_definition)
-        if current.state != ExecutorState.EXECUTED:
-            return current
+        current_status = self.get_status(job_definition)
+        if current_status.state == ExecutorState.UNKNOWN:
+            # job had not started running, so do not finalize
+            return current_status
+
+        assert current_status.state in [ExecutorState.EXECUTED, ExecutorState.ERROR]
 
         try:
             finalize_job(job_definition)
@@ -188,8 +214,22 @@ class LocalDockerAPI(ExecutorAPI):
         return JobStatus(ExecutorState.FINALIZED)
 
     def terminate(self, job_definition):
+        current_status = self.get_status(job_definition)
+        if current_status.state == ExecutorState.UNKNOWN:
+            # job was pending, so do not go to EXECUTED
+            return current_status
+
+        assert current_status.state in [
+            ExecutorState.EXECUTING,
+            ExecutorState.ERROR,
+            ExecutorState.PREPARED,
+        ]
+
         docker.kill(container_name(job_definition))
-        return JobStatus(ExecutorState.ERROR, "terminated by api")
+
+        return JobStatus(
+            ExecutorState.EXECUTED, f"Job terminated by {job_definition.cancelled}"
+        )
 
     def cleanup(self, job_definition):
         if config.CLEAN_UP_DOCKER_OBJECTS:
@@ -216,6 +256,16 @@ class LocalDockerAPI(ExecutorAPI):
             )
 
         if container is None:  # container doesn't exist
+            if job_definition.cancelled:
+                if volumes.get_volume_api(job_definition).volume_exists(job_definition):
+                    # jobs prepared but not running do not need to finalize, so we
+                    # proceed directly to the FINALIZED state here
+                    return JobStatus(
+                        ExecutorState.FINALIZED, "Prepared job was cancelled"
+                    )
+                else:
+                    return JobStatus(ExecutorState.UNKNOWN, "Pending job was cancelled")
+
             # timestamp file presence means we have finished preparing
             timestamp_ns = volumes.get_volume_api(job_definition).read_timestamp(
                 job_definition, TIMESTAMP_REFERENCE_FILE, 10
@@ -238,7 +288,22 @@ class LocalDockerAPI(ExecutorAPI):
                 ExecutorState.FINALIZED,
                 timestamp_ns=RESULTS[job_definition.id].timestamp_ns,
             )
-        else:  # container present but not running, i.e. finished
+        else:
+            # container present but not running, i.e. finished
+            # Nb. this does not include prepared jobs, as they have a volume but not a container
+            if job_definition.cancelled:
+                return JobStatus(
+                    ExecutorState.EXECUTED,
+                    f"Job cancelled by {job_definition.cancelled}",
+                )
+            if was_oomkilled(container):
+                return JobStatus(ExecutorState.ERROR, oomkilled_message(container))
+            if container["State"]["ExitCode"] == 137:
+                return JobStatus(
+                    ExecutorState.ERROR,
+                    "Job either ran out of memory or was killed by an admin",
+                )
+
             timestamp_ns = datestr_to_ns_timestamp(container["State"]["FinishedAt"])
             return JobStatus(ExecutorState.EXECUTED, timestamp_ns=timestamp_ns)
 
@@ -313,11 +378,23 @@ def finalize_job(job_definition):
         container_name(job_definition), none_if_not_exists=True
     )
     if not container_metadata:
-        raise LocalDockerError("Job container has vanished")
+        if job_definition.cancelled:
+            # no logs to retain if the container didn't start yet
+            return
+        else:
+            raise LocalDockerError(
+                f"Job container {container_name(job_definition)} has vanished"
+            )
     redact_environment_variables(container_metadata)
 
-    outputs, unmatched_patterns = find_matching_outputs(job_definition)
-    unmatched_outputs = get_unmatched_outputs(job_definition, outputs)
+    if job_definition.cancelled:
+        # assume no outputs because our job didn't finish
+        outputs = {}
+        unmatched_patterns = []
+        unmatched_outputs = []
+    else:
+        outputs, unmatched_patterns = find_matching_outputs(job_definition)
+        unmatched_outputs = get_unmatched_outputs(job_definition, outputs)
 
     exit_code = container_metadata["State"]["ExitCode"]
     labels = container_metadata.get("Config", {}).get("Labels", {})
@@ -326,13 +403,10 @@ def finalize_job(job_definition):
     # that have db access
     message = None
 
-    # special case OOMKilled
-    if container_metadata["State"]["OOMKilled"]:
-        message = "Ran out of memory"
-        memory_limit = container_metadata.get("HostConfig", {}).get("Memory", 0)
-        if memory_limit > 0:
-            gb_limit = memory_limit / (1024**3)
-            message += f" (limit for this job was {gb_limit:.2f}GB)"
+    if exit_code == 137 and job_definition.cancelled:
+        message = f"Job cancelled by {job_definition.cancelled}"
+    elif was_oomkilled(container_metadata):
+        message = oomkilled_message(container_metadata)
     else:
         message = config.DOCKER_EXIT_CODES.get(exit_code)
 
@@ -340,7 +414,7 @@ def finalize_job(job_definition):
         outputs=outputs,
         unmatched_patterns=unmatched_patterns,
         unmatched_outputs=unmatched_outputs,
-        exit_code=container_metadata["State"]["ExitCode"],
+        exit_code=exit_code,
         image_id=container_metadata["Image"],
         message=message,
         timestamp_ns=time.time_ns(),
@@ -351,8 +425,12 @@ def finalize_job(job_definition):
         base_created=labels.get("org.opencontainers.base.build-date", "unknown"),
     )
     job_metadata = get_job_metadata(job_definition, outputs, container_metadata)
-    write_job_logs(job_definition, job_metadata)
-    persist_outputs(job_definition, results.outputs, job_metadata)
+
+    if job_definition.cancelled:
+        write_job_logs(job_definition, job_metadata, copy_log_to_workspace=False)
+    else:
+        write_job_logs(job_definition, job_metadata, copy_log_to_workspace=True)
+        persist_outputs(job_definition, results.outputs, job_metadata)
     RESULTS[job_definition.id] = results
 
 
@@ -602,3 +680,27 @@ def write_manifest_file(workspace_dir, manifest):
     manifest_file_tmp = manifest_file.with_suffix(".tmp")
     manifest_file_tmp.write_text(json.dumps(manifest, indent=2))
     manifest_file_tmp.replace(manifest_file)
+
+
+def get_dns_args_for_docker(database_url):
+    # This is various shades of horrible. For containers on a custom network, Docker
+    # creates an embedded DNS server, available on 127.0.0.11 from within the container.
+    # This proxies non-local requests out to the host DNS server. We want to lock these
+    # containers down the absolute bare minimum of network access, which does not
+    # include DNS. However there is no way of disabling this embedded server, see:
+    # https://github.com/moby/moby/issues/19474
+    #
+    # As a workaround, we give it a "dummy" IP in place of the host resolver so that
+    # requests from inside the container never go anywhere. This IP was taken from the
+    # reserved test range specified in:
+    # https://www.rfc-editor.org/rfc/rfc5737
+    args = ["--dns", "192.0.2.0"]
+
+    # Where the database URL uses a hostname rather than an IP, we resolve that here and
+    # use the `--add-host` option to include it in the container's `/etc/hosts` file.
+    if database_url:
+        database_host = urllib.parse.urlparse(database_url).hostname
+        database_ip = socket.gethostbyname(database_host)
+        if database_host != database_ip:
+            args.extend(["--add-host", f"{database_host}:{database_ip}"])
+    return args

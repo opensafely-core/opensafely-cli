@@ -54,7 +54,6 @@ drop = [
 
 [tool.vendoring.license.directories]
 job-runner = "jobrunner"
-"ruamel.yaml" = "ruamel"
 
 [tool.coverage.run]
 branch = true
