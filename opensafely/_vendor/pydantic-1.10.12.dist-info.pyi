@@ -1,0 +1,1 @@
+from pydantic-1.10.12.dist-info import *

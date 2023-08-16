@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: opensafely-pipeline
-Version: 0.3.0
+Version: 2023.8.9.102223
 Summary: OpenSAFELY pipeline configuration parsing library
 Author-email: OpenSAFELY <tech@opensafely.org>
 License: ${GITHUB_REPOSITORY_NAME}
@@ -26,7 +26,7 @@ Classifier: License :: OSI Approved :: GNU General Public License v3 or later (G
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: pydantic
+Requires-Dist: pydantic <2
 Requires-Dist: ruyaml
 
 # OpenSAFELY Pipeline Parser

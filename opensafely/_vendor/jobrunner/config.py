@@ -127,12 +127,6 @@ MAX_WORKERS = int(os.environ.get("MAX_WORKERS") or max(cpu_count() - 1, 1))
 MAX_DB_WORKERS = int(os.environ.get("MAX_DB_WORKERS") or MAX_WORKERS)
 MAX_RETRIES = int(os.environ.get("MAX_RETRIES", 0))
 
-# This is a crude mechanism for preventing a single large JobRequest with lots
-# of associated Jobs from hogging all the resources. We want this configurable
-# because it's useful to be able to disable this during tests and when running
-# locally
-RANDOMISE_JOB_ORDER = True
-
 
 STATA_LICENSE = os.environ.get("STATA_LICENSE")
 STATA_LICENSE_REPO = os.environ.get(
@@ -248,9 +242,11 @@ TMP_DIR = WORKDIR / "temp"
 # docker specific exit codes we understand
 DOCKER_EXIT_CODES = {
     # 137 = 128+9, which means was killed by signal 9, SIGKILL
-    # Note: this can also mean killed by OOM killer, but that's explicitly
-    # handled already.
-    137: "Killed by an OpenSAFELY admin",
+    # This could be killed externally by an admin, or terminated through the
+    # cancellation process.
+    # Note: this can also mean killed by OOM killer, if the value of OOMKilled
+    # is incorrect (as sometimes recently observed)
+    137: "Job killed by OpenSAFELY admin or memory limits",
 }
 
 # BindMountVolumeAPI config
@@ -277,3 +273,10 @@ if sys.platform == "linux":
 else:
     DOCKER_USER_ID = None
     DOCKER_GROUP_ID = None
+
+
+# The name of a Docker network configured to allow access to just the database and
+# nothing else. Setup and configuration of this network is expected to be managed
+# externally. See:
+# https://github.com/opensafely-core/backend-server/pull/105
+DATABASE_ACCESS_NETWORK = os.environ.get("DATABASE_ACCESS_NETWORK", "jobrunner-db")

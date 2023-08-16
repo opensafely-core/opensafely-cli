@@ -32,6 +32,8 @@ class JobDefinition:
     allow_database_access: bool  # whether this job should have access to the database
     cpu_count: str = None  # number of CPUs to be allocated
     memory_limit: str = None  # memory limit to apply
+    # if a job has been cancelled, the name of the canceller - either "user" or "admin"
+    cancelled: str = None
 
 
 class ExecutorState(Enum):
@@ -193,6 +195,8 @@ class ExecutorAPI:
         The action log file and any useful metadata from the job run should also be written to a separate log storage
         area in long-term storage.
 
+        If the job has been cancelled, it should only preserve the action log file.
+
         When the finalize task finishes, the get_status() call should now return FINALIZED for this job, and
         get_results() call should return the JobResults for this job.
 
@@ -203,11 +207,15 @@ class ExecutorAPI:
 
     def terminate(self, job_definition: JobDefinition) -> JobStatus:
         """
-        Terminate a running job, transitioning to the ERROR state.
+        Terminate a running job, transitioning to the EXECUTED state.
 
         1. If any task for this job is running, terminate it, do not wait for it to complete.
 
-        2. Return ERROR state with a message.
+        2. Return EXECUTED state with a message.
+
+        Terminating a running job is considered an expected state, not an error state. This decision
+        also makes it easier for current executor implementations to cleanup after termination, and
+        is consistent with the handling of programs that exit of their own accord with a return code.
 
         """
 
