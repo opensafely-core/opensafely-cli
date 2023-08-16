@@ -3,9 +3,10 @@ Script which polls the database for active (i.e. non-terminated) jobs, takes
 the appropriate action for each job depending on its current state, and then
 updates its state as appropriate.
 """
+import collections
 import datetime
 import logging
-import random
+import os
 import sys
 import time
 from typing import Optional
@@ -65,19 +66,40 @@ def handle_jobs(api: Optional[ExecutorAPI]):
     log.debug("Querying database for active jobs")
     active_jobs = find_where(Job, state__in=[State.PENDING, State.RUNNING])
     log.debug("Done query")
-    # Randomising the job order is a crude but effective way to ensure that a
-    # single large job request doesn't hog all the workers. We make this
-    # optional as, when running locally, having jobs run in a predictable order
-    # is preferable
-    if config.RANDOMISE_JOB_ORDER:
-        random.shuffle(active_jobs)
 
-    for job in active_jobs:
+    running_for_workspace = collections.defaultdict(int)
+    handled_jobs = []
+
+    while active_jobs:
+        # We need to re-sort on each loop because the number of running jobs per
+        # workspace will change as we work our way through
+        active_jobs.sort(
+            key=lambda job: (
+                # Process all running jobs first. Once we've processed all of these, the
+                # counts in `running_for_workspace` will be up-to-date.
+                0 if job.state == State.RUNNING else 1,
+                # Then process PENDING jobs in order of how many are running in the
+                # workspace. This gives a fairer allocation of capacity among
+                # workspaces.
+                running_for_workspace[job.workspace],
+                # Finally use job age as a tie-breaker
+                job.created_at,
+            )
+        )
+        job = active_jobs.pop(0)
+
         # `set_log_context` ensures that all log messages triggered anywhere
         # further down the stack will have `job` set on them
         with set_log_context(job=job):
             handle_single_job(job, api)
-    return active_jobs
+
+        # Add running jobs to the workspace count
+        if job.state == State.RUNNING:
+            running_for_workspace[job.workspace] += 1
+
+        handled_jobs.append(job)
+
+    return handled_jobs
 
 
 # we do not control the transition from these states, the executor does
@@ -190,14 +212,6 @@ def handle_job(job, api, mode=None, paused=None):
     synchronous_transitions = getattr(api, "synchronous_transitions", [])
     is_synchronous = False
 
-    if job.cancelled:
-        # cancelled is driven by user request, so is handled explicitly first
-        # regardless of executor state.
-        api.terminate(job_definition)
-        mark_job_as_failed(job, StatusCode.CANCELLED_BY_USER, "Cancelled by user")
-        api.cleanup(job_definition)
-        return
-
     # handle special modes before considering executor state, as they ignore it
     if paused:
         if job.state == State.PENDING:
@@ -237,6 +251,28 @@ def handle_job(job, api, mode=None, paused=None):
         return
     else:
         EXECUTOR_RETRIES.pop(job.id, None)
+
+    # cancelled is driven by user request, so is handled explicitly first
+    if job_definition.cancelled:
+        # if initial_status.state == ExecutorState.EXECUTED the job has already finished, so we
+        # don't need to do anything here
+        if initial_status.state == ExecutorState.EXECUTING:
+            api.terminate(job_definition)  # synchronous operation
+            new_status = api.get_status(job_definition)
+            new_statuscode, _default_message = STATE_MAP[new_status.state]
+            set_code(job, new_statuscode, "Cancelled whilst executing")
+            return
+        if initial_status.state == ExecutorState.PREPARED:
+            set_code(
+                job,
+                StatusCode.FINALIZED,
+                "Cancelled whilst prepared",
+            )
+            # Nb. no need to actually run finalize() in this case
+            return
+        if initial_status.state == ExecutorState.UNKNOWN:
+            mark_job_as_failed(job, StatusCode.CANCELLED_BY_USER, "Cancelled by user")
+            return
 
     # check if we've transitioned since we last checked and trace it.
     if initial_status.state in STATE_MAP:
@@ -333,10 +369,19 @@ def handle_job(job, api, mode=None, paused=None):
         new_status = api.finalize(job_definition)
 
     elif initial_status.state == ExecutorState.FINALIZED:
+        # Cancelled jobs that have had cleanup() should now be again set to cancelled here to ensure
+        # they finish in the FAILED state
+        if job_definition.cancelled:
+            mark_job_as_failed(job, StatusCode.CANCELLED_BY_USER, "Cancelled by user")
+            api.cleanup(job_definition)
+            return
+
         # final state - we have finished!
         results = api.get_results(job_definition)
+
         save_results(job, job_definition, results)
         obsolete = get_obsolete_files(job_definition, results.outputs)
+
         if obsolete:
             errors = api.delete_files(job_definition.workspace, Privacy.HIGH, obsolete)
             if errors:
@@ -350,6 +395,7 @@ def handle_job(job, api, mode=None, paused=None):
                 )
 
         api.cleanup(job_definition)
+
         # we are done here
         return
 
@@ -445,7 +491,6 @@ def job_to_job_definition(job):
 
     allow_database_access = False
     env = {"OPENSAFELY_BACKEND": config.BACKEND}
-    # Check `is True` so we fail closed if we ever get anything else
     if job.requires_db:
         if not config.USING_DUMMY_DATA_BACKEND:
             allow_database_access = True
@@ -480,6 +525,11 @@ def job_to_job_definition(job):
         for name, pattern in named_patterns.items():
             outputs[pattern] = privacy_level
 
+    if job.cancelled:
+        job_definition_cancelled = "user"
+    else:
+        job_definition_cancelled = None
+
     return JobDefinition(
         id=job.id,
         job_request_id=job.job_request_id,
@@ -497,6 +547,7 @@ def job_to_job_definition(job):
         # config defaults.
         cpu_count=config.DEFAULT_JOB_CPU_COUNT,
         memory_limit=config.DEFAULT_JOB_MEMORY_LIMIT,
+        cancelled=job_definition_cancelled,
     )
 
 
@@ -518,7 +569,9 @@ def mark_job_as_failed(job, code, message, error=None, **attrs):
     set_code(job, code, message, error=error, attrs=attrs)
 
 
-def set_code(job, code, message, error=None, results=None, timestamp_ns=None, **attrs):
+def set_code(
+    job, new_status_code, message, error=None, results=None, timestamp_ns=None, **attrs
+):
     """Set the granular status code state.
 
     We also trace this transition with OpenTelemetry traces.
@@ -536,8 +589,8 @@ def set_code(job, code, message, error=None, results=None, timestamp_ns=None, **
     else:
         timestamp_s = int(timestamp_ns / 1e9)
 
-    # if code has changed then trace it and update
-    if job.status_code != code:
+    # if status code has changed then trace it and update
+    if job.status_code != new_status_code:
 
         # handle timer measurement errors
         if job.status_code_updated_at > timestamp_ns:
@@ -549,24 +602,30 @@ def set_code(job, code, message, error=None, results=None, timestamp_ns=None, **
             log.warning(
                 f"negative state duration of {duration}, clamping to 1ms\n"
                 f"before: {job.status_code:<24} at {ns_timestamp_to_datetime(job.status_code_updated_at)}\n"
-                f"after : {code:<24} at {ns_timestamp_to_datetime(timestamp_ns)}\n"
+                f"after : {new_status_code:<24} at {ns_timestamp_to_datetime(timestamp_ns)}\n"
             )
             timestamp_ns = int(job.status_code_updated_at + 1e6)  # set duration to 1ms
             timestamp_s = int(timestamp_ns // 1e9)
 
         # update coarse state and timings for user
-        if code in [StatusCode.PREPARED, StatusCode.PREPARING]:
+        if new_status_code in [StatusCode.PREPARED, StatusCode.PREPARING]:
             # we've started running
             job.state = State.RUNNING
             job.started_at = timestamp_s
-        elif code.is_final_code:
+        elif new_status_code in [StatusCode.CANCELLED_BY_USER]:
+            # only set this cancelled status after any finalize/cleanup processes
+            job.state = State.FAILED
+        elif new_status_code.is_final_code:
             job.completed_at = timestamp_s
-            if code == StatusCode.SUCCEEDED:
+            if new_status_code == StatusCode.SUCCEEDED:
                 job.state = State.SUCCEEDED
             else:
                 job.state = State.FAILED
         # we sometimes reset the job back to pending
-        elif code in [StatusCode.WAITING_ON_REBOOT, StatusCode.WAITING_DB_MAINTENANCE]:
+        elif new_status_code in [
+            StatusCode.WAITING_ON_REBOOT,
+            StatusCode.WAITING_DB_MAINTENANCE,
+        ]:
             job.state = State.PENDING
             job.started_at = None
 
@@ -576,7 +635,7 @@ def set_code(job, code, message, error=None, results=None, timestamp_ns=None, **
         )
 
         # update db object
-        job.status_code = code
+        job.status_code = new_status_code
         job.status_message = message
         job.updated_at = timestamp_s
 
@@ -584,7 +643,7 @@ def set_code(job, code, message, error=None, results=None, timestamp_ns=None, **
         job.status_code_updated_at = timestamp_ns
         update_job(job)
 
-        if code.is_final_code:
+        if new_status_code.is_final_code:
             # transitioning to a final state, so just record that state
             tracing.record_final_state(
                 job,
@@ -637,6 +696,18 @@ def get_reason_job_not_started(job):
                 StatusCode.WAITING_ON_DB_WORKERS,
                 "Waiting on available database workers",
             )
+
+    if os.environ.get("FUNTIMES", False):
+        # allow any db job to run
+        if job.requires_db:
+            return None
+
+        # allow OSI non-db jobs to run
+        if job.workspace.endswith("-interactive"):
+            return None
+
+        # nope all other jobs
+        return StatusCode.WAITING_ON_WORKERS, "Waiting on available workers"
 
 
 def list_outputs_from_action(workspace, action):
