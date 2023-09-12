@@ -18,3 +18,5 @@ opensafely/isaric-exploration:
   allow: ['isaric']
 opensafely/openprompt-hrqol:
   allow: ['open_prompt']
+opensafely/openprompt-cohort-profile:
+  allow: ['open_prompt']
