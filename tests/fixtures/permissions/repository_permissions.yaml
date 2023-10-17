@@ -10,5 +10,7 @@ opensafely/dummy_isaric:
   allow: ['isaric']
 opensafely/dummy_open_prompt:
   allow: ['open_prompt']
+opensafely/dummy_wl_clockstops:
+  allow: ['wl_clockstops']
 opensafely/dummy_all:
-  allow: ['icnarc', 'ons', 'isaric', 'ukrr', 'open_prompt']
+  allow: ['icnarc', 'ons', 'isaric', 'ukrr', 'open_prompt', 'wl_clockstops']

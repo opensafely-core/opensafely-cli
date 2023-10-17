@@ -55,6 +55,11 @@ RESTRICTED_DATASETS = [
         cohort_extractor_function_names=[],
         ehrql_table_names=["open_prompt"],
     ),
+    RestrictedDataset(
+        name="wl_clockstops",
+        cohort_extractor_function_names=[],
+        ehrql_table_names=["wl_clockstops", "wl_clockstops_raw"],
+    ),
 ]
 
 PERMISSIONS_URL = "https://raw.githubusercontent.com/opensafely-core/opensafely-cli/main/repository_permissions.yaml"
