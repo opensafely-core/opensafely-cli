@@ -37,13 +37,6 @@ RESTRICTED_DATASETS = [
         ehrql_table_names=["isaric_new"],
     ),
     RestrictedDataset(
-        name="ons_cis",
-        cohort_extractor_function_names=[
-            "with_an_ons_cis_record",
-        ],
-        ehrql_table_names=["ons_cis_raw", "ons_cis"],
-    ),
-    RestrictedDataset(
         name="ukrr",
         cohort_extractor_function_names=[
             "with_record_in_ukrr",
