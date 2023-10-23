@@ -2,15 +2,17 @@ opensafely/dummy_icnarc:
   allow: ['icnarc']
 opensafely/dummy_ons:
   allow: ['ons']
-opensafely/dummy_ons_cis:
-  allow: ['ons_cis']
 opensafely/dummy_ukrr:
   allow: ['ukrr']
 opensafely/dummy_icnarc_ons:
-  allow: ['icnarc', 'ons', 'ons_cis']
+  allow: ['icnarc', 'ons']
 opensafely/dummy_isaric:
   allow: ['isaric']
 opensafely/dummy_open_prompt:
   allow: ['open_prompt']
+opensafely/dummy_wl_clockstops:
+  allow: ['wl_clockstops']
+opensafely/dummy_wl_openpathways:
+  allow: ['wl_openpathways']
 opensafely/dummy_all:
-  allow: ['icnarc', 'ons', 'isaric', 'ons_cis', 'ukrr', 'open_prompt']
+  allow: ['icnarc', 'ons', 'isaric', 'ukrr', 'open_prompt', 'wl_clockstops', 'wl_openpathways']
