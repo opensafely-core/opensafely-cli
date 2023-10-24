@@ -20,3 +20,5 @@ opensafely/openprompt-hrqol:
   allow: ['open_prompt']
 opensafely/openprompt-cohort-profile:
   allow: ['open_prompt']
+opensafely/waiting-list:
+  allow: ['wl_clockstops', 'wl_clockstops_raw', 'wl_openpathways', 'wl_openpathways_raw']
