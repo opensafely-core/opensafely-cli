@@ -2,6 +2,7 @@ import json
 import os
 import shutil
 from pathlib import Path
+from urllib.parse import parse_qs
 
 import pytest
 from requests_mock import mocker
@@ -14,6 +15,18 @@ from opensafely._vendor import requests
 # requests_mock library so it references our vendored library instead
 mocker.requests = requests
 mocker._original_send = requests.Session.send
+
+
+@pytest.fixture
+def mock_check(requests_mock):
+    def _mock(response):
+        mocked = requests_mock.post(
+            "https://www.opencodelists.org/api/v1/check/",
+            json=response,
+        )
+        return mocked
+
+    return _mock
 
 
 def test_codelists_update(tmp_path, requests_mock):
@@ -53,7 +66,17 @@ def codelists_path(tmp_path):
     yield tmp_path
 
 
-def test_codelists_check(codelists_path):
+def test_codelists_check(mock_check, codelists_path):
+    mock_check(response={"status": "ok"})
+    os.chdir(codelists_path)
+    codelists.check()
+
+
+def test_codelists_check_passes_if_opencodelists_is_down(requests_mock, codelists_path):
+    requests_mock.post(
+        "https://www.opencodelists.org/api/v1/check/",
+        exc=requests.exceptions.ConnectionError,
+    )
     os.chdir(codelists_path)
     codelists.check()
 
@@ -94,6 +117,12 @@ def test_codelists_check_fail_if_invalid_manifest_file(codelists_path):
         codelists.check()
 
 
+def test_codelists_parse_fail_if_no_codelists_dir(tmp_path):
+    os.chdir(tmp_path)
+    with pytest.raises(SystemExit):
+        codelists.parse_codelist_file(tmp_path)
+
+
 def test_codelists_parse_fail_if_different_versions_of_same_list(codelists_path):
     with open(codelists_path / "codelists/codelists.txt", "a") as f:
         f.write("\nsomeproject/somelist/someversion")
@@ -112,9 +141,89 @@ def test_codelists_parse_fail_if_duplicate_lines(codelists_path):
         codelists.parse_codelist_file(codelists_path / "codelists")
 
 
+def test_codelists_parse_fail_if_bad_codelist(codelists_path):
+    with open(codelists_path / "codelists/codelists.txt", "a") as f:
+        f.write("\nsomeproject/somelist/")
+    os.chdir(codelists_path)
+    with pytest.raises(SystemExit):
+        codelists.parse_codelist_file(codelists_path / "codelists")
+
+
+def test_codelists_parse_fail_if_codelist_file_does_not_exist(codelists_path):
+    (codelists_path / "codelists/codelists.txt").unlink()
+    os.chdir(codelists_path)
+    with pytest.raises(SystemExit):
+        codelists.parse_codelist_file(codelists_path / "codelists")
+
+
 def test_codelists_parse_pass_if_different_lists_have_same_version(codelists_path):
     with open(codelists_path / "codelists/codelists.txt", "a") as f:
         f.write("\nsomeproject/somelist/someversion")
         f.write("\nsomeuser/anotherproject/somelist/someversion")
     os.chdir(codelists_path)
     assert codelists.parse_codelist_file(codelists_path / "codelists")
+
+
+def test_codelists_check_upstream_passes_if_no_codelists_dir(tmp_path):
+    os.chdir(tmp_path)
+    assert codelists.check_upstream()
+
+
+def test_codelists_check_upstream_fails_if_no_codelists_file(tmp_path):
+    os.chdir(tmp_path)
+    (tmp_path / "codelists").mkdir()
+    with pytest.raises(SystemExit):
+        codelists.check_upstream()
+
+
+def test_codelists_check_upstream_fails_if_no_manifest_file(tmp_path, mock_check):
+    mock_check(response={"status": "ok"})
+    os.chdir(tmp_path)
+    codelists_dir = tmp_path / "codelists"
+    codelists_dir.mkdir()
+    (codelists_dir / "codelists.txt").touch()
+    with pytest.raises(SystemExit):
+        codelists.check_upstream()
+    (codelists_dir / "codelists.json").touch()
+    assert codelists.check_upstream()
+
+
+def test_codelists_check_upstream(codelists_path, mock_check):
+    mocked = mock_check(response={"status": "ok"})
+    os.chdir(codelists_path)
+    codelists.check_upstream()
+
+    # assert content sent to opencodelists
+    assert mocked.called_once
+    parsed_request = parse_qs(mocked.last_request.text)
+    assert list(parsed_request.keys()) == ["codelists", "manifest"]
+
+    assert (
+        parsed_request["codelists"][0]
+        == (codelists_path / "codelists/codelists.txt").read_text()
+    )
+    assert (
+        parsed_request["manifest"][0]
+        == (codelists_path / "codelists/codelists.json").read_text()
+    )
+
+
+def test_codelists_check_upstream_with_error(codelists_path, mock_check):
+    mock_check(response={"status": "error", "data": {"error": "Any unknown error"}})
+    with pytest.raises(SystemExit):
+        codelists.check_upstream(codelists_path / "codelists")
+
+
+@pytest.mark.parametrize(
+    "response",
+    [
+        {"added": ["org/foo/123"], "removed": [], "changed": []},
+        {"added": [], "removed": ["org/foo/123"], "changed": []},
+        {"added": [], "removed": [], "changed": ["org/foo/123"]},
+        {"added": ["org/bar/123"], "removed": [], "changed": ["org/foo/123"]},
+    ],
+)
+def test_codelists_check_upstream_with_changes(codelists_path, mock_check, response):
+    mock_check(response={"status": "error", "data": response})
+    with pytest.raises(SystemExit):
+        codelists.check_upstream(codelists_path / "codelists")
