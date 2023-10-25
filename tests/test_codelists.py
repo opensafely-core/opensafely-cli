@@ -26,12 +26,12 @@ def test_codelists_update(tmp_path, requests_mock):
     )
     os.chdir(tmp_path)
     requests_mock.get(
-        "https://codelists.opensafely.org/"
+        "https://www.opencodelists.org/"
         "codelist/project123/codelist456/version2/download.csv",
         text="foo",
     )
     requests_mock.get(
-        "https://codelists.opensafely.org/"
+        "https://www.opencodelists.org/"
         "codelist/user/user123/codelist098/version1/download.csv",
         text="bar",
     )

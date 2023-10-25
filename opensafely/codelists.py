@@ -10,7 +10,8 @@ from pathlib import Path
 from opensafely._vendor import requests
 
 
-DESCRIPTION = "Commands for interacting with https://codelists.opensafely.org/"
+OPENCODELISTS_BASE_URL = "https://www.opencodelists.org"
+DESCRIPTION = f"Commands for interacting with {OPENCODELISTS_BASE_URL}"
 
 CODELISTS_DIR = "codelists"
 CODELISTS_FILE = "codelists.txt"
@@ -197,7 +198,7 @@ def parse_codelist_file(codelists_dir):
             )
         codelist_versions[line_without_version] = line_version
 
-        url = f"https://codelists.opensafely.org/codelist/{line}/"
+        url = f"{OPENCODELISTS_BASE_URL}/codelist/{line}/"
         filename = "-".join(tokens[:-1]) + ".csv"
         codelists.append(
             Codelist(
