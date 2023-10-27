@@ -69,7 +69,7 @@ def codelists_path(tmp_path):
 def test_codelists_check(mock_check, codelists_path):
     mock_check(response={"status": "ok"})
     os.chdir(codelists_path)
-    codelists.check()
+    assert codelists.check()
 
 
 def test_codelists_check_passes_if_opencodelists_is_down(requests_mock, codelists_path):
@@ -78,7 +78,7 @@ def test_codelists_check_passes_if_opencodelists_is_down(requests_mock, codelist
         exc=requests.exceptions.ConnectionError,
     )
     os.chdir(codelists_path)
-    codelists.check()
+    assert codelists.check()
 
 
 def test_codelists_check_fail_if_list_updated(codelists_path):
@@ -191,7 +191,7 @@ def test_codelists_check_upstream_fails_if_no_manifest_file(tmp_path, mock_check
 def test_codelists_check_upstream(codelists_path, mock_check):
     mocked = mock_check(response={"status": "ok"})
     os.chdir(codelists_path)
-    codelists.check_upstream()
+    assert codelists.check_upstream()
 
     # assert content sent to opencodelists
     assert mocked.called_once
