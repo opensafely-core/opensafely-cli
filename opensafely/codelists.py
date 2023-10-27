@@ -98,7 +98,7 @@ def update(codelists_dir=None):
     return True
 
 
-def codelists_dir_check(codelists_dir=None):
+def get_codelists_dir(codelists_dir=None):
     codelists_dir = codelists_dir or Path.cwd() / CODELISTS_DIR
     if not codelists_dir.exists():
         print(f"No '{CODELISTS_DIR}' directory present so nothing to check")
@@ -112,7 +112,7 @@ def check_upstream(codelists_dir=None):
     This runs after the local checks in `check()`, but can also run as a standalone
     command.
     """
-    codelists_dir = codelists_dir_check(codelists_dir)
+    codelists_dir = get_codelists_dir(codelists_dir)
     if codelists_dir is None:
         return True
     codelists_file = codelists_dir / CODELISTS_FILE
@@ -152,7 +152,7 @@ def check_upstream(codelists_dir=None):
 
 
 def check():
-    codelists_dir = codelists_dir_check()
+    codelists_dir = get_codelists_dir()
     if codelists_dir is None:
         return True
 
