@@ -10,7 +10,8 @@ from pathlib import Path
 from opensafely._vendor import requests
 
 
-DESCRIPTION = "Commands for interacting with https://codelists.opensafely.org/"
+OPENCODELISTS_BASE_URL = "https://www.opencodelists.org"
+DESCRIPTION = f"Commands for interacting with {OPENCODELISTS_BASE_URL}"
 
 CODELISTS_DIR = "codelists"
 CODELISTS_FILE = "codelists.txt"
@@ -40,10 +41,18 @@ def add_arguments(parser):
     parser_check = subparsers.add_parser(
         "check",
         help=(
-            f"Check that codelists on disk match the specification at "
-            f"{CODELISTS_DIR}/{CODELISTS_FILE}"
+            "Check that codelists on disk match the specification at "
+            f"{CODELISTS_DIR}/{CODELISTS_FILE} and are up-to-date with "
+            "upstream versions"
         ),
     )
+
+    parser_check_upstream = subparsers.add_parser(
+        "check-upstream",
+        help=("Check codelists are up to date with upstream versions"),
+    )
+    parser_check_upstream.set_defaults(function=check_upstream)
+
     parser_check.set_defaults(function=check)
 
 
@@ -89,11 +98,64 @@ def update(codelists_dir=None):
     return True
 
 
-def check():
-    codelists_dir = Path.cwd() / CODELISTS_DIR
+def get_codelists_dir(codelists_dir=None):
+    codelists_dir = codelists_dir or Path.cwd() / CODELISTS_DIR
     if not codelists_dir.exists():
         print(f"No '{CODELISTS_DIR}' directory present so nothing to check")
+        return
+    return codelists_dir
+
+
+def check_upstream(codelists_dir=None):
+    """
+    Check currently downloaded codelists against current OpenCodelists data.
+    This runs after the local checks in `check()`, but can also run as a standalone
+    command.
+    """
+    codelists_dir = get_codelists_dir(codelists_dir)
+    if codelists_dir is None:
         return True
+    codelists_file = codelists_dir / CODELISTS_FILE
+    if not codelists_file.exists():
+        exit_with_error(f"No file found at '{codelists_file}'")
+    manifest_file = codelists_dir / MANIFEST_FILE
+    if not manifest_file.exists():
+        exit_with_prompt(f"No file found at '{manifest_file}'.")
+    post_data = {
+        "codelists": codelists_file.read_text(),
+        "manifest": manifest_file.read_text(),
+    }
+    url = f"{OPENCODELISTS_BASE_URL}/api/v1/check/"
+    response = requests.post(url, post_data).json()
+    status = response["status"]
+
+    if status == "error":
+        # The OpenCodelists check endpoint returns an error in the response data if it
+        # encounters an invalid user, organisation or codelist in the codelists.txt file, or
+        # if any codelists in codelists.csv don't match the expected pattern. These should all
+        # be fixable by `opensafely codelists update`.
+        if "error" in response["data"]:
+            exit_with_prompt(
+                f"Error checking upstream codelists: {response['data']['error']}\n"
+            )
+        if response["data"]["added"] or response["data"]["removed"]:
+            exit_with_prompt(
+                "Codelists have been added or removed\n\n"
+                "For details, run:\n\n  opensafely codelists check\n"
+            )
+        changed = "\n  ".join(response["data"]["changed"])
+        exit_with_prompt(
+            f"Some codelists are out of date\nCodelists affected:\n  {changed}\n"
+        )
+    print("Codelists OK")
+    return True
+
+
+def check():
+    codelists_dir = get_codelists_dir()
+    if codelists_dir is None:
+        return True
+
     codelists = parse_codelist_file(codelists_dir)
     manifest_file = codelists_dir / MANIFEST_FILE
     if not manifest_file.exists():
@@ -146,8 +208,15 @@ def check():
             "A CSV file seems to have been modified since it was downloaded:\n"
             "{}\n".format("\n".join(modified))
         )
-    print("Codelists OK")
-    return True
+
+    try:
+        return check_upstream(codelists_dir)
+    except requests.exceptions.ConnectionError:
+        print(
+            f"Local codelists OK; could not contact {OPENCODELISTS_BASE_URL} for upstream check,"
+            "try again later"
+        )
+        return True
 
 
 def make_temporary_manifest(codelists_dir):
@@ -197,7 +266,7 @@ def parse_codelist_file(codelists_dir):
             )
         codelist_versions[line_without_version] = line_version
 
-        url = f"https://codelists.opensafely.org/codelist/{line}/"
+        url = f"{OPENCODELISTS_BASE_URL}/codelist/{line}/"
         filename = "-".join(tokens[:-1]) + ".csv"
         codelists.append(
             Codelist(
