@@ -265,15 +265,9 @@ def job_should_be_rerun(job_request, job):
     # Otherwise if it succeeded last time there's no need to run again
     if job.state == State.SUCCEEDED:
         return False
-    # If it failed last time ...
+    # If it failed last time, re-run it by default
     elif job.state == State.FAILED:
-        # ... and we're forcing failed jobs to re-run then re-run it
-        if job_request.force_run_failed:
-            return True
-        # Otherwise it's an error condition
-        raise JobRequestError(
-            f"{job.action} failed on a previous run and must be re-run"
-        )
+        return True
     else:
         raise ValueError(f"Invalid state: {job}")
 
@@ -289,7 +283,7 @@ def assert_new_jobs_created(job_request, new_jobs, current_jobs):
     # is treated as a successful outcome because we've already done everything that was
     # requested.
     if RUN_ALL_COMMAND in job_request.requested_actions:
-        raise NothingToDoError()
+        raise NothingToDoError("All actions have already completed succesfully")
 
     # The other reason is that every requested action is already running or pending,
     # this is considered a user error.
@@ -298,7 +292,7 @@ def assert_new_jobs_created(job_request, new_jobs, current_jobs):
         current_job_states.get(action) for action in job_request.requested_actions
     }
     if requested_action_states <= {State.PENDING, State.RUNNING}:
-        raise JobRequestError("All requested actions were already scheduled to run")
+        raise NothingToDoError("All requested actions were already scheduled to run")
 
     # But if we get here then we've somehow failed to schedule new jobs despite the fact
     # that some of the actions we depend on have failed, which is a bug.

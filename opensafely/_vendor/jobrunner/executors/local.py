@@ -1,3 +1,4 @@
+import csv
 import datetime
 import json
 import logging
@@ -84,20 +85,6 @@ def workspace_is_archived(workspace):
         if path.exists():
             return True
     return False
-
-
-def was_oomkilled(container):
-    # Nb. this flag has been observed to be unreliable on some versions of Linux
-    return container["State"]["ExitCode"] == 137 and container["State"]["OOMKilled"]
-
-
-def oomkilled_message(container):
-    message = "Job ran out of memory"
-    memory_limit = container.get("HostConfig", {}).get("Memory", 0)
-    if memory_limit > 0:
-        gb_limit = memory_limit / (1024**3)
-        message += f" (limit was {gb_limit:.2f}GB)"
-    return message
 
 
 class LocalDockerAPI(ExecutorAPI):
@@ -291,19 +278,6 @@ class LocalDockerAPI(ExecutorAPI):
         else:
             # container present but not running, i.e. finished
             # Nb. this does not include prepared jobs, as they have a volume but not a container
-            if job_definition.cancelled:
-                return JobStatus(
-                    ExecutorState.EXECUTED,
-                    f"Job cancelled by {job_definition.cancelled}",
-                )
-            if was_oomkilled(container):
-                return JobStatus(ExecutorState.ERROR, oomkilled_message(container))
-            if container["State"]["ExitCode"] == 137:
-                return JobStatus(
-                    ExecutorState.ERROR,
-                    "Job either ran out of memory or was killed by an admin",
-                )
-
             timestamp_ns = datestr_to_ns_timestamp(container["State"]["FinishedAt"])
             return JobStatus(ExecutorState.EXECUTED, timestamp_ns=timestamp_ns)
 
@@ -321,16 +295,20 @@ class LocalDockerAPI(ExecutorAPI):
         else:
             raise Exception(f"unknown privacy of {privacy}")
 
-        errors = []
-        for name in files:
-            path = root / name
-            try:
-                path.unlink(missing_ok=True)
-            except Exception:
-                log.exception(f"Could not delete {path}")
-                errors.append(name)
+        return delete_files_from_directory(root, files)
 
-        return errors
+
+def delete_files_from_directory(directory, files):
+    errors = []
+    for name in files:
+        path = directory / name
+        try:
+            path.unlink(missing_ok=True)
+        except Exception:
+            log.exception(f"Could not delete {path}")
+            errors.append(name)
+
+    return errors
 
 
 def prepare_job(job_definition):
@@ -405,8 +383,16 @@ def finalize_job(job_definition):
 
     if exit_code == 137 and job_definition.cancelled:
         message = f"Job cancelled by {job_definition.cancelled}"
-    elif was_oomkilled(container_metadata):
-        message = oomkilled_message(container_metadata)
+    # Nb. this flag has been observed to be unreliable on some versions of Linux
+    elif (
+        container_metadata["State"]["ExitCode"] == 137
+        and container_metadata["State"]["OOMKilled"]
+    ):
+        message = "Job ran out of memory"
+        memory_limit = container_metadata.get("HostConfig", {}).get("Memory", 0)
+        if memory_limit > 0:
+            gb_limit = memory_limit / (1024**3)
+            message += f" (limit was {gb_limit:.2f}GB)"
     else:
         message = config.DOCKER_EXIT_CODES.get(exit_code)
 
@@ -429,9 +415,16 @@ def finalize_job(job_definition):
     if job_definition.cancelled:
         write_job_logs(job_definition, job_metadata, copy_log_to_workspace=False)
     else:
-        write_job_logs(job_definition, job_metadata, copy_log_to_workspace=True)
-        persist_outputs(job_definition, results.outputs, job_metadata)
+        excluded = persist_outputs(job_definition, results.outputs, job_metadata)
+        write_job_logs(
+            job_definition, job_metadata, copy_log_to_workspace=True, excluded=excluded
+        )
+        results.level4_excluded_files.update(**excluded)
+
     RESULTS[job_definition.id] = results
+
+    # for ease of testing
+    return results
 
 
 def get_job_metadata(job_definition, outputs, container_metadata):
@@ -448,14 +441,17 @@ def get_job_metadata(job_definition, outputs, container_metadata):
     job_metadata["container_metadata"] = container_metadata
     job_metadata["outputs"] = outputs
     job_metadata["commit"] = job_definition.study.commit
+    job_metadata["database_name"] = job_definition.database_name
     return job_metadata
 
 
-def write_job_logs(job_definition, job_metadata, copy_log_to_workspace=True):
+def write_job_logs(
+    job_definition, job_metadata, copy_log_to_workspace=True, excluded=None
+):
     """Copy logs to log dir and workspace."""
     # Dump useful info in log directory
     log_dir = get_log_dir(job_definition)
-    write_log_file(job_definition, job_metadata, log_dir / "logs.txt")
+    write_log_file(job_definition, job_metadata, log_dir / "logs.txt", excluded)
     with open(log_dir / "metadata.json", "w") as f:
         json.dump(job_metadata, f, indent=2)
 
@@ -480,29 +476,136 @@ def persist_outputs(job_definition, outputs, job_metadata):
     # Extract outputs to workspace
     workspace_dir = get_high_privacy_workspace(job_definition.workspace)
 
+    excluded_files = {}
+
+    sizes = {}
     for filename in outputs.keys():
         log.info(f"Extracting output file: {filename}")
-        volumes.get_volume_api(job_definition).copy_from_volume(
+        size = volumes.get_volume_api(job_definition).copy_from_volume(
             job_definition, filename, workspace_dir / filename
         )
+        sizes[filename] = size
 
     # Copy out medium privacy files
     medium_privacy_dir = get_medium_privacy_workspace(job_definition.workspace)
     if medium_privacy_dir:
         for filename, privacy_level in outputs.items():
             if privacy_level == "moderately_sensitive":
-                volumes.copy_file(
-                    workspace_dir / filename, medium_privacy_dir / filename
+                ok, job_msg, file_msg = check_l4_file(
+                    job_definition, filename, sizes[filename], workspace_dir
                 )
+
+                message_file = medium_privacy_dir / (filename + ".txt")
+
+                if ok:
+                    volumes.copy_file(
+                        workspace_dir / filename, medium_privacy_dir / filename
+                    )
+                    # if it previously had a too big notice, delete it
+                    delete_files_from_directory(medium_privacy_dir, [message_file])
+                else:
+                    excluded_files[filename] = job_msg
+                    message_file.parent.mkdir(exist_ok=True, parents=True)
+                    message_file.write_text(file_msg)
 
         # this can be removed once osrelease is dead
         write_manifest_file(
             medium_privacy_dir,
             {
-                "repo": job_definition.study.git_repo_url,
+                # this currently needs to exist, but is not used
+                "repo": None,
                 "workspace": job_definition.workspace,
             },
         )
+
+    return excluded_files
+
+
+MAX_SIZE_MSG = """
+The file:
+
+{filename}
+
+was {size}Mb, which is above the limit for moderately_sensitive files of
+{limit}Mb.
+
+As such, it has *not* been copied to Level 4 storage. Please double check that
+{filename} contains only aggregate information, and is an appropriate size to
+be able to be output checked.
+"""
+
+INVALID_FILE_TYPE_MSG = """
+The file:
+
+{filename}
+
+is of type {suffix}. This is not a valid file type for moderately_sensitive files.
+
+Level 4 files should be aggregate information easily viewable by output checkers.
+
+See available list of file types here: https://docs.opensafely.org/releasing-files/#allowed-file-types
+"""
+
+PATIENT_ID = """
+The file:
+
+{filename}
+
+has not been made available in level 4 because it has a `patient_id` column.
+
+Patient level data is not allowed by policy in level 4.
+
+You should change this file's privacy to `highly_sensitive` in your
+project.yaml. Or, if is aggregrate data, you should remove the patient_id
+column from your data.
+
+"""
+
+
+def check_l4_file(job_definition, filename, size, workspace_dir):
+    def mb(b):
+        return round(b / (1024 * 1024), 2)
+
+    job_msgs = []
+    file_msgs = []
+
+    suffix = Path(filename).suffix
+    if suffix not in config.LEVEL4_FILE_TYPES:
+        job_msgs.append(f"File type of {suffix} is not valid level 4 file")
+        file_msgs.append(INVALID_FILE_TYPE_MSG.format(filename=filename, suffix=suffix))
+
+    elif suffix == ".csv":
+
+        # note: this assumes the local executor can directly access the long term storage on disk
+        # this may need to be abstracted in future
+        actual_file = workspace_dir / filename
+        try:
+            with actual_file.open() as f:
+                reader = csv.DictReader(f)
+                headers = reader.fieldnames
+        except Exception:
+            pass
+        else:
+            if headers and "patient_id" in headers:
+                job_msgs.append("File has patient_id column")
+                file_msgs.append(PATIENT_ID.format(filename=filename))
+
+    if size > job_definition.level4_max_filesize:
+        job_msgs.append(
+            f"File size of {mb(size)}Mb is larger that limit of {mb(job_definition.level4_max_filesize)}Mb."
+        )
+        file_msgs.append(
+            MAX_SIZE_MSG.format(
+                filename=filename,
+                size=mb(size),
+                limit=mb(job_definition.level4_max_filesize),
+            )
+        )
+
+    if job_msgs:
+        return False, ",".join(job_msgs), "\n\n".join(file_msgs)
+    else:
+        return True, None, None
 
 
 def find_matching_outputs(job_definition):
@@ -544,7 +647,7 @@ def get_unmatched_outputs(job_definition, outputs):
     return [filename for filename in all_outputs if filename not in outputs]
 
 
-def write_log_file(job_definition, job_metadata, filename):
+def write_log_file(job_definition, job_metadata, filename, excluded):
     """
     This dumps the (timestamped) Docker logs for a job to disk, followed by
     some useful metadata about the job and its outputs
@@ -560,6 +663,10 @@ def write_log_file(job_definition, job_metadata, filename):
             f.write(f"{key}: {job_metadata[key]}\n")
         f.write("\noutputs:\n")
         f.write(tabulate(outputs, separator="  - ", indent=2, empty="(no outputs)"))
+        if excluded:
+            f.write("\nexcluded files:\n")
+            for excluded_file, msg in excluded.items():
+                f.write(f"{excluded_file}: {msg}")
 
 
 # Keys of fields to log in manifest.json and log file
@@ -571,6 +678,7 @@ KEYS_TO_LOG = [
     "exit_code",
     "created_at",
     "completed_at",
+    "database_name",
 ]
 
 
@@ -676,7 +784,7 @@ def redact_environment_variables(container_metadata):
 
 def write_manifest_file(workspace_dir, manifest):
     manifest_file = workspace_dir / METADATA_DIR / MANIFEST_FILE
-    manifest_file.parent.mkdir(exist_ok=True)
+    manifest_file.parent.mkdir(exist_ok=True, parents=True)
     manifest_file_tmp = manifest_file.with_suffix(".tmp")
     manifest_file_tmp.write_text(json.dumps(manifest, indent=2))
     manifest_file_tmp.replace(manifest_file)

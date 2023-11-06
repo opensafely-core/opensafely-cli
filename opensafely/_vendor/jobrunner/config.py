@@ -86,11 +86,21 @@ ALLOWED_IMAGES = {
 
 DOCKER_REGISTRY = os.environ.get("DOCKER_REGISTRY", "ghcr.io/opensafely-core")
 
-DATABASE_URLS = {
-    "full": os.environ.get("FULL_DATABASE_URL"),
-    "slice": os.environ.get("SLICE_DATABASE_URL"),
-    "dummy": os.environ.get("DUMMY_DATABASE_URL"),
-}
+
+def database_urls_from_env(env):
+    db_names = ["default", "include_t1oo"]
+    return {
+        db_name: db_url
+        for db_name, db_url in [
+            (db_name, env.get(f"{db_name.upper()}_DATABASE_URL"))
+            for db_name in db_names
+        ]
+        if db_url
+    }
+
+
+DATABASE_URLS = database_urls_from_env(os.environ)
+
 
 TEMP_DATABASE_NAME = os.environ.get("TEMP_DATABASE_NAME")
 
@@ -127,6 +137,31 @@ MAX_WORKERS = int(os.environ.get("MAX_WORKERS") or max(cpu_count() - 1, 1))
 MAX_DB_WORKERS = int(os.environ.get("MAX_DB_WORKERS") or MAX_WORKERS)
 MAX_RETRIES = int(os.environ.get("MAX_RETRIES", 0))
 
+
+LEVEL4_MAX_FILESIZE = int(
+    os.environ.get("LEVEL4_MAX_FILESIZE", 16 * 1024 * 1024)
+)  # 16mb
+
+
+# TODO: we might want to take this list from pipeline if we implement it there.
+LEVEL4_FILE_TYPES = [
+    # tables
+    ".csv",
+    ".tsv",
+    # images
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".svg",
+    ".svgz",
+    # reports
+    ".html",
+    ".pdf",
+    ".txt",
+    ".log",
+    ".json",
+    ".md",
+]
 
 STATA_LICENSE = os.environ.get("STATA_LICENSE")
 STATA_LICENSE_REPO = os.environ.get(
