@@ -82,6 +82,8 @@ def handle_jobs(api: Optional[ExecutorAPI]):
                 # workspace. This gives a fairer allocation of capacity among
                 # workspaces.
                 running_for_workspace[job.workspace],
+                # DB jobs are more important than cpu jobs
+                0 if job.requires_db else 1,
                 # Finally use job age as a tie-breaker
                 job.created_at,
             )
@@ -463,6 +465,9 @@ def save_results(job, job_definition, results):
         code = StatusCode.SUCCEEDED
         message = "Completed successfully"
 
+        if results.level4_excluded_files:
+            message += f", but {len(results.level4_excluded_files)} file(s) marked as moderately_sensitive were excluded. See job log for details."
+
     set_code(job, code, message, error=error, results=results)
 
 
@@ -543,10 +548,13 @@ def job_to_job_definition(job):
         inputs=input_files,
         output_spec=outputs,
         allow_database_access=allow_database_access,
+        database_name=job.database_name if allow_database_access else None,
         # in future, these may come from the JobRequest, but for now, we have
         # config defaults.
         cpu_count=config.DEFAULT_JOB_CPU_COUNT,
         memory_limit=config.DEFAULT_JOB_MEMORY_LIMIT,
+        level4_max_filesize=config.LEVEL4_MAX_FILESIZE,
+        level4_file_types=config.LEVEL4_FILE_TYPES,
         cancelled=job_definition_cancelled,
     )
 
@@ -566,7 +574,7 @@ def mark_job_as_failed(job, code, message, error=None, **attrs):
     if error is None:
         error = True
 
-    set_code(job, code, message, error=error, attrs=attrs)
+    set_code(job, code, message, error=error, **attrs)
 
 
 def set_code(

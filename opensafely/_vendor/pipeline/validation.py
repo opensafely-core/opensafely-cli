@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import posixpath
-from pathlib import PurePosixPath, PureWindowsPath
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import TYPE_CHECKING
 
+from .constants import LEVEL4_FILE_TYPES
 from .exceptions import InvalidPatternError
 from .outputs import get_first_output_file, get_output_dirs
 
@@ -12,7 +13,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from .models import Action
 
 
-def assert_valid_glob_pattern(pattern: str) -> None:
+def assert_valid_glob_pattern(pattern: str, privacy_level: str) -> None:
     """
     These patterns get converted into regular expressions and matched
     with a `find` command so there shouldn't be any possibility of a path
@@ -31,10 +32,18 @@ def assert_valid_glob_pattern(pattern: str) -> None:
                 f"contains '{expr}' (only the * wildcard character is supported)"
             )
 
-    if pattern.endswith("/"):
+    path = Path(pattern)
+
+    if path.suffix == "" or path.suffix.endswith("*"):
         raise InvalidPatternError(
-            "looks like a directory (only files should be specified)"
+            "output paths must have a file type extension at the end"
         )
+
+    if privacy_level == "moderately_sensitive":
+        if path.suffix not in LEVEL4_FILE_TYPES:
+            raise InvalidPatternError(
+                f"{path} is not an allowed file type for moderately_sensitive outputs"
+            )
 
     # Check that the path is in normal form
     if posixpath.normpath(pattern) != pattern:

@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import List, Mapping, Optional
 
@@ -30,20 +30,33 @@ class JobDefinition:
         str, str
     ]  # the files that the job should produce (globs mapped to privacy levels)
     allow_database_access: bool  # whether this job should have access to the database
+    # our internal name for the database this job uses (actual connection details are
+    # passed in `env`)
+    database_name: str = None
     cpu_count: str = None  # number of CPUs to be allocated
     memory_limit: str = None  # memory limit to apply
+    level4_max_filesize: int = 16 * 1024 * 1024
+    level4_file_types: list = field(default_factory=lambda: [".csv"])
     # if a job has been cancelled, the name of the canceller - either "user" or "admin"
     cancelled: str = None
 
 
 class ExecutorState(Enum):
+    # Job is currently preparing to run: creating volumes,copying files, etc
     PREPARING = "preparing"
+    # Job volume is prepared and ready to run
     PREPARED = "prepared"
+    # Job currently executing
     EXECUTING = "executing"
+    # Job process has finished executing, and has an exit code
     EXECUTED = "executed"
+    # Job is currently being inspected and finalized
     FINALIZING = "finalizing"
+    # Job has finished finalization
     FINALIZED = "finalized"
+    # Executor doesn't know anything about this job (it only tracks active jobs)
     UNKNOWN = "unknown"
+    # There was an error with the executor (*not* the same thing as an error with job)
     ERROR = "error"
 
 
@@ -66,6 +79,9 @@ class JobResults:
     message: str = None
     # timestamp these results were finalized, in integer nanoseconds
     timestamp_ns: int = None
+
+    # files not copied to level 4 (too big or similar reason)
+    level4_excluded_files: Mapping[str, str] = field(default_factory=dict)
 
     # to be extracted from the image labels
     action_version: str = "unknown"

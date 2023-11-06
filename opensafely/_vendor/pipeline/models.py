@@ -20,6 +20,22 @@ from .validation import (
 cohortextractor_pat = re.compile(r"cohortextractor:\S+ generate_cohort")
 databuilder_pat = re.compile(r"databuilder|ehrql:\S+ generate[-_]dataset")
 
+database_action_pat = re.compile(
+    r"""
+    # image name
+    ^\b(?:cohortextractor|databuilder|ehrql)\b
+    # :<version> (v0, latest etc)
+    :.+
+    # command; for cohortextractor, only generate_cohort is a database action
+    # For ehrql (and legacy databuilder), generate-dataset and generate-measures
+    # are both database actions. Happily cohortextractor uses generate_measures as
+    # its measures command, so we can excluded cohortextractor measures
+    # actions with this regex.
+    \b(?:generate_cohort|generate-dataset|generate-measures)
+    """,
+    flags=re.X,
+)
+
 
 class Expectations(BaseModel):
     population_size: int
@@ -60,9 +76,9 @@ class Outputs(BaseModel):
         for privacy_level, output in outputs.items():
             for output_id, filename in output.items():
                 try:
-                    assert_valid_glob_pattern(filename)
+                    assert_valid_glob_pattern(filename, privacy_level)
                 except InvalidPatternError as e:
-                    raise ValueError(f"Output path {filename} is not permitted: {e}")
+                    raise ValueError(f"Output path {filename} is invalid: {e}")
 
         return outputs
 
@@ -112,6 +128,10 @@ class Action(BaseModel):
             )
 
         return Command(raw=run)
+
+    @property
+    def is_database_action(self) -> bool:
+        return database_action_pat.match(self.run.raw) is not None
 
 
 class PartiallyValidatedPipeline(TypedDict):
