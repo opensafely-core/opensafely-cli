@@ -29,6 +29,12 @@ def mock_check(requests_mock):
     return _mock
 
 
+@pytest.fixture(autouse=True)
+def not_ci(monkeypatch):
+    if "GITHUB_WORKFLOW" in os.environ:
+        monkeypatch.delenv("GITHUB_WORKFLOW")
+
+
 def test_codelists_update(tmp_path, requests_mock):
     codelist_dir = tmp_path / "codelists"
     codelist_dir.mkdir()
@@ -227,3 +233,29 @@ def test_codelists_check_upstream_with_changes(codelists_path, mock_check, respo
     mock_check(response={"status": "error", "data": response})
     with pytest.raises(SystemExit):
         codelists.check_upstream(codelists_path / "codelists")
+
+
+def test_codelists_check_with_upstream_changes(codelists_path, mock_check):
+    mock_check(
+        response={
+            "status": "error",
+            "data": {"added": [], "removed": [], "changed": ["org/foo/123"]},
+        }
+    )
+    os.chdir(codelists_path)
+    with pytest.raises(SystemExit):
+        codelists.check()
+
+
+def test_codelists_check_with_upstream_changes_in_CI(
+    codelists_path, mock_check, monkeypatch
+):
+    monkeypatch.setenv("GITHUB_WORKFLOW", "test")
+    mock_check(
+        response={
+            "status": "error",
+            "data": {"added": [], "removed": [], "changed": ["org/foo/123"]},
+        }
+    )
+    os.chdir(codelists_path)
+    assert codelists.check() is False

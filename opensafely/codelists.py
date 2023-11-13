@@ -135,18 +135,29 @@ def check_upstream(codelists_dir=None):
         # if any codelists in codelists.csv don't match the expected pattern. These should all
         # be fixable by `opensafely codelists update`.
         if "error" in response["data"]:
-            exit_with_prompt(
+            error_message = (
                 f"Error checking upstream codelists: {response['data']['error']}\n"
             )
-        if response["data"]["added"] or response["data"]["removed"]:
-            exit_with_prompt(
+        elif response["data"]["added"] or response["data"]["removed"]:
+            error_message = (
                 "Codelists have been added or removed\n\n"
                 "For details, run:\n\n  opensafely codelists check\n"
             )
-        changed = "\n  ".join(response["data"]["changed"])
-        exit_with_prompt(
-            f"Some codelists are out of date\nCodelists affected:\n  {changed}\n"
-        )
+        else:
+            changed = "\n  ".join(response["data"]["changed"])
+            error_message = (
+                f"Some codelists are out of date\nCodelists affected:\n  {changed}\n"
+            )
+
+        # If we're running in CI, we don't want to fail the entire action due to out of
+        # date upstream codelists, as users may have valid reasons for not wanting to update
+        # them  (i.e. if they have already run jobs that use the backend database). In this
+        # case, just print the error message instead of exiting.
+        if os.environ.get("GITHUB_WORKFLOW"):
+            print(error_message)
+            return False
+        exit_with_prompt(error_message)
+
     print("Codelists OK")
     return True
 
@@ -210,13 +221,15 @@ def check():
         )
 
     try:
-        return check_upstream(codelists_dir)
+        upstream_check = check_upstream(codelists_dir)
     except requests.exceptions.ConnectionError:
         print(
             f"Local codelists OK; could not contact {OPENCODELISTS_BASE_URL} for upstream check,"
             "try again later"
         )
         return True
+
+    return upstream_check
 
 
 def make_temporary_manifest(codelists_dir):
