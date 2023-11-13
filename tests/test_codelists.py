@@ -258,4 +258,5 @@ def test_codelists_check_with_upstream_changes_in_CI(
         }
     )
     os.chdir(codelists_path)
-    assert codelists.check() is False
+    # check doesn't fail in CI if there are upstream errors only
+    assert codelists.check()

@@ -153,12 +153,11 @@ def check_upstream(codelists_dir=None):
         # date upstream codelists, as users may have valid reasons for not wanting to update
         # them  (i.e. if they have already run jobs that use the backend database). In this
         # case, just print the error message instead of exiting.
-        if os.environ.get("GITHUB_WORKFLOW"):
-            print(error_message)
-            return False
-        exit_with_prompt(error_message)
-
-    print("Codelists OK")
+        if not os.environ.get("GITHUB_WORKFLOW"):
+            exit_with_prompt(error_message)
+        print(error_message)
+    else:
+        print("Codelists OK")
     return True
 
 
@@ -221,15 +220,13 @@ def check():
         )
 
     try:
-        upstream_check = check_upstream(codelists_dir)
+        check_upstream(codelists_dir)
     except requests.exceptions.ConnectionError:
         print(
             f"Local codelists OK; could not contact {OPENCODELISTS_BASE_URL} for upstream check,"
             "try again later"
         )
-        return True
-
-    return upstream_check
+    return True
 
 
 def make_temporary_manifest(codelists_dir):
