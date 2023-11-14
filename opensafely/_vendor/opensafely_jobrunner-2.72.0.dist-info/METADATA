@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: opensafely-jobrunner
-Version: 2.71.0
+Version: 2.72.0
 Summary: OpenSAFELY job scheduling and executor
 Author-email: OpenSAFELY <tech@opensafely.org>
 License: OpenSAFELY Job Runner
