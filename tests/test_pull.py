@@ -45,8 +45,8 @@ def test_default_no_local_images_force(run, capsys):
         stdout="",
     )
     run.expect(["docker", "pull", tag("cohortextractor")])
-    run.expect(["docker", "pull", tag("databuilder", version="v0")])
-    run.expect(["docker", "pull", tag("ehrql", version="v0")])
+    run.expect(["docker", "pull", tag("databuilder", version="v1")])
+    run.expect(["docker", "pull", tag("ehrql", version="v1")])
     run.expect(["docker", "pull", tag("jupyter")])
     run.expect(["docker", "pull", tag("python")])
     run.expect(["docker", "pull", tag("r")])
