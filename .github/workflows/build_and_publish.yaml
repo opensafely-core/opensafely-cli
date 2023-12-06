@@ -17,6 +17,13 @@ jobs:
       - name: Bump version and push tag
         id: tag
         uses: mathieudutour/github-tag-action@v6.1
+        # As this workflow is currently written,
+        # this is a redundant check: the workflow should only ever run on push to main.
+        # But it is an extra safeguard and reminder of the behaviour of github-tag-action.
+        # Pull requests can end up being tagged by github-tag-action,
+        # which is probably undesirable and very confusing to work out what's happening.
+        # See https://github.com/opensafely-core/ehrql/commit/3e55492e9c1b537fb5057f19f11f53a713fbae46
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           default_bump: false
