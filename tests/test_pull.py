@@ -13,18 +13,25 @@ def tag(image, version="latest"):
     return f"{pull.REGISTRY}/{image}:{version}"
 
 
-def test_default_no_local_images(run, capsys):
-    run.expect(["docker", "info"])
+def expect_local_images(run, stdout="", **kwargs):
     run.expect(
         [
             "docker",
             "images",
             "ghcr.io/opensafely-core/*",
+            "--filter",
+            "label=org.opensafely.action",
             "--no-trunc",
             "--format={{.Repository}}={{.ID}}",
         ],
-        stdout="",
+        stdout=stdout,
+        **kwargs,
     )
+
+
+def test_default_no_local_images(run, capsys):
+    run.expect(["docker", "info"])
+    expect_local_images(run)
 
     pull.main(image="all", force=False)
     out, err = capsys.readouterr()
@@ -34,16 +41,7 @@ def test_default_no_local_images(run, capsys):
 
 def test_default_no_local_images_force(run, capsys):
     run.expect(["docker", "info"])
-    run.expect(
-        [
-            "docker",
-            "images",
-            "ghcr.io/opensafely-core/*",
-            "--no-trunc",
-            "--format={{.Repository}}={{.ID}}",
-        ],
-        stdout="",
-    )
+    expect_local_images(run)
     run.expect(["docker", "pull", tag("cohortextractor")])
     run.expect(["docker", "pull", tag("ehrql", version="v1")])
     run.expect(["docker", "pull", tag("jupyter")])
@@ -79,16 +77,7 @@ def test_default_no_local_images_force(run, capsys):
 
 def test_default_with_local_images(run, capsys):
     run.expect(["docker", "info"])
-    run.expect(
-        [
-            "docker",
-            "images",
-            "ghcr.io/opensafely-core/*",
-            "--no-trunc",
-            "--format={{.Repository}}={{.ID}}",
-        ],
-        stdout="ghcr.io/opensafely-core/r=sha",
-    )
+    expect_local_images(run, stdout="ghcr.io/opensafely-core/r=sha")
     run.expect(["docker", "pull", tag("r")])
     run.expect(
         [
@@ -112,16 +101,7 @@ def test_default_with_local_images(run, capsys):
 
 def test_specific_image(run, capsys):
     run.expect(["docker", "info"])
-    run.expect(
-        [
-            "docker",
-            "images",
-            "ghcr.io/opensafely-core/*",
-            "--no-trunc",
-            "--format={{.Repository}}={{.ID}}",
-        ],
-        stdout="",
-    )
+    expect_local_images(run)
     run.expect(["docker", "pull", tag("r")])
     run.expect(
         [
@@ -145,16 +125,7 @@ def test_specific_image(run, capsys):
 
 def test_project(run, capsys):
     run.expect(["docker", "info"])
-    run.expect(
-        [
-            "docker",
-            "images",
-            "ghcr.io/opensafely-core/*",
-            "--no-trunc",
-            "--format={{.Repository}}={{.ID}}",
-        ],
-        stdout="",
-    )
+    expect_local_images(run)
     run.expect(["docker", "pull", tag("cohortextractor")])
     run.expect(["docker", "pull", tag("python")])
     run.expect(["docker", "pull", tag("jupyter")])
@@ -196,14 +167,8 @@ def test_remove_deprecated_images(run):
 
 
 def test_check_version_out_of_date(run, capsys):
-    run.expect(
-        [
-            "docker",
-            "images",
-            "ghcr.io/opensafely-core/*",
-            "--no-trunc",
-            "--format={{.Repository}}={{.ID}}",
-        ],
+    expect_local_images(
+        run,
         stdout="ghcr.io/opensafely-core/python=sha256:oldsha",
     )
 
@@ -221,14 +186,8 @@ def test_check_version_up_to_date(run, capsys):
     current_sha = pull.get_remote_sha("ghcr.io/opensafely-core/python", "latest")
     pull.token = None
 
-    run.expect(
-        [
-            "docker",
-            "images",
-            "ghcr.io/opensafely-core/*",
-            "--no-trunc",
-            "--format={{.Repository}}={{.ID}}",
-        ],
+    expect_local_images(
+        run,
         stdout=f"ghcr.io/opensafely-core/python={current_sha}",
     )
 
@@ -242,14 +201,8 @@ def test_check_version_up_to_date_old_sha(run, capsys):
     current_sha = pull.get_remote_sha("ghcr.io/opensafely-core/python", "latest")
     pull.token = None
 
-    run.expect(
-        [
-            "docker",
-            "images",
-            "ghcr.io/opensafely-core/*",
-            "--no-trunc",
-            "--format={{.Repository}}={{.ID}}",
-        ],
+    expect_local_images(
+        run,
         stdout=(
             f"ghcr.io/opensafely-core/python={current_sha}\n"
             f"ghcr.io/opensafely-core/python=oldsha"

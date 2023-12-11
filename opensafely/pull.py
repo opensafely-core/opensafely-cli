@@ -102,7 +102,9 @@ def get_local_images():
         [
             "docker",
             "images",
-            "ghcr.io/opensafely-core/*",
+            "ghcr.io/opensafely-core/*",  # this excludes dev builds
+            "--filter",
+            "label=org.opensafely.action",
             "--no-trunc",
             "--format={{.Repository}}={{.ID}}",
         ],
