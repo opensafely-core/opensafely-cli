@@ -64,10 +64,10 @@ def test_run_docker_user_default(run, monkeypatch):
             "--init",
             "--label=opensafely",
             f"--volume={pathlib.Path.cwd()}://workspace",
-            "ghcr.io/opensafely-core/databuilder:v1",
+            "ghcr.io/opensafely-core/ehrql:v1",
         ],
     )
-    utils.run_docker([], "databuilder:v1", [])
+    utils.run_docker([], "ehrql:v1", [])
 
 
 def test_run_docker_user_linux(run, monkeypatch):
@@ -82,10 +82,10 @@ def test_run_docker_user_linux(run, monkeypatch):
             "--label=opensafely",
             "--user=uid:gid",
             f"--volume={pathlib.Path.cwd()}://workspace",
-            "ghcr.io/opensafely-core/databuilder:v1",
+            "ghcr.io/opensafely-core/ehrql:v1",
         ],
     )
-    utils.run_docker([], "databuilder:v1", [])
+    utils.run_docker([], "ehrql:v1", [])
 
 
 def test_run_docker_interactive(run, no_user):
@@ -98,10 +98,10 @@ def test_run_docker_interactive(run, no_user):
             "--label=opensafely",
             "--interactive",
             f"--volume={pathlib.Path.cwd()}://workspace",
-            "ghcr.io/opensafely-core/databuilder:v1",
+            "ghcr.io/opensafely-core/ehrql:v1",
         ],
     )
-    utils.run_docker([], "databuilder:v1", [], interactive=True)
+    utils.run_docker([], "ehrql:v1", [], interactive=True)
 
 
 def test_run_docker_interactive_tty(run, no_user, monkeypatch):
@@ -117,7 +117,7 @@ def test_run_docker_interactive_tty(run, no_user, monkeypatch):
             "--interactive",
             "--tty",
             f"--volume={pathlib.Path.cwd()}://workspace",
-            "ghcr.io/opensafely-core/databuilder:v1",
+            "ghcr.io/opensafely-core/ehrql:v1",
         ],
     )
-    utils.run_docker([], "databuilder:v1", [], interactive=True)
+    utils.run_docker([], "ehrql:v1", [], interactive=True)

@@ -23,13 +23,13 @@ def test_execute_main_args(run, no_user):
             "HOME=/tmp",
             "--cpus=2.0",
             "--memory=4G",
-            "ghcr.io/opensafely-core/databuilder:v1",
+            "ghcr.io/opensafely-core/ehrql:v1",
             "foo",
             "bar",
             "baz",
         ],
     )
-    assert run_main(execute, "databuilder:v1 foo bar baz") == 0
+    assert run_main(execute, "ehrql:v1 foo bar baz") == 0
 
 
 def test_execute_main_entrypoint(run, no_user):
@@ -50,10 +50,10 @@ def test_execute_main_entrypoint(run, no_user):
             "--entrypoint=/entrypoint",
             "--cpus=2.0",
             "--memory=4G",
-            "ghcr.io/opensafely-core/databuilder:v1",
+            "ghcr.io/opensafely-core/ehrql:v1",
         ],
     )
-    run_main(execute, "--entrypoint /entrypoint databuilder:v1")
+    run_main(execute, "--entrypoint /entrypoint ehrql:v1")
 
 
 def test_execute_main_env(run, no_user):
@@ -79,10 +79,10 @@ def test_execute_main_env(run, no_user):
             "BAZ=1",
             "--cpus=2.0",
             "--memory=4G",
-            "ghcr.io/opensafely-core/databuilder:v1",
+            "ghcr.io/opensafely-core/ehrql:v1",
         ],
     )
-    run_main(execute, "-e=FOO -e BAR --env BAZ=1 databuilder:v1")
+    run_main(execute, "-e=FOO -e BAR --env BAZ=1 ehrql:v1")
 
 
 def test_execute_main_env_in_env(run, no_user):
@@ -102,10 +102,10 @@ def test_execute_main_env_in_env(run, no_user):
             "HOME=/foo",
             "--cpus=2.0",
             "--memory=4G",
-            "ghcr.io/opensafely-core/databuilder:v1",
+            "ghcr.io/opensafely-core/ehrql:v1",
         ],
     )
-    run_main(execute, "-e OPENSAFELY_BACKEND=tpp -e HOME=/foo databuilder:v1")
+    run_main(execute, "-e OPENSAFELY_BACKEND=tpp -e HOME=/foo ehrql:v1")
 
 
 @pytest.mark.parametrize("default", [None, "uid:gid"])
@@ -129,10 +129,10 @@ def test_execute_main_user_cli_arg_overrides(default, run, monkeypatch):
             "HOME=/tmp",
             "--cpus=2.0",
             "--memory=4G",
-            "ghcr.io/opensafely-core/databuilder:v1",
+            "ghcr.io/opensafely-core/ehrql:v1",
         ],
     )
-    run_main(execute, "-u 1234:5678 databuilder:v1")
+    run_main(execute, "-u 1234:5678 ehrql:v1")
 
 
 def test_execute_main_user_linux_disble(run, monkeypatch):
@@ -154,10 +154,10 @@ def test_execute_main_user_linux_disble(run, monkeypatch):
             "HOME=/tmp",
             "--cpus=2.0",
             "--memory=4G",
-            "ghcr.io/opensafely-core/databuilder:v1",
+            "ghcr.io/opensafely-core/ehrql:v1",
         ],
     )
-    run_main(execute, "-u None databuilder:v1")
+    run_main(execute, "-u None ehrql:v1")
 
 
 def test_execute_main_stata_license(run, monkeypatch, no_user):
