@@ -1,6 +1,6 @@
+import argparse
 import subprocess
 import sys
-from collections import defaultdict
 from http.cookiejar import split_header_words
 from pathlib import Path
 from urllib.parse import urlparse
@@ -18,18 +18,29 @@ REGISTRY = config.DOCKER_REGISTRY
 # The deprecated `databuilder` name is still supported by job-runner, but we don't want
 # it showing up here
 IMAGES = list(config.ALLOWED_IMAGES - {"databuilder"})
-FULL_IMAGES = {f"{REGISTRY}/{image}" for image in IMAGES}
 DEPRECATED_REGISTRIES = ["docker.opensafely.org", "ghcr.io/opensafely"]
 IMAGES.sort()  # this is just for consistency for testing
 
 
+def valid_image(image_string):
+    if image_string == "all":
+        return image_string
+
+    name, _, _ = image_string.partition(":")
+    if name not in IMAGES:
+        raise argparse.ArgumentTypeError(
+            f"{image_string} is not a valid OpenSAFELY image: {','.join(IMAGES)}"
+        )
+
+    return image_string
+
+
 def add_arguments(parser):
-    choices = ["all"] + IMAGES
     parser.add_argument(
         "image",
         nargs="?",
-        choices=choices,
         help="OpenSAFELY docker image to update (default: all)",
+        type=valid_image,
         default="all",
     )
     parser.add_argument(
@@ -47,26 +58,36 @@ def main(image="all", force=False, project=None):
     if not docker_preflight_check():
         return False
 
+    local_images = get_local_images()
+
     if project:
         force = True
         images = get_actions_from_project_file(project)
     elif image == "all":
-        images = IMAGES
+        if force:
+            images = {
+                f"{name}:{get_default_version_for_image(name)}": None for name in IMAGES
+            }
+        else:
+            images = list(local_images)
     else:
         # if user has requested a specific image, pull it regardless
         force = True
         images = [image]
 
-    local_images = get_local_images()
     try:
         updated = False
         for image in images:
-            tag = f"{REGISTRY}/{image}"
-            if force or tag in local_images:
+            if force or image in local_images:
+                name, _, tag = image.partition(":")
+                if not tag:
+                    tag = get_default_version_for_image(name)
                 updated = True
-                print(f"Updating OpenSAFELY {image} image")
-                version = get_default_version_for_image(image)
-                subprocess.run(["docker", "pull", tag + f":{version}"], check=True)
+
+                print(f"Updating OpenSAFELY {name}:{tag} image")
+                subprocess.run(
+                    ["docker", "pull", f"{REGISTRY}/{name}:{tag}"], check=True
+                )
 
         if updated:
             remove_deprecated_images(local_images)
@@ -88,7 +109,7 @@ def get_actions_from_project_file(project_yaml):
 
     for name, action in project.actions.items():
         if action.run.name in IMAGES and action.run.name not in images:
-            images.append(action.run.name)
+            images.append(f"{action.run.name}:{action.run.version}")
 
     if not images:
         raise RuntimeError(f"No actions found in {project_yaml}")
@@ -106,19 +127,21 @@ def get_local_images():
             "--filter",
             "label=org.opensafely.action",
             "--no-trunc",
-            "--format={{.Repository}}={{.ID}}",
+            "--format={{.Repository}}:{{.Tag}}={{.ID}}",
         ],
         check=True,
         text=True,
         capture_output=True,
     )
-    images = defaultdict(list)
+    images = dict()
     for line in ps.stdout.splitlines():
         if not line.strip():
             continue
 
-        name, sha = line.split("=", 1)
-        images[name].append(sha)
+        line = line.replace("ghcr.io/opensafely-core/", "")
+
+        image, sha = line.split("=", 1)
+        images[image] = sha
 
     return images
 
@@ -135,6 +158,8 @@ def remove_deprecated_images(local_images):
 def get_default_version_for_image(name):
     if name in ["ehrql"]:
         return "v1"
+    elif name == "python":
+        return "v2"
     else:
         return "latest"
 
@@ -143,22 +168,34 @@ session = requests.Session()
 token = None
 
 
-def get_remote_sha(full_name, tag):
+def dockerhub_api(path):
     """Get the current sha for a tag from a docker registry."""
     global token
 
-    parsed = urlparse("https://" + full_name)
-    manifest_url = f"https://ghcr.io/v2/{parsed.path}/manifests/{tag}"
+    url = f"https://ghcr.io/{path}"
 
+    # Docker API requires auth token, even for public resources.
+    # However, we can reuse a public token.
     if token is None:
-        # Docker API requires auth token, even for public resources.
-        # However, we can reuse a public token.
-        response = session.get(manifest_url)
+        response = session.get(url)
         token = get_auth_token(response.headers["www-authenticate"])
+    else:
+        response = session.get(url, headers={"Authorization": f"Bearer {token}"})
 
-    response = session.get(manifest_url, headers={"Authorization": f"Bearer {token}"})
+    # refresh token if needed
+    if response.status_code == 401:
+        token = get_auth_token(response.headers["www-authenticate"])
+        response = session.get(url, headers={"Authorization": f"Bearer {token}"})
+
     response.raise_for_status()
-    return response.json()["config"]["digest"]
+    return response.json()
+
+
+def get_remote_sha(full_name, tag):
+    """Get the current sha for a tag from a docker registry."""
+    parsed = urlparse("https://" + full_name)
+    response = dockerhub_api(f"/v2/{parsed.path}/manifests/{tag}")
+    return response["config"]["digest"]
 
 
 def get_auth_token(header):
@@ -179,14 +216,11 @@ def check_version():
     need_update = []
     local_images = get_local_images()
 
-    for image in IMAGES:
-        full_name = f"{REGISTRY}/{image}"
-        local_shas = local_images.get(full_name, [])
-        if local_shas:
-            version = get_default_version_for_image(image)
-            latest_sha = get_remote_sha(full_name, version)
-            if latest_sha not in local_shas:
-                need_update.append(image)
+    for image, local_sha in local_images.items():
+        name, _, tag = image.partition(":")
+        latest_sha = get_remote_sha(f"{REGISTRY}/{name}", tag)
+        if latest_sha != local_sha:
+            need_update.append(image)
 
     if need_update:
         print(
