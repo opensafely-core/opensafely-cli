@@ -15,7 +15,9 @@ DESCRIPTION = (
     "Command for updating the docker images used to run OpenSAFELY studies locally"
 )
 REGISTRY = config.DOCKER_REGISTRY
-IMAGES = list(config.ALLOWED_IMAGES)
+# The deprecated `databuilder` name is still supported by job-runner, but we don't want
+# it showing up here
+IMAGES = list(config.ALLOWED_IMAGES - {"databuilder"})
 FULL_IMAGES = {f"{REGISTRY}/{image}" for image in IMAGES}
 DEPRECATED_REGISTRIES = ["docker.opensafely.org", "ghcr.io/opensafely"]
 IMAGES.sort()  # this is just for consistency for testing
@@ -129,8 +131,8 @@ def remove_deprecated_images(local_images):
 
 
 def get_default_version_for_image(name):
-    if name in ["databuilder", "ehrql"]:
-        return "v0"
+    if name in ["ehrql"]:
+        return "v1"
     else:
         return "latest"
 
