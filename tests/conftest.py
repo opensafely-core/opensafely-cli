@@ -143,7 +143,7 @@ def run(monkeypatch):
     monkeypatch.setattr(subprocess, "run", fixture.run)
     yield fixture
     if len(fixture) != 0:
-        remaining = "\n".join(str(cmd) for cmd, _ in fixture)
+        remaining = "\n".join(str(f[0]) for f in fixture if f)
         raise AssertionError(
             f"run fixture had unused remaining expected cmds:\n{remaining}"
         )
