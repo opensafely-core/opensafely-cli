@@ -8,7 +8,7 @@ attrs==23.1.0
     # via
     #   jsonschema
     #   referencing
-black==23.11.0
+black==24.3.0
     # via -r requirements.dev.in
 build==1.0.3
     # via pip-tools
@@ -117,7 +117,7 @@ typing-extensions==4.8.0
     #   rich
 urllib3==2.1.0
     # via requests
-vendoring @ https://github.com/opensafely-core/vendoring/archive/add-preserve-metadata-option.zip ; python_version >= "3.8"
+vendoring @ https://github.com/opensafely-core/vendoring/archive/add-preserve-metadata-option.zip
     # via -r requirements.dev.in
 virtualenv==20.24.6
     # via pre-commit
