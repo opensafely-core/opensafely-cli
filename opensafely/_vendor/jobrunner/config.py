@@ -6,6 +6,8 @@ import sys
 from multiprocessing import cpu_count
 from pathlib import Path
 
+from opensafely._vendor import pipeline
+
 
 class ConfigException(Exception):
     pass
@@ -46,6 +48,7 @@ if GIT_SHA == "unknown":
 
 WORKDIR = Path(os.environ.get("WORKDIR", default_work_dir)).resolve()
 DATABASE_FILE = WORKDIR / "db.sqlite"
+METRICS_FILE = WORKDIR / "metrics.sqlite"
 GIT_REPO_DIR = WORKDIR / "repos"
 
 # valid archive formats
@@ -143,25 +146,7 @@ LEVEL4_MAX_FILESIZE = int(
 )  # 16mb
 
 
-# TODO: we might want to take this list from pipeline if we implement it there.
-LEVEL4_FILE_TYPES = [
-    # tables
-    ".csv",
-    ".tsv",
-    # images
-    ".jpg",
-    ".jpeg",
-    ".png",
-    ".svg",
-    ".svgz",
-    # reports
-    ".html",
-    ".pdf",
-    ".txt",
-    ".log",
-    ".json",
-    ".md",
-]
+LEVEL4_FILE_TYPES = pipeline.constants.LEVEL4_FILE_TYPES
 
 STATA_LICENSE = os.environ.get("STATA_LICENSE")
 STATA_LICENSE_REPO = os.environ.get(

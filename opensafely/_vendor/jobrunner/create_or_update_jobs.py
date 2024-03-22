@@ -36,6 +36,10 @@ class JobRequestError(Exception):
     pass
 
 
+class StaleCodelistError(JobRequestError):
+    pass
+
+
 class NothingToDoError(JobRequestError):
     pass
 
@@ -62,10 +66,10 @@ def create_or_update_jobs(job_request):
             JobRequestError,
         ) as e:
             log.info(f"JobRequest failed:\n{e}")
-            create_failed_job(job_request, e)
+            create_job_from_exception(job_request, e)
         except Exception:
             log.exception("Uncaught error while creating jobs")
-            create_failed_job(job_request, JobRequestError("Internal error"))
+            create_job_from_exception(job_request, JobRequestError("Internal error"))
     else:
         if job_request.cancelled_actions:
             log.debug("Cancelling actions: %s", job_request.cancelled_actions)
@@ -114,7 +118,8 @@ def create_jobs(job_request):
 
 
 def validate_job_request(job_request):
-    if config.ALLOWED_GITHUB_ORGS:
+    # http prefix allows local git repos, useful for tests
+    if job_request.repo_url.startswith("http") and config.ALLOWED_GITHUB_ORGS:
         validate_repo_url(job_request.repo_url, config.ALLOWED_GITHUB_ORGS)
     if not job_request.requested_actions:
         raise JobRequestError("At least one action must be supplied")
@@ -238,6 +243,7 @@ def recursively_build_jobs(jobs_by_action, job_request, pipeline_config, action)
         commit=job_request.commit,
         workspace=job_request.workspace,
         database_name=job_request.database_name,
+        requires_db=action_spec.action.is_database_action,
         action=action,
         wait_for_job_ids=wait_for_job_ids,
         requires_outputs_from=action_spec.needs,
@@ -311,12 +317,12 @@ def assert_codelists_ok(job_request, new_jobs):
         # Codelists are out of date; fail the entire job request if any job
         # requires database access
         if job.requires_db:
-            raise JobRequestError(
+            raise StaleCodelistError(
                 f"Codelists are out of date (required by action {job.action})"
             )
 
 
-def create_failed_job(job_request, exception):
+def create_job_from_exception(job_request, exception):
     """
     Sometimes we want to say to the job-server (and the user): your JobRequest
     was broken so we weren't able to create any jobs for it. But the only way
@@ -327,19 +333,25 @@ def create_failed_job(job_request, exception):
 
     This is a bit of a hack, but it keeps the sync protocol simple.
     """
+    action = "__error__"
+    error = exception
+    state = State.FAILED
+    status_message = str(exception)
+
     # Special case for the NothingToDoError which we treat as a success
     if isinstance(exception, NothingToDoError):
         state = State.SUCCEEDED
         code = StatusCode.SUCCEEDED
-        status_message = "All actions have already run"
         action = job_request.requested_actions[0]
         error = None
+    # StaleCodelistError is a failure but not an INTERNAL_ERROR
+    elif isinstance(exception, StaleCodelistError):
+        code = StatusCode.STALE_CODELISTS
     else:
-        state = State.FAILED
         code = StatusCode.INTERNAL_ERROR
+        # include exception name in message to aid debugging
         status_message = f"{type(exception).__name__}: {exception}"
-        action = "__error__"
-        error = exception
+
     now = time.time()
     job = Job(
         job_request_id=job_request.id,
@@ -379,7 +391,10 @@ def set_cancelled_flag_for_actions(job_request_id, actions):
     # working.
     update_where(
         Job,
-        {"cancelled": True},
+        {
+            "cancelled": True,
+            "completed_at": int(time.time()),
+        },
         job_request_id=job_request_id,
         action__in=actions,
     )

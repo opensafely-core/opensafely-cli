@@ -2,9 +2,10 @@ import dataclasses
 import shlex
 import textwrap
 
+from opensafely._vendor.pipeline.models import is_database_action
+
 from opensafely._vendor.jobrunner import config
 from opensafely._vendor.jobrunner.lib import git
-from opensafely._vendor.jobrunner.lib.commands import requires_db_access
 from opensafely._vendor.jobrunner.lib.github_validators import (
     GithubValidationError,
     validate_branch_and_commit,
@@ -182,7 +183,7 @@ def apply_reusable_action(run_args, reusable_action):
         action_image, action_tag = action_run_args[0].split(":")
         if action_image not in config.ALLOWED_IMAGES:
             raise ReusableActionError(f"Unrecognised runtime: {action_image}")
-        if requires_db_access(action_run_args):
+        if is_database_action(action_run_args):
             raise ReusableActionError(
                 "Re-usable actions cannot run commands which access the database"
             )

@@ -9,7 +9,7 @@ import time
 
 from opensafely._vendor import requests
 
-from opensafely._vendor.jobrunner import config, queries
+from opensafely._vendor.jobrunner import config, queries, record_stats
 from opensafely._vendor.jobrunner.create_or_update_jobs import create_or_update_jobs
 from opensafely._vendor.jobrunner.lib.database import find_where, select_values
 from opensafely._vendor.jobrunner.lib.log_utils import configure_logging, set_log_context
@@ -143,19 +143,22 @@ def job_to_remote_format(job):
     Convert our internal representation of a Job into whatever format the
     job-server expects
     """
+
     return {
         "identifier": job.id,
         "job_request_id": job.job_request_id,
         "action": job.action,
         "run_command": job.run_command,
         "status": job.state.value,
-        "status_code": job.status_code.value if job.status_code else "",
+        "status_code": job.status_code.value,
         "status_message": job.status_message or "",
         "created_at": job.created_at_isoformat,
         "updated_at": job.updated_at_isoformat,
         "started_at": job.started_at_isoformat,
         "completed_at": job.completed_at_isoformat,
         "trace_context": job.trace_context,
+        "metrics": record_stats.read_job_metrics(job.id),
+        "requires_db": job.requires_db,
     }
 
 

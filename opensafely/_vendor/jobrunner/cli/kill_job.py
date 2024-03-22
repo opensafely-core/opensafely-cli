@@ -4,6 +4,7 @@ Ops utility for killing jobs and cleaning up containers and volumes
 import argparse
 
 from opensafely._vendor.jobrunner.executors import local
+from opensafely._vendor.jobrunner.job_executor import JobResults
 from opensafely._vendor.jobrunner.lib import database, docker
 from opensafely._vendor.jobrunner.models import Job, State, StatusCode
 from opensafely._vendor.jobrunner.run import job_to_job_definition, mark_job_as_failed
@@ -32,7 +33,16 @@ def main(partial_job_ids, cleanup=False):
         )
         if container_metadata:
             job = job_to_job_definition(job)
-            metadata = local.get_job_metadata(job, {}, container_metadata)
+            # create a dummy JobResults with just the message we want
+            results = JobResults(
+                outputs=None,
+                unmatched_patterns=None,
+                unmatched_outputs=None,
+                exit_code=container_metadata["State"]["ExitCode"],
+                image_id=container_metadata["Image"],
+                message="job killed by OpenSAFELY administrator",
+            )
+            metadata = local.get_job_metadata(job, {}, container_metadata, results)
             local.write_job_logs(job, metadata, copy_log_to_workspace=False)
 
         if cleanup:

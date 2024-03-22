@@ -20,21 +20,34 @@ from .validation import (
 cohortextractor_pat = re.compile(r"cohortextractor:\S+ generate_cohort")
 databuilder_pat = re.compile(r"databuilder|ehrql:\S+ generate[-_]dataset")
 
-database_action_pat = re.compile(
-    r"""
-    # image name
-    ^\b(?:cohortextractor|databuilder|ehrql)\b
-    # :<version> (v0, latest etc)
-    :.+
-    # command; for cohortextractor, only generate_cohort is a database action
-    # For ehrql (and legacy databuilder), generate-dataset and generate-measures
-    # are both database actions. Happily cohortextractor uses generate_measures as
-    # its measures command, so we can excluded cohortextractor measures
-    # actions with this regex.
-    \b(?:generate_cohort|generate-dataset|generate-measures)
-    """,
-    flags=re.X,
-)
+# orderd by most common, going forwards
+DB_COMMANDS = {
+    "ehrql": ("generate-dataset", "generate-measures"),
+    "sqlrunner": "*",  # all commands are valid
+    "cohortextractor": ("generate_cohort", "generate_codelist_report"),
+    "databuilder": ("generate-dataset",),
+}
+
+
+def is_database_action(args: List[str]) -> bool:
+    """
+    By default actions do not have database access, but certain trusted actions require it
+    """
+    image = args[0]
+    image = image.split(":")[0]
+    db_commands = DB_COMMANDS.get(image)
+    if db_commands is None:
+        return False
+
+    if db_commands == "*":
+        return True
+
+    # no command specified
+    if len(args) == 1:
+        return False
+
+    # 1st arg is command
+    return args[1] in db_commands
 
 
 class Expectations(BaseModel):
@@ -131,7 +144,7 @@ class Action(BaseModel):
 
     @property
     def is_database_action(self) -> bool:
-        return database_action_pat.match(self.run.raw) is not None
+        return is_database_action(self.run.parts)
 
 
 class PartiallyValidatedPipeline(TypedDict):

@@ -5,6 +5,7 @@ When loading data from YAML we get dictionaries which pydantic attempts to
 validate.  Some of our validation is done via custom methods using the raw
 dictionary data.
 """
+
 from __future__ import annotations
 
 import pathlib

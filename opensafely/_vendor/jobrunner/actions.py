@@ -4,6 +4,7 @@ import shlex
 from typing import Dict, List
 
 from opensafely._vendor.pipeline.exceptions import ProjectValidationError
+from opensafely._vendor.pipeline.models import Action
 from opensafely._vendor.pipeline.outputs import get_output_dirs
 
 from opensafely._vendor.jobrunner.lib.path_utils import ensure_unix_path
@@ -19,6 +20,7 @@ class ActionSpecification:
     run: str
     needs: List[str]
     outputs: Dict[str, Dict[str, str]]
+    action: Action
 
 
 def get_action_specification(config, action_id, using_dummy_data_backend=False):
@@ -80,6 +82,7 @@ def get_action_specification(config, action_id, using_dummy_data_backend=False):
         run=run_command,
         needs=action_spec.needs,
         outputs=action_spec.outputs.dict(exclude_unset=True),
+        action=action_spec,
     )
 
 
