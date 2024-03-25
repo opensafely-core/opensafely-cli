@@ -5,7 +5,6 @@ LEVEL4_FILE_TYPES = set(
     [
         # tables
         ".csv",
-        ".tsv",
         # images
         ".jpg",
         ".jpeg",
