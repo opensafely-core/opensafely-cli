@@ -22,3 +22,7 @@ opensafely/openprompt-cohort-profile:
   allow: ['open_prompt']
 opensafely/waiting-list:
   allow: ['wl_clockstops', 'wl_clockstops_raw', 'wl_openpathways', 'wl_openpathways_raw']
+opensafely/appoinments-short-data-report:
+  allow: ['appointments']
+opensafely/with-gp-consultations-curation:
+  allow: ['appointments']
