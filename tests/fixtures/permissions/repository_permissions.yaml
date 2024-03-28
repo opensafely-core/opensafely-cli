@@ -14,5 +14,7 @@ opensafely/dummy_wl_clockstops:
   allow: ['wl_clockstops']
 opensafely/dummy_wl_openpathways:
   allow: ['wl_openpathways']
+opensafely/dummy_appointments:
+  allow: ['appointments']
 opensafely/dummy_all:
-  allow: ['icnarc', 'ons', 'isaric', 'ukrr', 'open_prompt', 'wl_clockstops', 'wl_openpathways']
+  allow: ['icnarc', 'ons', 'isaric', 'ukrr', 'open_prompt', 'wl_clockstops', 'wl_openpathways', 'appointments']
