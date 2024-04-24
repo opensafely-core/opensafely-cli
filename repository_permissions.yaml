@@ -26,3 +26,15 @@ opensafely/appointments-short-data-report:
   allow: ['appointments']
 opensafely/with-gp-consultations-curation:
   allow: ['appointments']
+opensafely/digital-access-to-primary-care:
+  allow: ['appointments']
+opensafely/uom_pregnancy_tx_pathways:
+  allow: ['appointments']
+opensafely/post-covid-renal:
+  allow: ['appointments']
+opensafely/post-covid-autoimmune:
+  allow: ['appointments']
+opensafely/post-covid-neurodegenerative:
+  allow: ['appointments']
+opensafely/ckd-healthcare-use:
+  allow: ['appointments']
