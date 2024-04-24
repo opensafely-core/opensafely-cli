@@ -13,7 +13,7 @@ opensafely/ckd-coverage-ve:
 opensafely/sotrovimab-and-molnupiravir:
   allow: ['ukrr']
 opensafely/ckd-healthcare-use:
-  allow: ['ukrr']
+  allow: ['ukrr', 'appointments']
 opensafely/isaric-exploration:
   allow: ['isaric']
 opensafely/openprompt-hrqol:
@@ -35,6 +35,4 @@ opensafely/post-covid-renal:
 opensafely/post-covid-autoimmune:
   allow: ['appointments']
 opensafely/post-covid-neurodegenerative:
-  allow: ['appointments']
-opensafely/ckd-healthcare-use:
   allow: ['appointments']
