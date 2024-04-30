@@ -348,9 +348,10 @@ def test_check(
         validate_pass(capsys, continue_on_error)
 
 
-def test_repository_permissions_yaml():
+def get_datasource_permissions():
     try:
         permissions = check.get_datasource_permissions(check.PERMISSIONS_URL)
+        return permissions
     except RequestException as e:
         # This test should always pass on main, but if we've renamed the file
         # on the branch, it will fail before it's merged
@@ -358,6 +359,12 @@ def test_repository_permissions_yaml():
         if branch != "main" and "Error 404" in str(e):
             pytest.xfail("Permissions file does not exist on main yet")
 
+
+@pytest.mark.parametrize(
+    "get_permissions", [get_datasource_permissions, check.get_local_permissions]
+)
+def test_repository_permissions_yaml(get_permissions):
+    permissions = get_permissions()
     assert permissions, "empty permissions file"
     assert type(permissions) == CommentedMap, "invalid permissions file"
     for k, v in permissions.items():
