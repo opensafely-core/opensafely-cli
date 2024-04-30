@@ -36,3 +36,9 @@ opensafely/post-covid-autoimmune:
   allow: ['appointments']
 opensafely/post-covid-neurodegenerative:
   allow: ['appointments']
+opensafely/winter-pressures:
+  allow: ['appointments']
+opensafely/deaths-at-home-covid19:
+  allow: ['appointments']
+opensafely/end-of-life-carequality:
+  allow: ['appointments']
