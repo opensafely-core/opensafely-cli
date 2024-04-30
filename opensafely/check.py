@@ -204,6 +204,13 @@ def get_datasource_permissions(permissions_url):
     return permissions
 
 
+def get_local_permissions():
+    path = Path(Path(PERMISSIONS_URL).name)
+    yaml = YAML()
+    permissions = yaml.load(path.read_text())
+    return permissions
+
+
 def get_repository_name(continue_on_error):
     if "GITHUB_REPOSITORY" in os.environ:
         return os.environ["GITHUB_REPOSITORY"]
