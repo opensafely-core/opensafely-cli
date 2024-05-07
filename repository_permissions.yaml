@@ -42,3 +42,5 @@ opensafely/deaths-at-home-covid19:
   allow: ['appointments']
 opensafely/end-of-life-carequality:
   allow: ['appointments']
+opensafely/post-covid-kidney-outcomes:
+  allow: ['appointments']
