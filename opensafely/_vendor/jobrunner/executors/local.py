@@ -22,7 +22,7 @@ from opensafely._vendor.jobrunner.job_executor import (
     JobStatus,
     Privacy,
 )
-from opensafely._vendor.jobrunner.lib import datestr_to_ns_timestamp, docker
+from opensafely._vendor.jobrunner.lib import datestr_to_ns_timestamp, docker, file_digest
 from opensafely._vendor.jobrunner.lib.git import checkout_commit
 from opensafely._vendor.jobrunner.lib.path_utils import list_dir_with_ignore_patterns
 from opensafely._vendor.jobrunner.lib.string_utils import tabulate
@@ -493,53 +493,104 @@ def persist_outputs(job_definition, outputs, job_metadata):
     # Extract outputs to workspace
     workspace_dir = get_high_privacy_workspace(job_definition.workspace)
 
-    excluded_files = {}
+    excluded_job_msgs = {}
+    excluded_file_msgs = {}
 
     sizes = {}
-    for filename in outputs.keys():
+    # copy all files into workspace long term storage
+    for filename, level in outputs.items():
         log.info(f"Extracting output file: {filename}")
-        size = volumes.get_volume_api(job_definition).copy_from_volume(
-            job_definition, filename, workspace_dir / filename
+        dst = workspace_dir / filename
+        sizes[filename] = volumes.get_volume_api(job_definition).copy_from_volume(
+            job_definition, filename, dst
         )
-        sizes[filename] = size
 
-    # Copy out medium privacy files
+    l4_files = [
+        filename
+        for filename, level in outputs.items()
+        if level == "moderately_sensitive"
+    ]
+
+    csv_metadata = {}
+    # check any L4 files are vaild
+    for filename in l4_files:
+        ok, job_msg, file_msg, csv_counts = check_l4_file(
+            job_definition, filename, sizes[filename], workspace_dir
+        )
+        if not ok:
+            excluded_job_msgs[filename] = job_msg
+            excluded_file_msgs[filename] = file_msg
+        csv_metadata[filename] = csv_counts
     medium_privacy_dir = get_medium_privacy_workspace(job_definition.workspace)
 
-    for filename, privacy_level in outputs.items():
-        if privacy_level == "moderately_sensitive":
-            ok, job_msg, file_msg = check_l4_file(
-                job_definition, filename, sizes[filename], workspace_dir
-            )
+    # local run currently does not have a level 4 directory, so exit early
+    if not medium_privacy_dir:
+        return excluded_job_msgs
 
-            if not ok:
-                excluded_files[filename] = job_msg
+    # Copy out medium privacy files to L4
+    for filename in l4_files:
+        src = workspace_dir / filename
+        dst = medium_privacy_dir / filename
+        message_file = medium_privacy_dir / (filename + ".txt")
 
-            # local run currently does not have a level 4 directory
-            if medium_privacy_dir:
-                message_file = medium_privacy_dir / (filename + ".txt")
+        if filename in excluded_file_msgs:
+            message_file.parent.mkdir(exist_ok=True, parents=True)
+            message_file.write_text(excluded_file_msgs[filename])
+        else:
+            volumes.copy_file(src, dst)
+            # if it previously had a message, delete it
+            delete_files_from_directory(medium_privacy_dir, [message_file])
 
-                if ok:
-                    volumes.copy_file(
-                        workspace_dir / filename, medium_privacy_dir / filename
-                    )
-                    # if it previously had a too big notice, delete it
-                    delete_files_from_directory(medium_privacy_dir, [message_file])
-                else:
-                    message_file.parent.mkdir(exist_ok=True, parents=True)
-                    message_file.write_text(file_msg)
+    # Update manifest with file metdata
+    manifest = read_manifest_file(medium_privacy_dir, job_definition.workspace)
 
-                # this can be removed once osrelease is dead
-                write_manifest_file(
-                    medium_privacy_dir,
-                    {
-                        # this currently needs to exist, but is not used
-                        "repo": None,
-                        "workspace": job_definition.workspace,
-                    },
-                )
+    for filename, level in outputs.items():
+        abspath = workspace_dir / filename
+        manifest["outputs"][filename] = get_output_metadata(
+            abspath,
+            level,
+            job_id=job_definition.id,
+            job_request=job_definition.job_request_id,
+            action=job_definition.action,
+            commit=job_definition.study.commit,
+            excluded=filename in excluded_file_msgs,
+            message=excluded_job_msgs.get(filename),
+            csv_counts=csv_metadata.get(filename),
+        )
+    write_manifest_file(medium_privacy_dir, manifest)
 
-    return excluded_files
+    return excluded_job_msgs
+
+
+def get_output_metadata(
+    abspath,
+    level,
+    job_id,
+    job_request,
+    action,
+    commit,
+    excluded,
+    message=None,
+    csv_counts=None,
+):
+    stat = abspath.stat()
+    with abspath.open("rb") as fp:
+        content_hash = file_digest(fp, "sha256").hexdigest()
+    csv_counts = csv_counts or {}
+    return {
+        "level": level,
+        "job_id": job_id,
+        "job_request": job_request,
+        "action": action,
+        "commit": commit,
+        "size": stat.st_size,
+        "timestamp": stat.st_mtime,
+        "content_hash": content_hash,
+        "excluded": excluded,
+        "message": message,
+        "row_count": csv_counts.get("rows"),
+        "col_count": csv_counts.get("cols"),
+    }
 
 
 MAX_SIZE_MSG = """
@@ -564,7 +615,7 @@ is of type {suffix}. This is not a valid file type for moderately_sensitive file
 
 Level 4 files should be aggregate information easily viewable by output checkers.
 
-See available list of file types here: https://docs.opensafely.org/releasing-files/#allowed-file-types
+See available list of file types here: https://docs.opensafely.org/requesting-file-release/#allowed-file-types.
 """
 
 PATIENT_ID = """
@@ -582,6 +633,18 @@ column from your data.
 
 """
 
+MAX_CSV_ROWS_MSG = """
+The file:
+
+{filename}
+
+contained {row_count} rows, which is above the limit for moderately_sensitive files of
+{limit} rows.
+
+As such, it has *not* been copied to Level 4 storage. Please contact tech-support for
+further assistance.
+"""
+
 
 def check_l4_file(job_definition, filename, size, workspace_dir):
     def mb(b):
@@ -589,6 +652,7 @@ def check_l4_file(job_definition, filename, size, workspace_dir):
 
     job_msgs = []
     file_msgs = []
+    csv_counts = {"rows": None, "cols": None}
 
     suffix = Path(filename).suffix
     if suffix not in config.LEVEL4_FILE_TYPES:
@@ -603,12 +667,29 @@ def check_l4_file(job_definition, filename, size, workspace_dir):
             with actual_file.open() as f:
                 reader = csv.DictReader(f)
                 headers = reader.fieldnames
+                first_row = next(reader, None)
+                if first_row:
+                    csv_counts["cols"] = len(first_row)
+                    csv_counts["rows"] = sum(1 for _ in reader) + 1
+                else:
+                    csv_counts["cols"] = csv_counts["rows"] = 0
         except Exception:
             pass
         else:
             if headers and "patient_id" in headers:
                 job_msgs.append("File has patient_id column")
                 file_msgs.append(PATIENT_ID.format(filename=filename))
+            if csv_counts["rows"] > job_definition.level4_max_csv_rows:
+                job_msgs.append(
+                    f"File row count ({csv_counts['rows']}) exceeds maximum allowed rows ({job_definition.level4_max_csv_rows})"
+                )
+                file_msgs.append(
+                    MAX_CSV_ROWS_MSG.format(
+                        filename=filename,
+                        row_count=csv_counts["rows"],
+                        limit=job_definition.level4_max_csv_rows,
+                    )
+                )
 
     if size > job_definition.level4_max_filesize:
         job_msgs.append(
@@ -623,9 +704,9 @@ def check_l4_file(job_definition, filename, size, workspace_dir):
         )
 
     if job_msgs:
-        return False, ",".join(job_msgs), "\n\n".join(file_msgs)
+        return False, ",".join(job_msgs), "\n\n".join(file_msgs), csv_counts
     else:
-        return True, None, None
+        return True, None, None, csv_counts
 
 
 def find_matching_outputs(job_definition):
@@ -802,6 +883,21 @@ def redact_environment_variables(container_metadata):
         for (key, value) in env_vars
     ]
     container_metadata["Config"]["Env"] = redacted_vars
+
+
+def read_manifest_file(workspace_dir, workspace):
+    manifest_file = workspace_dir / METADATA_DIR / MANIFEST_FILE
+
+    if manifest_file.exists():
+        manifest = json.loads(manifest_file.read_text())
+        manifest.setdefault("outputs", {})
+        return manifest
+
+    return {
+        "workspace": workspace,
+        "repo": None,  # old key, no longer needed
+        "outputs": {},
+    }
 
 
 def write_manifest_file(workspace_dir, manifest):
