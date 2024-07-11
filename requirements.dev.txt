@@ -125,7 +125,7 @@ wheel==0.41.3
     # via
     #   -r requirements.dev.in
     #   pip-tools
-zipp==3.17.0
+zipp==3.19.1
     # via
     #   importlib-metadata
     #   importlib-resources
