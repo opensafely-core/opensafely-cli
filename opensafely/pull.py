@@ -214,9 +214,10 @@ def get_auth_token(header):
     return auth_response.json()["token"]
 
 
-def check_version():
+def check_version(local_images=None):
     need_update = []
-    local_images = get_local_images()
+    if local_images is None:
+        local_images = get_local_images()
 
     for image, local_sha in local_images.items():
         name, _, tag = image.partition(":")
