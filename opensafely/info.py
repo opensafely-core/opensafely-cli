@@ -1,6 +1,5 @@
 import json
 import subprocess
-import sys
 
 import opensafely
 from opensafely import pull
@@ -38,15 +37,15 @@ def main():
                 cpu=info["NCPU"],
             )
         )
-    except Exception:
-        sys.exit("Error retreiving docker information")
+    except Exception as exc:
+        raise RuntimeError(f"Error retreiving docker information: {exc}")
 
     print("OpenSAFELY Docker image versions:")
     try:
         local_images = pull.get_local_images()
         updates = pull.check_version(local_images)
-    except Exception:
-        sys.exit("Error retreiving image information")
+    except Exception as exc:
+        raise RuntimeError(f"Error retreiving image information: {exc}")
     else:
         for image, sha in sorted(local_images.items()):
             update = "(needs update)" if image in updates else "(latest version)"
