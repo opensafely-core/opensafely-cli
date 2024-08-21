@@ -222,10 +222,4 @@ def check_version():
         if latest_sha != local_sha:
             need_update.append(image)
 
-    if need_update:
-        print(
-            f"Warning: the OpenSAFELY docker images for {', '.join(need_update)} actions are out of date - please update by running:\n"
-            "    opensafely pull\n",
-            file=sys.stderr,
-        )
     return need_update

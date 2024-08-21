@@ -43,24 +43,16 @@ def test_need_to_update(set_current_version):
     assert upgrade.need_to_update("1.11.0")
 
 
-def test_check_version_needs_updating(set_current_version, set_pypi_version, capsys):
+def test_check_version_needs_updating(set_current_version, set_pypi_version):
     set_pypi_version("1.1.0")
     set_current_version("v1.0.0")
     assert upgrade.check_version()
-    _, err = capsys.readouterr()
-    assert err.splitlines() == [
-        "Warning: there is a newer version of opensafely available (1.1.0) - please upgrade by running:",
-        "    opensafely upgrade",
-        "",
-    ]
 
 
-def test_check_version_not_need_updating(set_current_version, set_pypi_version, capsys):
+def test_check_version_not_need_updating(set_current_version, set_pypi_version):
     set_pypi_version("1.0.0")
     set_current_version("v1.0.0")
     assert not upgrade.check_version()
-    out, _ = capsys.readouterr()
-    assert out.strip() == ""
 
 
 @pytest.mark.parametrize(

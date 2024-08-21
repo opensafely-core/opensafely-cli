@@ -47,8 +47,51 @@ def should_version_check():
     return VERSION_FILE.stat().st_mtime < four_hours_ago.timestamp()
 
 
+# separated out to be able to used in test setup
 def update_version_check():
     VERSION_FILE.touch()
+
+
+def warn_if_updates_needed(argv):
+    # we only check for new versions periodically
+    if not should_version_check():
+        return
+
+    # we version check before parse_args is called so that if a user is
+    # following recent documentation but has an old opensafely installed,
+    # there's some hint as to why their invocation is failing before being told
+    # by argparse
+    if len(argv) == 1 or argv[1] != "upgrade":
+        try:
+            latest = upgrade.check_version()
+            if latest:
+                print(
+                    f"Warning: there is a newer version of opensafely available ({latest})"
+                    " - please upgrade by running:\n"
+                    "    opensafely upgrade\n",
+                    file=sys.stderr,
+                )
+                # if we're out of date, don't warn the user about out of date images as well
+                return
+        except Exception:
+            pass
+
+    # check for out of date images unless we are updating images.
+    if len(argv) == 1 or argv[1] != "pull":
+        try:
+            need_update = pull.check_version()
+            if need_update:
+                print(
+                    f"Warning: the OpenSAFELY docker images for {', '.join(need_update)} actions are out of date"
+                    " - please update by running:\n"
+                    "    opensafely pull\n",
+                    file=sys.stderr,
+                )
+
+        except Exception:
+            pass
+
+    update_version_check()
 
 
 def main():
@@ -94,26 +137,7 @@ def main():
     add_subcommand("exec", execute)
     add_subcommand("clean", clean)
 
-    # we only check for new versions periodically
-    if should_version_check():
-        # we version check before parse_args is called so that if a user is
-        # following recent documentation but has an old opensafely installed,
-        # there's some hint as to why their invocation is failing before being told
-        # by argparse.
-        if len(sys.argv) == 1 or sys.argv[1] != "upgrade":
-            try:
-                upgrade.check_version()
-            except Exception:
-                pass
-
-        if len(sys.argv) == 1 or sys.argv[1] != "pull":
-            try:
-                pull.check_version()
-            except Exception:
-                pass
-
-        update_version_check()
-
+    warn_if_updates_needed(sys.argv)
     args = parser.parse_args()
     kwargs = vars(args)
 
