@@ -21,6 +21,8 @@ def expect_local_images(run, stdout="", **kwargs):
             "ghcr.io/opensafely-core/*",
             "--filter",
             "label=org.opensafely.action",
+            "--filter",
+            "dangling=false",
             "--no-trunc",
             "--format={{.Repository}}:{{.Tag}}={{.ID}}",
         ],

@@ -126,6 +126,8 @@ def get_local_images():
             "ghcr.io/opensafely-core/*",  # this excludes dev builds
             "--filter",
             "label=org.opensafely.action",
+            "--filter",
+            "dangling=false",  # these will be pruned
             "--no-trunc",
             "--format={{.Repository}}:{{.Tag}}={{.ID}}",
         ],
