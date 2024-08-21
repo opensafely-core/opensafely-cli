@@ -2,37 +2,8 @@ import argparse
 import sys
 
 import pytest
-from requests_mock import mocker
 
-import opensafely
 from opensafely import upgrade
-from opensafely._vendor import requests
-
-
-# Because we're using a vendored version of requests we need to monkeypatch the
-# requests_mock library so it references our vendored library instead
-mocker.requests = requests
-mocker._original_send = requests.Session.send
-
-
-@pytest.fixture
-def set_current_version(monkeypatch):
-    def set(value):  # noqa: A001
-        assert value[0] == "v", "Current __version__ must start with v"
-        monkeypatch.setattr(opensafely, "__version__", value)
-
-    yield set
-
-
-@pytest.fixture
-def set_pypi_version(requests_mock):
-    def set(version):  # noqa: A001
-        requests_mock.get(
-            "https://pypi.org/pypi/opensafely/json",
-            json={"info": {"version": version}},
-        )
-
-    return set
 
 
 def test_main_latest_upgrade(set_pypi_version, run, set_current_version):

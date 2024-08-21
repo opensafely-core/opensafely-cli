@@ -14,10 +14,20 @@ opensafely_module_dir = Path(__file__).parent
 pkg_resources.working_set.add_entry(f"{opensafely_module_dir}/_vendor")
 
 import pytest  # noqa: E402
+from requests_mock import mocker  # noqa: E402
 
+import opensafely  # noqa: E402
 from opensafely import utils  # noqa: E402
+from opensafely._vendor import requests  # noqa: E402
 
 
+# Because we're using a vendored version of requests we need to monkeypatch the
+# requests_mock library so it references our vendored library instead
+#
+mocker.requests = requests
+mocker._original_send = requests.Session.send
+
+# save reference to actual run function
 _actual_run = subprocess.run
 
 
@@ -173,3 +183,23 @@ def run_main(module, cli_args):
     argv = shlex.split(cli_args)
     args = parser.parse_args(argv)
     return module.main(**vars(args))
+
+
+@pytest.fixture
+def set_current_version(monkeypatch):
+    def set(value):  # noqa: A001
+        assert value[0] == "v", "Current __version__ must start with v"
+        monkeypatch.setattr(opensafely, "__version__", value)
+
+    yield set
+
+
+@pytest.fixture
+def set_pypi_version(requests_mock):
+    def set(version):  # noqa: A001
+        requests_mock.get(
+            "https://pypi.org/pypi/opensafely/json",
+            json={"info": {"version": version}},
+        )
+
+    return set
