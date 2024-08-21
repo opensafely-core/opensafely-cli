@@ -3,7 +3,7 @@
 ## Vendoring
 
 To minimise the possibility for installation issues this package vendors
-all its dependencies under the [opensafely._vendor](./opensafely/_vendor)
+all its dependencies under the [`opensafely._vendor`](./opensafely/_vendor)
 namespace using the [vendoring](https://pypi.org/project/vendoring/) tool.
 
 This brings its own complexities (particularly around the `requests`
@@ -23,9 +23,9 @@ To update the vendored version of job-runner:
    ```
 
 2. Run the update script. It will default to latest tag, but you can pass
-   a specific job-runner tag.  
+   a specific job-runner tag.
    ```
-   ./scripts/update.sh [version_tag] 
+   ./scripts/update.sh [version_tag]
    ```
 
 3. Commit the results
@@ -46,7 +46,7 @@ known as "software engineering".
 
 ## Releases
 
-New versions are tagged, and the PyPI package built and published, automatically 
-via GitHub actions on merges to `main`.  Note that the version will be bumped 
+New versions are tagged, and the PyPI package built and published, automatically
+via GitHub actions on merges to `main`.  Note that the version will be bumped
 according to information parsed from the commits using semantic-release conventions (e.g. `fix:`, `feat:`).  If no semantic commit is found since the last tag, a new version
 will not be released.

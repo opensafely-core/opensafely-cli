@@ -21,6 +21,8 @@ def expect_local_images(run, stdout="", **kwargs):
             "ghcr.io/opensafely-core/*",
             "--filter",
             "label=org.opensafely.action",
+            "--filter",
+            "dangling=false",
             "--no-trunc",
             "--format={{.Repository}}:{{.Tag}}={{.ID}}",
         ],
@@ -166,23 +168,15 @@ def test_remove_deprecated_images(run):
     pull.remove_deprecated_images(local_images)
 
 
-def test_check_version_out_of_date(run, capsys):
+def test_check_version_out_of_date(run):
     expect_local_images(
         run,
         stdout="ghcr.io/opensafely-core/python:latest=sha256:oldsha",
     )
-
     assert len(pull.check_version()) == 1
-    out, err = capsys.readouterr()
-    assert out == ""
-    assert err.splitlines() == [
-        "Warning: the OpenSAFELY docker images for python:latest actions are out of date - please update by running:",
-        "    opensafely pull",
-        "",
-    ]
 
 
-def test_check_version_up_to_date(run, capsys):
+def test_check_version_up_to_date(run):
     current_sha = pull.get_remote_sha("ghcr.io/opensafely-core/python", "latest")
     pull.token = None
     expect_local_images(
@@ -191,9 +185,6 @@ def test_check_version_up_to_date(run, capsys):
     )
 
     assert len(pull.check_version()) == 0
-    out, err = capsys.readouterr()
-    assert err == ""
-    assert out.splitlines() == []
 
 
 def test_get_actions_from_project_yaml_no_actions():

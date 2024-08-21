@@ -80,11 +80,7 @@ def need_to_update(latest):
 
 def check_version():
     latest = get_latest_version()
-    update = need_to_update(latest)
-    if update:
-        print(
-            f"Warning: there is a newer version of opensafely available ({latest}) - please upgrade by running:\n"
-            "    opensafely upgrade\n",
-            file=sys.stderr,
-        )
-    return update
+    if need_to_update(latest):
+        return latest
+    else:
+        return False
