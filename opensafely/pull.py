@@ -139,6 +139,9 @@ def get_local_images():
     for line in ps.stdout.splitlines():
         if not line.strip():
             continue
+        # dangling=false does not work on older versions of docker, so manually do it
+        if "<none>" in line:
+            continue
 
         line = line.replace("ghcr.io/opensafely-core/", "")
 

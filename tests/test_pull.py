@@ -101,6 +101,16 @@ def test_default_with_local_images(run, capsys):
     ]
 
 
+def test_default_with_old_docker(run, capsys):
+    run.expect(["docker", "info"])
+    expect_local_images(run, stdout="ghcr.io/opensafely-core/r:<none>=sha")
+
+    pull.main(image="all", force=False)
+    out, err = capsys.readouterr()
+    assert err == ""
+    assert out.strip() == "No OpenSAFELY docker images found to update."
+
+
 def test_specific_image(run, capsys):
     run.expect(["docker", "info"])
     expect_local_images(run)
