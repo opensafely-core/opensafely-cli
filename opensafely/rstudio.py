@@ -45,7 +45,12 @@ def add_arguments(parser):
         default="rstudio" # TODO: "ghcr.io/opensafely-core/rstudio:latest"
     )
 
-
+    parser.add_argument(
+        "--port",
+        "-p",
+        default=8787,
+        help="Port to run on",
+    )
 
 def open_browser(name, port):
     try:
