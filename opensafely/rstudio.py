@@ -45,26 +45,6 @@ def add_arguments(parser):
         default="rstudio" # TODO: "ghcr.io/opensafely-core/rstudio:latest"
     )
 
-    # we copy a number of standard jupyter lab arguments, and capture them to handle them ourselves
-    parser.add_argument(
-        "--no-browser",
-        "-n",
-        default=False,
-        action="store_true",
-        help="Do not attempt to open a browser",
-    )
-    parser.add_argument(
-        "--port",
-        "-p",
-        default=None,
-        help="Port to run on",
-    )
-    parser.add_argument(
-        "jupyter_args",
-        nargs=argparse.REMAINDER,
-        metavar="...",
-        help="Any additional arguments to pass to the jupyter lab command",
-    )
 
 
 def open_browser(name, port):
