@@ -115,7 +115,7 @@ def get_free_port():
     return port
 
 
-def main(directory, name, port, no_browser, jupyter_args):
+def main(directory, name, port):
     if name is None:
         name = f"os-jupyter-{directory.name}"
 
@@ -125,20 +125,18 @@ def main(directory, name, port, no_browser, jupyter_args):
         # personal machine is very small.
         port = str(get_free_port())
 
-    jupyter_cmd = [
+    rstudio_cmd = [
         "jupyter",
         "lab",
         "--ip=0.0.0.0",
         f"--port={port}",
-        "--allow-root",
-        "--no-browser",
         # display the url from the hosts perspective
         f"--LabApp.custom_display_url=http://localhost:{port}/",
         *jupyter_args,
     ]
 
-    print(f"Running following jupyter cmd in OpenSAFELY docker container {name}...")
-    print(" ".join(jupyter_cmd))
+    print(f"Running following RStudio Server cmd in OpenSAFELY docker container {name}...")
+    print(" ".join(rstudio_cmd))
 
     if not no_browser:
         # start thread to open web browser
@@ -161,6 +159,6 @@ def main(directory, name, port, no_browser, jupyter_args):
     ]
 
     debug("docker: " + " ".join(docker_args))
-    ps = utils.run_docker(docker_args, "python", jupyter_cmd, interactive=True)
-    # we want to exit with the same code that jupyter did
+    ps = utils.run_docker(docker_args, "python", rstudio_cmd, interactive=True)
+    # we want to exit with the same code that rstudio-server did
     return ps.returncode
