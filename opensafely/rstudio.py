@@ -37,7 +37,7 @@ def add_arguments(parser):
         "-d",
         default=os.getcwd(),
         type=Path,
-        help="Directory to run the jupyter server in (default is current dir)",
+        help="Directory to run the RStudio Server session in (default is current dir)",
     )
     parser.add_argument(
         "--name",
