@@ -42,7 +42,7 @@ def add_arguments(parser):
     parser.add_argument(
         "--name",
         help="Name of docker image (defaults to use directory name)",
-        default="rstudio" # TODO: "ghcr.io/opensafely-core/rstudio:latest"
+        default="rstudio"
     )
 
     parser.add_argument(
@@ -132,19 +132,18 @@ def main(directory, name, port):
         debug("starting open_browser thread")
         thread.start()
 
+    # Command should be: docker run --rm -it --platform linux/amd64 -p 8787:8787 -v "/${PWD}:/home/rstudio" rstudio
     docker_args = [
-        # we use our port on both sides of the docker port mapping so that
-        # jupyter's logging uses the correct port from the user's perspective
         f"-p={port}:{port}",
         f"--name={name}",
-        f"--hostname={name}",
-        "--env",
-        "HOME=/home/rstudio",
+#        f"--hostname={name}",# TODO: query
         "--rm",
         "-it",
+        "--platform linux/amd64",
+        -v "/${PWD}:/home/rstudio",
     ]
 
     debug("docker: " + " ".join(docker_args))
-    ps = utils.run_docker(docker_args, "rstudio", interactive=True)
+    ps = utils.run_docker(docker_args, "rstudio", interactive=True) #  TODO: query amend "rstudio" to when rstudio image published "ghcr.io/opensafely-core/rstudio:latest"
     # we want to exit with the same code that rstudio-server did
     return ps.returncode
