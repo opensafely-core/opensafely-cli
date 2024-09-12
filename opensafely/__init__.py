@@ -22,6 +22,7 @@ from opensafely import (  # noqa: E402
     info,
     jupyter,
     pull,
+    rstudio,
     unzip,
     upgrade,
 )
@@ -136,6 +137,7 @@ def main():
     add_subcommand("info", info)
     add_subcommand("exec", execute)
     add_subcommand("clean", clean)
+    add_subcommand("rstudio", rstudio)
 
     warn_if_updates_needed(sys.argv)
     args = parser.parse_args()
