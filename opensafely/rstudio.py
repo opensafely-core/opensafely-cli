@@ -42,6 +42,7 @@ def add_arguments(parser):
     parser.add_argument(
         "--name",
         help="Name of docker image (defaults to use directory name)",
+        default="rstudio" # TODO: "ghcr.io/opensafely-core/rstudio:latest"
     )
 
     # we copy a number of standard jupyter lab arguments, and capture them to handle them ourselves
