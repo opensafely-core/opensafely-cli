@@ -125,19 +125,6 @@ def main(directory, name, port):
         # personal machine is very small.
         port = str(get_free_port())
 
-    rstudio_cmd = [
-        "jupyter",
-        "lab",
-        "--ip=0.0.0.0",
-        f"--port={port}",
-        # display the url from the hosts perspective
-        f"--LabApp.custom_display_url=http://localhost:{port}/",
-        *jupyter_args,
-    ]
-
-    print(f"Running following RStudio Server cmd in OpenSAFELY docker container {name}...")
-    print(" ".join(rstudio_cmd))
-
     if not no_browser:
         # start thread to open web browser
         thread = threading.Thread(target=open_browser, args=(name, port), daemon=True)
@@ -152,13 +139,12 @@ def main(directory, name, port):
         f"--name={name}",
         f"--hostname={name}",
         "--env",
-        "HOME=/tmp",
-        # allow importing from the top level
-        "--env",
-        "PYTHONPATH=/workspace",
+        "HOME=/home/rstudio",
+        "--rm",
+        "-it",
     ]
 
     debug("docker: " + " ".join(docker_args))
-    ps = utils.run_docker(docker_args, "python", rstudio_cmd, interactive=True)
+    ps = utils.run_docker(docker_args, "rstudio", interactive=True)
     # we want to exit with the same code that rstudio-server did
     return ps.returncode
