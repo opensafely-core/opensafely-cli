@@ -57,7 +57,7 @@ def open_browser(name, port):
         metadata = None
         metadata_path = "/tmp/.local/share/jupyter/runtime/nbserver-*.json"
 
-        # wait for jupyter to be set up
+        # wait for rstudio-server to be set up
         start = time.time()
         while metadata is None and time.time() - start < 120.0:
             ps = subprocess.run(
@@ -117,13 +117,14 @@ def get_free_port():
 
 def main(directory, name, port):
     if name is None:
-        name = f"os-jupyter-{directory.name}"
+        name = f"os-rstudio-{directory.name}"
 
-    if port is None:
-        # this is a race condition, as something else could consume the socket
-        # before docker binds to it, but the chance of that on a user's
-        # personal machine is very small.
-        port = str(get_free_port())
+    # TODO: query - I think I don't need this
+    # if port is None:
+    #     # this is a race condition, as something else could consume the socket
+    #     # before docker binds to it, but the chance of that on a user's
+    #     # personal machine is very small.
+    #     port = str(get_free_port())
 
     if not no_browser:
         # start thread to open web browser
@@ -140,7 +141,7 @@ def main(directory, name, port):
         "--rm",
         "-it",
         "--platform linux/amd64",
-        -v "/${PWD}:/home/rstudio",
+        "-v '/${PWD}:/home/rstudio'",
     ]
 
     debug("docker: " + " ".join(docker_args))
