@@ -72,9 +72,9 @@ def open_browser(name, port):
         #     else:
         #         time.sleep(1)
 
-        if metadata is None:
-            debug("open_browser: Could not get metadata")
-            return
+        # if metadata is None:
+        #     debug("open_browser: Could not get metadata")
+        #     return
 
         url = f"http://localhost:{port}/?token={metadata['token']}"
         debug(f"open_browser: url={url}")
