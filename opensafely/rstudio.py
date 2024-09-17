@@ -108,12 +108,12 @@ def open_browser(name, port):
         sys.stderr.flush()
 
 
-# def get_free_port():
-#     sock = socket.socket()
-#     sock.bind(("", 0))
-#     port = sock.getsockname()[1]
-#     sock.close()
-#     return port
+def get_free_port():
+    sock = socket.socket()
+    sock.bind(("", 0))
+    port = sock.getsockname()[1]
+    sock.close()
+    return port
 
 
 def main(directory, name, port):
@@ -121,11 +121,11 @@ def main(directory, name, port):
         name = f"os-rstudio-{directory.name}"
 
     # TODO: query - I think I don't need this
-    # if port is None:
-    #     # this is a race condition, as something else could consume the socket
-    #     # before docker binds to it, but the chance of that on a user's
-    #     # personal machine is very small.
-    #     port = str(get_free_port())
+    if port is None:
+        # this is a race condition, as something else could consume the socket
+        # before docker binds to it, but the chance of that on a user's
+        # personal machine is very small.
+        port = str(get_free_port())
 
     if not no_browser:
         # start thread to open web browser
