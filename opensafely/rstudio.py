@@ -142,7 +142,7 @@ def main(directory, name, port):
         "--rm",
         "-it",
         "--platform linux/amd64",
-        "-v '/${PWD}:/home/rstudio'",
+        "-v '/${PWD}:/home/rstudio'", # check about Windows Powershell
     ]
 
     debug("docker: " + " ".join(docker_args))
