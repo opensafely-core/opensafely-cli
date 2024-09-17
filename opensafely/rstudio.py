@@ -76,7 +76,7 @@ def open_browser(name, port):
         #     debug("open_browser: Could not get metadata")
         #     return
 
-        url = f"http://localhost:{port}/?token={metadata['token']}"
+        url = f"http://localhost:{port}"
         debug(f"open_browser: url={url}")
 
         # wait for port to be open
