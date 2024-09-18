@@ -54,28 +54,6 @@ def add_arguments(parser):
 
 def open_browser(name, port):
     try:
-        # metadata = None
-        # TODO: query if I need an amended form of the following
-        # metadata_path = "/tmp/.local/share/jupyter/runtime/nbserver-*.json"
-
-        # # wait for rstudio-server to be set up
-        # start = time.time()
-        # while metadata is None and time.time() - start < 120.0:
-        #     ps = subprocess.run(
-        #         ["docker", "exec", name, "bash", "-c", f"cat {metadata_path}"],
-        #         text=True,
-        #         capture_output=True,
-        #     )
-        #     if ps.returncode == 0:
-        #         debug(ps.stdout)
-        #         metadata = json.loads(ps.stdout)
-        #     else:
-        #         time.sleep(1)
-
-        # if metadata is None:
-        #     debug("open_browser: Could not get metadata")
-        #     return
-
         url = f"http://localhost:{port}"
         debug(f"open_browser: url={url}")
 
