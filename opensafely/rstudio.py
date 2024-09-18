@@ -104,12 +104,12 @@ def main(directory, name, port):
         # personal machine is very small.
         port = str(get_free_port())
 
-    if not no_browser:
-        # start thread to open web browser
-        thread = threading.Thread(target=open_browser, args=(name, port), daemon=True)
-        thread.name = "browser thread"
-        debug("starting open_browser thread")
-        thread.start()
+    # if not no_browser:
+    # start thread to open web browser
+    thread = threading.Thread(target=open_browser, args=(name, port), daemon=True)
+    thread.name = "browser thread"
+    debug("starting open_browser thread")
+    thread.start()
 
     # Command should be: docker run --rm -it --platform linux/amd64 -p 8787:8787 -v "/${PWD}:/home/rstudio" rstudio
     docker_args = [
