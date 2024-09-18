@@ -119,9 +119,10 @@ def main(directory, name, port):
         f"--hostname={name}",# TODO: query if I need this
         # "--rm", # in base_cmd
         "-it",
-        "-v '/${PWD}:/home/rstudio'", # check about Windows Powershell # but base_cmd requires /workspace
+        #"-v '/${PWD}:/home/rstudio'", # check about Windows Powershell # but base_cmd requires /workspace
     ]
 
+    print(docker_args)
     debug("docker: " + " ".join(docker_args))
     ps = utils.run_docker(docker_args, "rstudio", "", interactive=True)
     # we want to exit with the same code that rstudio-server did
