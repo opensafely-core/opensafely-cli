@@ -119,7 +119,7 @@ def main(directory, name, port):
         f"--hostname={name}",# TODO: query if I need this
         # "--rm", # in base_cmd
         "-it",
-        "-v '/${PWD}:/home/rstudio'", # check about Windows Powershell
+        "-v '/${PWD}:/home/rstudio'", # check about Windows Powershell # but base_cmd requires /workspace
     ]
 
     debug("docker: " + " ".join(docker_args))
