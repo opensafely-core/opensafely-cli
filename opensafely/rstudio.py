@@ -120,7 +120,6 @@ def main(directory, name, port):
     if name is None:
         name = f"os-rstudio-{directory.name}"
 
-    # TODO: query - I think I don't need this
     if port is None:
         # this is a race condition, as something else could consume the socket
         # before docker binds to it, but the chance of that on a user's
@@ -138,7 +137,7 @@ def main(directory, name, port):
     docker_args = [
         f"-p={port}:{port}",
         f"--name={name}",
-#        f"--hostname={name}",# TODO: query
+        f"--hostname={name}",# TODO: query if I need this
         "--rm",
         "-it",
         "--platform linux/amd64",
