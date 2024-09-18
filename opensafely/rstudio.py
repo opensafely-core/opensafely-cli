@@ -123,6 +123,6 @@ def main(directory, name, port):
     ]
 
     debug("docker: " + " ".join(docker_args))
-    ps = utils.run_docker(docker_args, "rstudio", interactive=True) #  TODO: query amend "rstudio" to when rstudio image published "ghcr.io/opensafely-core/rstudio:latest"
+    ps = utils.run_docker(docker_args, "rstudio", "", interactive=True)
     # we want to exit with the same code that rstudio-server did
     return ps.returncode
