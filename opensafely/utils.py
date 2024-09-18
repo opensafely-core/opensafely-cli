@@ -120,7 +120,7 @@ def run_docker(
     docker_cmd = [
         *base_cmd,
         *docker_args,
-        f"{config.DOCKER_REGISTRY}/{image}",
+        {image},#f"{config.DOCKER_REGISTRY}/{image}",
         *cmd,
     ]
 
