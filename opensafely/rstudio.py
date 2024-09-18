@@ -119,7 +119,6 @@ def main(directory, name, port):
         f"--hostname={name}",# TODO: query if I need this
         # "--rm", # in base_cmd
         "-it",
-        "--platform linux/amd64",
         "-v '/${PWD}:/home/rstudio'", # check about Windows Powershell
     ]
 
