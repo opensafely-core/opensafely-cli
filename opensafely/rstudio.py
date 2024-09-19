@@ -116,10 +116,9 @@ def main(directory, name, port):
         f"-p={port}:{port}",
         f"--name={name}",
         f"--hostname={name}",# TODO: query if I need this
-        #"--volume=~/.gitconfig:/home/rstudio/local-gitconfig",
+        "--volume=" + '{HOME}'.format(**os.environ) + "/.gitconfig:/home/rstudio/local-gitconfig",
     ]
 
-    print(docker_args)
     debug("docker: " + " ".join(docker_args))
     ps = utils.run_docker(docker_args, "rstudio", "", interactive=True, user = "0:0", verbose = True)
     # we want to exit with the same code that rstudio-server did
