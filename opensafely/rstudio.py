@@ -111,7 +111,6 @@ def main(directory, name, port):
     debug("starting open_browser thread")
     thread.start()
 
-    # Command should be: docker run --rm -it --platform linux/amd64 -p 8787:8787 -v "/${PWD}:/home/rstudio" rstudio
     docker_args = [
         "--platform=linux/amd64",
         f"-p={port}:{port}",
