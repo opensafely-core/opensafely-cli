@@ -116,7 +116,7 @@ def main(directory, name, port):
         f"-p={port}:{port}",
         f"--name={name}",
         f"--hostname={name}",# TODO: query if I need this
-        "--volume=" + '{HOME}'.format(**os.environ) + "/.gitconfig:/home/rstudio/local-gitconfig",
+        "--volume=" + os.path.join('{HOME}'.format(**os.environ), ".gitconfig") + ":/home/rstudio/local-gitconfig",
     ]
 
     debug("docker: " + " ".join(docker_args))
