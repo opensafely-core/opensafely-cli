@@ -117,8 +117,6 @@ def main(directory, name, port):
         f"-p={port}:{port}",
         f"--name={name}",
         f"--hostname={name}",# TODO: query if I need this
-        # "--rm", # in base_cmd
-        "-it",
         #"-v '/${PWD}:/home/rstudio'", # check about Windows Powershell # but base_cmd requires /workspace
     ]
 
