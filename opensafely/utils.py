@@ -120,7 +120,7 @@ def run_docker(
     docker_cmd = [
         *base_cmd,
         *docker_args,
-        f"{image}",#f"{config.DOCKER_REGISTRY}/{image}",
+        f"{image}",#f"{config.DOCKER_REGISTRY}/{image}",# TODO: revert back to original when rstudio image published
         *cmd,
     ]
 
