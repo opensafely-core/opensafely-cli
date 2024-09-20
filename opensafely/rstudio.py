@@ -111,12 +111,16 @@ def main(directory, name, port):
     debug("starting open_browser thread")
     thread.start()
 
+    # Determine if on nt=windows or posix=Linux/Darwin/Unix
+    osname = os.name
+
     docker_args = [
         "--platform=linux/amd64",
         f"-p={port}:{port}",
         f"--name={name}",
         f"--hostname={name}",# TODO: query if I need this
         "--volume=" + os.path.join(os.path.expanduser('~'), ".gitconfig") + ":/home/rstudio/local-gitconfig",
+        f"--env=HOST={osname}"
     ]
 
     debug("docker: " + " ".join(docker_args))
