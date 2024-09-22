@@ -124,6 +124,6 @@ def main(directory, name, port):
     ]
 
     debug("docker: " + " ".join(docker_args))
-    ps = utils.run_docker(docker_args, "rstudio", "", interactive=True, user = "0:0", verbose = True)
+    ps = utils.run_docker(docker_args, "rstudio", "", interactive=True, user="1000:1000", verbose = True)
     # we want to exit with the same code that rstudio-server did
     return ps.returncode
