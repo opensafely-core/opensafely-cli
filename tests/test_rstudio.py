@@ -1,23 +1,30 @@
 import pathlib
+import os
 
 from opensafely import rstudio
 from tests.conftest import run_main
 
 
-def test_rstudio(run, no_user):
+def test_rstudio(run):
     run.expect(
         [
             "docker",
             "run",
             "--rm",
-#            "--label=opensafely",
+            "--init",
+            # "--label=opensafely",
             "--interactive",
+            "--tty",
+            "--user=1000:1000",
             f"--volume={pathlib.Path.cwd()}://workspace",
+            "--platform=linux/amd64",
             "-p=8787:8787",
             "--name=test_rstudio",
             "--hostname=test_rstudio",
-            "rstudio", # "ghcr.io/opensafely-core/rstudio",
+            "--volume=" + os.path.join(os.path.expanduser('~'), ".gitconfig") + ":/home/rstudio/local-gitconfig",
+            "--env=HOST=" + os.name,
+            "rstudio", # TODO: edit to "ghcr.io/opensafely-core/rstudio" when rstudio image published,
         ]
     )
 
-    assert run_main(rstudio, "--port 8787 --name test_rstudio --no-browser foo") == 0
+    assert run_main(rstudio, "--port 8787 --name test_rstudio") == 0
