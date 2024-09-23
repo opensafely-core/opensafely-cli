@@ -57,7 +57,7 @@ jobs:
         python setup.py sdist bdist_wheel
 
     - name: Publish package
-      uses: pypa/gh-action-pypi-publish@ec4db0b4ddc65acdf4bff5fa45ac92d78b56bdf0  # v1.90
+      uses: pypa/gh-action-pypi-publish@897895f1e160c830e369f9779632ebc134688e1b  # v1.90
       if: needs.tag-new-version.outputs.tag
       with:
         user: __token__
