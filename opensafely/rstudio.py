@@ -118,7 +118,7 @@ def main(directory, name, port):
         "--platform=linux/amd64",
         f"-p={port}:{port}",
         f"--name={name}",
-        f"--hostname={name}",# TODO: query if I need this
+        f"--hostname={name}",
         "--volume=" + os.path.join(os.path.expanduser('~'), ".gitconfig") + ":/home/rstudio/local-gitconfig",
         f"--env=HOST={osname}"
     ]
