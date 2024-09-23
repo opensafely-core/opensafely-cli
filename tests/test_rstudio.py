@@ -22,7 +22,7 @@ def test_rstudio(run):
             "--hostname=test_rstudio",
             "--volume=" + os.path.join(os.path.expanduser('~'), ".gitconfig") + ":/home/rstudio/local-gitconfig",
             "--env=HOST=" + os.name,
-            "rstudio", # TODO: edit to "ghcr.io/opensafely-core/rstudio" when rstudio image published,
+            "ghcr.io/opensafely-core/rstudio",
         ]
     )
 
