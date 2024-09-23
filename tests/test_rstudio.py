@@ -12,7 +12,7 @@ def test_rstudio(run):
             "run",
             "--rm",
             "--init",
-            # "--label=opensafely",
+            "--label=opensafely",
             "--interactive",
             "--tty",
             "--user=1000:1000",
