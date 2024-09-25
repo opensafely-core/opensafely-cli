@@ -14,7 +14,7 @@ def test_rstudio(run):
             "--init",
             "--label=opensafely",
             "--interactive",
-            "--user=1000:1000",
+            "--user=0:0",
             f"--volume={pathlib.Path.cwd()}://workspace",
             "--platform=linux/amd64",
             "-p=8787:8787",
