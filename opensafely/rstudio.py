@@ -116,7 +116,7 @@ def main(directory, name, port):
 
     docker_args = [
         "--platform=linux/amd64",
-        f"-p={port}:{port}",
+        f"-p={port}:8787",
         f"--name={name}",
         f"--hostname={name}",
         "--volume=" + os.path.join(os.path.expanduser('~'), ".gitconfig") + ":/home/rstudio/local-gitconfig",
