@@ -1,11 +1,17 @@
 import os
 import pathlib
+from sys import platform
 
 from opensafely import rstudio
 from tests.conftest import run_main
 
 
 def test_rstudio(run):
+    if platform == "linux":
+        uid = os.getuid()
+    else:
+        uid = None
+
     run.expect(
         [
             "docker",
@@ -23,7 +29,8 @@ def test_rstudio(run):
             "--volume="
             + os.path.join(os.path.expanduser("~"), ".gitconfig")
             + ":/home/rstudio/local-gitconfig",
-            "--env=HOST=" + os.name,
+            "--env=HOSTPLATFORM=" + platform,
+            f"--env=HOSTUID={uid}",
             "ghcr.io/opensafely-core/rstudio",
         ]
     )
