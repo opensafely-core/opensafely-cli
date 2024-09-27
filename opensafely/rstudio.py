@@ -110,10 +110,8 @@ def main(directory, name, port):
     debug("starting open_browser thread")
     thread.start()
 
-    # Determine if on nt=windows or posix=Linux/Darwin/Unix
-    osname = os.name
-
     # Determine if on Linux, if so obtain user id
+    # And need to know in Windows win32 for text file line endings setting
     if platform == "linux":
         uid = os.getuid()
     else:
@@ -127,7 +125,6 @@ def main(directory, name, port):
         "--volume="
         + os.path.join(os.path.expanduser("~"), ".gitconfig")
         + ":/home/rstudio/local-gitconfig",
-        f"--env=HOST={osname}",
         f"--env=HOSTPLATFORM={platform}",
         f"--env=HOSTUID={uid}",
     ]
