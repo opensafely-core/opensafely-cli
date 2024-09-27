@@ -5,6 +5,7 @@ import threading
 import time
 import webbrowser
 from pathlib import Path
+from sys import platform
 from urllib import request
 
 from opensafely import utils
@@ -112,6 +113,12 @@ def main(directory, name, port):
     # Determine if on nt=windows or posix=Linux/Darwin/Unix
     osname = os.name
 
+    # Determine if on Linux, if so obtain user id
+    if platform == "linux":
+        uid = os.getuid()
+    else:
+        uid = None
+
     docker_args = [
         "--platform=linux/amd64",
         f"-p={port}:8787",
@@ -121,6 +128,8 @@ def main(directory, name, port):
         + os.path.join(os.path.expanduser("~"), ".gitconfig")
         + ":/home/rstudio/local-gitconfig",
         f"--env=HOST={osname}",
+        f"--env=HOSTPLATFORM={platform}",
+        f"--env=HOSTUID={uid}",
     ]
 
     debug("docker: " + " ".join(docker_args))
