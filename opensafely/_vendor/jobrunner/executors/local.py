@@ -541,22 +541,26 @@ def persist_outputs(job_definition, outputs, job_metadata):
             # if it previously had a message, delete it
             delete_files_from_directory(medium_privacy_dir, [message_file])
 
-    # Update manifest with file metdata
-    manifest = read_manifest_file(medium_privacy_dir, job_definition.workspace)
+    new_outputs = {}
 
     for filename, level in outputs.items():
         abspath = workspace_dir / filename
-        manifest["outputs"][filename] = get_output_metadata(
+        new_outputs[filename] = get_output_metadata(
             abspath,
             level,
             job_id=job_definition.id,
             job_request=job_definition.job_request_id,
             action=job_definition.action,
             commit=job_definition.study.commit,
+            repo=job_definition.study.git_repo_url,
             excluded=filename in excluded_file_msgs,
             message=excluded_job_msgs.get(filename),
             csv_counts=csv_metadata.get(filename),
         )
+
+    # Update manifest with file metdata
+    manifest = read_manifest_file(medium_privacy_dir, job_definition.workspace)
+    manifest["outputs"].update(**new_outputs)
     write_manifest_file(medium_privacy_dir, manifest)
 
     return excluded_job_msgs
@@ -569,6 +573,7 @@ def get_output_metadata(
     job_request,
     action,
     commit,
+    repo,
     excluded,
     message=None,
     csv_counts=None,
@@ -582,6 +587,7 @@ def get_output_metadata(
         "job_id": job_id,
         "job_request": job_request,
         "action": action,
+        "repo": repo,
         "commit": commit,
         "size": stat.st_size,
         "timestamp": stat.st_mtime,
@@ -646,6 +652,21 @@ further assistance.
 """
 
 
+def get_csv_counts(path):
+    csv_counts = {}
+    with path.open() as f:
+        reader = csv.DictReader(f)
+        headers = reader.fieldnames
+        first_row = next(reader, None)
+        if first_row:
+            csv_counts["cols"] = len(first_row)
+            csv_counts["rows"] = sum(1 for _ in reader) + 1
+        else:
+            csv_counts["cols"] = csv_counts["rows"] = 0
+
+    return csv_counts, headers
+
+
 def check_l4_file(job_definition, filename, size, workspace_dir):
     def mb(b):
         return round(b / (1024 * 1024), 2)
@@ -653,9 +674,22 @@ def check_l4_file(job_definition, filename, size, workspace_dir):
     job_msgs = []
     file_msgs = []
     csv_counts = {"rows": None, "cols": None}
+    headers = []
 
     suffix = Path(filename).suffix
-    if suffix not in config.LEVEL4_FILE_TYPES:
+
+    if size > job_definition.level4_max_filesize:
+        job_msgs.append(
+            f"File size of {mb(size)}Mb is larger that limit of {mb(job_definition.level4_max_filesize)}Mb."
+        )
+        file_msgs.append(
+            MAX_SIZE_MSG.format(
+                filename=filename,
+                size=mb(size),
+                limit=mb(job_definition.level4_max_filesize),
+            )
+        )
+    elif suffix not in config.LEVEL4_FILE_TYPES:
         job_msgs.append(f"File type of {suffix} is not valid level 4 file")
         file_msgs.append(INVALID_FILE_TYPE_MSG.format(filename=filename, suffix=suffix))
 
@@ -664,15 +698,7 @@ def check_l4_file(job_definition, filename, size, workspace_dir):
         # this may need to be abstracted in future
         actual_file = workspace_dir / filename
         try:
-            with actual_file.open() as f:
-                reader = csv.DictReader(f)
-                headers = reader.fieldnames
-                first_row = next(reader, None)
-                if first_row:
-                    csv_counts["cols"] = len(first_row)
-                    csv_counts["rows"] = sum(1 for _ in reader) + 1
-                else:
-                    csv_counts["cols"] = csv_counts["rows"] = 0
+            csv_counts, headers = get_csv_counts(actual_file)
         except Exception:
             pass
         else:
@@ -690,18 +716,6 @@ def check_l4_file(job_definition, filename, size, workspace_dir):
                         limit=job_definition.level4_max_csv_rows,
                     )
                 )
-
-    if size > job_definition.level4_max_filesize:
-        job_msgs.append(
-            f"File size of {mb(size)}Mb is larger that limit of {mb(job_definition.level4_max_filesize)}Mb."
-        )
-        file_msgs.append(
-            MAX_SIZE_MSG.format(
-                filename=filename,
-                size=mb(size),
-                limit=mb(job_definition.level4_max_filesize),
-            )
-        )
 
     if job_msgs:
         return False, ",".join(job_msgs), "\n\n".join(file_msgs), csv_counts

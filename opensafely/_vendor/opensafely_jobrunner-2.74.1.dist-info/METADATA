@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: opensafely-jobrunner
-Version: 2.74.0
+Version: 2.74.1
 Summary: OpenSAFELY job scheduling and executor
 Author-email: OpenSAFELY <tech@opensafely.org>
 License: OpenSAFELY Job Runner
@@ -26,7 +26,7 @@ Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: opensafely-pipeline @ git+https://github.com/opensafely-core/pipeline@v2024.03.19.153938
+Requires-Dist: opensafely-pipeline@ git+https://github.com/opensafely-core/pipeline@v2024.03.19.153938
 Requires-Dist: ruyaml
 Requires-Dist: requests
 Requires-Dist: opentelemetry-exporter-otlp-proto-http
