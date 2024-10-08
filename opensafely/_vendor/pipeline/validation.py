@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import posixpath
 from pathlib import Path, PurePosixPath, PureWindowsPath
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from .constants import LEVEL4_FILE_TYPES
-from .exceptions import InvalidPatternError
+from .exceptions import InvalidPatternError, ValidationError
 from .outputs import get_first_output_file, get_output_dirs
 
 
@@ -13,7 +13,24 @@ if TYPE_CHECKING:  # pragma: no cover
     from .models import Action
 
 
-def assert_valid_glob_pattern(pattern: str, privacy_level: str) -> None:
+def validate_type(val: Any, exp_type: type, loc: str, optional: bool = False) -> None:
+    type_lookup: dict[type, str] = {
+        str: "string",
+        dict: "dictionary of key/value pairs",
+        list: "list",
+    }
+    if optional and val is None:
+        return
+    if not isinstance(val, exp_type):
+        raise ValidationError(f"{loc} must be a {type_lookup[exp_type]}")
+
+
+def validate_no_kwargs(kwargs: dict[str, Any], loc: str) -> None:
+    if kwargs:
+        raise ValidationError(f"Unexpected parameters ({', '.join(kwargs)}) in {loc}")
+
+
+def validate_glob_pattern(pattern: str, privacy_level: str) -> None:
     """
     These patterns get converted into regular expressions and matched
     with a `find` command so there shouldn't be any possibility of a path
@@ -62,6 +79,13 @@ def assert_valid_glob_pattern(pattern: str, privacy_level: str) -> None:
         raise InvalidPatternError("is an absolute path")
 
 
+def validate_not_cohort_extractor_action(action: Action) -> None:
+    if action.run.parts[0].startswith("cohortextractor"):
+        raise ValidationError(
+            f"Action {action.action_id} uses cohortextractor actions, which are not supported in this version."
+        )
+
+
 def validate_cohortextractor_outputs(action_id: str, action: Action) -> None:
     """
     Check cohortextractor's output config is valid for this command
@@ -72,7 +96,7 @@ def validate_cohortextractor_outputs(action_id: str, action: Action) -> None:
     # ensure we only have output level defined.
     num_output_levels = len(action.outputs)
     if num_output_levels != 1:
-        raise ValueError(
+        raise ValidationError(
             "A `generate_cohort` action must have exactly one output; "
             f"{action_id} had {num_output_levels}"
         )
@@ -90,7 +114,7 @@ def validate_cohortextractor_outputs(action_id: str, action: Action) -> None:
         arg == flag or arg.startswith(f"{flag}=") for arg in action.run.parts
     )
     if not has_output_dir:
-        raise ValueError(
+        raise ValidationError(
             f"generate_cohort command should produce output in only one "
             f"directory, found {len(output_dirs)}:\n"
             + "\n".join([f" - {d}/" for d in output_dirs])
@@ -107,11 +131,11 @@ def validate_databuilder_outputs(action_id: str, action: Action) -> None:
     # TODO: should this be checking output _paths_ instead of levels?
     num_output_levels = len(action.outputs)
     if num_output_levels != 1:
-        raise ValueError(
+        raise ValidationError(
             "A `generate-dataset` action must have exactly one output; "
             f"{action_id} had {num_output_levels}"
         )
 
     first_output_file = get_first_output_file(action.outputs)
     if first_output_file not in action.run.raw:
-        raise ValueError("--output in run command and outputs must match")
+        raise ValidationError("--output in run command and outputs must match")

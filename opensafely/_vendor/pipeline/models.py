@@ -1,24 +1,24 @@
+from __future__ import annotations
+
 import pathlib
 import re
 import shlex
 from collections import defaultdict
-from typing import Any, Dict, Iterable, List, Optional, Set, TypedDict
-
-from opensafely._vendor.pydantic import BaseModel, root_validator, validator
+from dataclasses import dataclass
+from typing import Any
 
 from .constants import RUN_ALL_COMMAND
-from .exceptions import InvalidPatternError
+from .exceptions import InvalidPatternError, ValidationError
 from .features import LATEST_VERSION, get_feature_flags_for_version
-from .types import RawOutputs, RawPipeline
 from .validation import (
-    assert_valid_glob_pattern,
     validate_cohortextractor_outputs,
     validate_databuilder_outputs,
+    validate_glob_pattern,
+    validate_no_kwargs,
+    validate_not_cohort_extractor_action,
+    validate_type,
 )
 
-
-cohortextractor_pat = re.compile(r"cohortextractor:\S+ generate_cohort")
-databuilder_pat = re.compile(r"databuilder|ehrql:\S+ generate[-_]dataset")
 
 # orderd by most common, going forwards
 DB_COMMANDS = {
@@ -29,7 +29,7 @@ DB_COMMANDS = {
 }
 
 
-def is_database_action(args: List[str]) -> bool:
+def is_database_action(args: list[str]) -> bool:
     """
     By default actions do not have database access, but certain trusted actions require it
     """
@@ -50,59 +50,96 @@ def is_database_action(args: List[str]) -> bool:
     return args[1] in db_commands
 
 
-class Expectations(BaseModel):
+@dataclass(frozen=True)
+class Expectations:
     population_size: int
 
-    @validator("population_size", pre=True)
-    def validate_population_size(cls, population_size: str) -> int:
+    @classmethod
+    def build(
+        cls,
+        population_size: Any = None,
+        **kwargs: Any,
+    ) -> Expectations:
+        validate_no_kwargs(kwargs, "project `expectations` section")
         try:
-            return int(population_size)
+            population_size = int(population_size)
         except (TypeError, ValueError):
-            raise ValueError(
+            raise ValidationError(
                 "Project expectations population size must be a number",
             )
+        return cls(population_size)
 
 
-class Outputs(BaseModel):
-    highly_sensitive: Optional[Dict[str, str]]
-    moderately_sensitive: Optional[Dict[str, str]]
-    minimally_sensitive: Optional[Dict[str, str]]
+@dataclass(frozen=True)
+class Outputs:
+    highly_sensitive: dict[str, str] | None
+    moderately_sensitive: dict[str, str] | None
+    minimally_sensitive: dict[str, str] | None
 
-    def __len__(self) -> int:
-        return len(self.dict(exclude_unset=True))
-
-    @root_validator()
-    def at_least_one_output(cls, outputs: Dict[str, str]) -> Dict[str, str]:
-        if not any(outputs.values()):
-            raise ValueError(
-                f"must specify at least one output of: {', '.join(outputs)}"
+    @classmethod
+    def build(
+        cls,
+        action_id: str,
+        highly_sensitive: Any = None,
+        moderately_sensitive: Any = None,
+        minimally_sensitive: Any = None,
+        **kwargs: Any,
+    ) -> Outputs:
+        if (
+            highly_sensitive is None
+            and moderately_sensitive is None
+            and minimally_sensitive is None
+        ):
+            raise ValidationError(
+                f"must specify at least one output of: {', '.join(['highly_sensitive', 'moderately_sensitive', 'minimally_sensitive'])}"
             )
 
-        return outputs
+        validate_no_kwargs(kwargs, f"`outputs` section for action {action_id}")
 
-    @root_validator(pre=True)
-    def validate_output_filenames_are_valid(cls, outputs: RawOutputs) -> RawOutputs:
-        # we use pre=True here so that we only get the outputs specified in the
-        # input data.  With Optional[…] wrapped fields pydantic will set None
-        # for us and that just makes the logic a little fiddler with no
-        # benefit.
-        for privacy_level, output in outputs.items():
-            for output_id, filename in output.items():
-                try:
-                    assert_valid_glob_pattern(filename, privacy_level)
-                except InvalidPatternError as e:
-                    raise ValueError(f"Output path {filename} is invalid: {e}")
+        cls.validate_output_filenames_are_valid(
+            action_id, "highly_sensitive", highly_sensitive
+        )
+        cls.validate_output_filenames_are_valid(
+            action_id, "moderately_sensitive", moderately_sensitive
+        )
+        cls.validate_output_filenames_are_valid(
+            action_id, "minimally_sensitive", minimally_sensitive
+        )
 
-        return outputs
+        return cls(highly_sensitive, moderately_sensitive, minimally_sensitive)
+
+    def __len__(self) -> int:
+        return len(self.dict())
+
+    def dict(self) -> dict[str, dict[str, str]]:
+        d = {
+            k: getattr(self, k)
+            for k in [
+                "highly_sensitive",
+                "moderately_sensitive",
+                "minimally_sensitive",
+            ]
+        }
+        return {k: v for k, v in d.items() if v is not None}
+
+    @classmethod
+    def validate_output_filenames_are_valid(
+        cls, action_id: str, privacy_level: str, output: Any
+    ) -> None:
+        if output is None:
+            return
+        validate_type(output, dict, f"`{privacy_level}` section for action {action_id}")
+        for output_id, filename in output.items():
+            validate_type(filename, str, f"`{output_id}` output for action {action_id}")
+            try:
+                validate_glob_pattern(filename, privacy_level)
+            except InvalidPatternError as e:
+                raise ValidationError(f"Output path {filename} is invalid: {e}")
 
 
-class Command(BaseModel):
-    raw: str  # original string
-
-    class Config:
-        # this makes Command hashable, which for some reason due to the
-        # Action.parse_run_string works, pydantic requires.
-        frozen = True
+@dataclass(frozen=True)
+class Command:
+    raw: str
 
     @property
     def args(self) -> str:
@@ -114,7 +151,7 @@ class Command(BaseModel):
         return self.parts[0].split(":")[0]
 
     @property
-    def parts(self) -> List[str]:
+    def parts(self) -> list[str]:
         return shlex.split(self.raw)
 
     @property
@@ -123,20 +160,71 @@ class Command(BaseModel):
         return self.parts[0].split(":")[1]
 
 
-class Action(BaseModel):
-    config: Optional[Dict[Any, Any]] = None
-    run: Command
-    needs: List[str] = []
+@dataclass(frozen=True)
+class Action:
+    action_id: str
     outputs: Outputs
-    dummy_data_file: Optional[pathlib.Path]
+    run: Command
+    needs: list[str]
+    config: dict[Any, Any] | None
+    dummy_data_file: pathlib.Path | None
 
-    @validator("run", pre=True)
-    def parse_run_string(cls, run: str) -> Command:
+    @classmethod
+    def build(
+        cls,
+        action_id: str,
+        outputs: Any,
+        run: Any,
+        needs: Any = None,
+        config: Any = None,
+        dummy_data_file: Any = None,
+        **kwargs: Any,
+    ) -> Action:
+        validate_no_kwargs(kwargs, f"action {action_id}")
+        validate_type(outputs, dict, f"`outputs` section for action {action_id}")
+        validate_type(run, str, f"`run` section for action {action_id}")
+        validate_type(
+            needs, list, f"`needs` section for action {action_id}", optional=True
+        )
+        validate_type(
+            config, dict, f"`config` section for action {action_id}", optional=True
+        )
+        validate_type(
+            dummy_data_file,
+            str,
+            f"`dummy_data_file` section for action {action_id}",
+            optional=True,
+        )
+
+        outputs = Outputs.build(action_id=action_id, **outputs)
+        run = cls.parse_run_string(action_id, run)
+        needs = needs or []
+        for n in needs:
+            if " " in n:
+                raise ValidationError(
+                    f"`needs` actions should be separated with commas, but {action_id} needs `{n}`"
+                )
+        action = cls(action_id, outputs, run, needs, config, dummy_data_file)
+
+        if re.match(r"cohortextractor:\S+ generate_cohort", run.raw):
+            validate_cohortextractor_outputs(action_id, action)
+        if re.match(r"databuilder|ehrql:\S+ generate[-_]dataset", run.raw):
+            validate_databuilder_outputs(action_id, action)
+
+        return action
+
+    @classmethod
+    def parse_run_string(cls, action_id: str, run: str) -> Command:
+        if run == "":
+            raise ValidationError(
+                f"run must have a value, {action_id} has an empty run key"
+            )
+
         parts = shlex.split(run)
 
         name, _, version = parts[0].partition(":")
         if not version:
-            raise ValueError(
+            raise ValidationError(
                 f"{name} must have a version specified (e.g. {name}:0.5.2)",
             )
 
@@ -147,29 +235,98 @@ class Action(BaseModel):
         return is_database_action(self.run.parts)
 
 
-class PartiallyValidatedPipeline(TypedDict):
-    """
-    A custom type to type-check the values in "post" root validators
-
-    A root_validator with pre=False (or no kwargs) runs after the values have
-    been ingested already, and the `values` arg is a dictionary of model types.
-
-    Note: This is defined here so we don't have to deal with forward reference
-    types.
-    """
-
+@dataclass(frozen=True)
+class Pipeline:
     version: float
-    expectations: Expectations
-    actions: Dict[str, Action]
+    actions: dict[str, Action]
+    expectations: Expectations | None
 
+    @classmethod
+    def build(
+        cls,
+        version: Any = None,
+        actions: Any = None,
+        expectations: Any = None,
+        **kwargs: Any,
+    ) -> Pipeline:
+        validate_no_kwargs(kwargs, "project")
+        if version is None:
+            raise ValidationError(
+                f"Project file must have a `version` attribute specifying which "
+                f"version of the project configuration format it uses (current "
+                f"latest version is {LATEST_VERSION})"
+            )
 
-class Pipeline(BaseModel):
-    version: float
-    expectations: Expectations
-    actions: Dict[str, Action]
+        try:
+            version = float(version)
+        except (TypeError, ValueError):
+            raise ValidationError(
+                f"`version` must be a number between 1 and {LATEST_VERSION}"
+            )
+        feat = get_feature_flags_for_version(version)
+
+        validate_type(actions, dict, "Project `actions` section")
+        actions = {
+            action_id: Action.build(action_id, **action_config)
+            for action_id, action_config in actions.items()
+        }
+
+        if feat.REMOVE_SUPPORT_FOR_COHORT_EXTRACTOR:
+            for config in actions.values():
+                validate_not_cohort_extractor_action(config)
+
+        seen: dict[Command, list[str]] = defaultdict(list)
+        for name, config in actions.items():
+            run = config.run
+            if run in seen:
+                raise ValidationError(
+                    f"Action {name} has the same 'run' command as other actions: {' ,'.join(seen[run])}"
+                )
+            seen[run].append(name)
+
+        if feat.UNIQUE_OUTPUT_PATH:
+            # find duplicate paths defined in the outputs section
+            seen_files = []
+            for config in actions.values():
+                for output in config.outputs.dict().values():
+                    for filename in output.values():
+                        if filename in seen_files:
+                            raise ValidationError(
+                                f"Output path {filename} is not unique"
+                            )
+
+                        seen_files.append(filename)
+
+        for a in actions.values():
+            for n in a.needs:
+                if n not in actions:
+                    raise ValidationError(
+                        f"Action `{a.action_id}` references an unknown action in its `needs` list: {n}"
+                    )
+
+        if feat.REMOVE_SUPPORT_FOR_COHORT_EXTRACTOR:
+            if expectations is not None:
+                raise ValidationError(
+                    "Project includes `expectations` section, which is not supported in this version"
+                )
+        elif feat.EXPECTATIONS_POPULATION:
+            if expectations is None:
+                raise ValidationError("Project must include `expectations` section")
+        else:
+            expectations = {"population_size": 1000}
+
+        if expectations is not None:
+            validate_type(expectations, dict, "Project `expectations` section")
+            if "population_size" not in expectations:
+                raise ValidationError(
+                    "Project `expectations` section must include `population_size` section",
+                )
+            expectations = Expectations.build(**expectations)
+
+        return cls(version, actions, expectations)
 
     @property
-    def all_actions(self) -> List[str]:
+    def all_actions(self) -> list[str]:
         """
         Get all actions for this Pipeline instance
 
@@ -178,186 +335,3 @@ class Pipeline(BaseModel):
         than set operators as previously so we preserve the original order.
         """
         return [action for action in self.actions.keys() if action != RUN_ALL_COMMAND]
-
-    @root_validator()
-    def validate_actions(
-        cls, values: PartiallyValidatedPipeline
-    ) -> PartiallyValidatedPipeline:
-        # TODO: move to Action when we move name onto it
-        validators = {
-            cohortextractor_pat: validate_cohortextractor_outputs,
-            databuilder_pat: validate_databuilder_outputs,
-        }
-        for action_id, config in values.get("actions", {}).items():
-            for cmd, validator_func in validators.items():
-                if cmd.match(config.run.raw):
-                    validator_func(action_id, config)
-
-        return values
-
-    @root_validator(pre=True)
-    def validate_expectations_per_version(cls, values: RawPipeline) -> RawPipeline:
-        """Ensure the expectations key exists for version 3 onwards"""
-        try:
-            version = float(values["version"])
-        except (KeyError, TypeError, ValueError):
-            # this is handled in the validate_version_exists and
-            # validate_version_value validators
-            return values
-
-        feat = get_feature_flags_for_version(version)
-
-        if not feat.EXPECTATIONS_POPULATION:
-            # set the default here because pydantic doesn't seem to set it
-            # otherwise
-            values["expectations"] = {"population_size": 1000}
-            return values
-
-        if "expectations" not in values:
-            raise ValueError("Project must include `expectations` section")
-
-        if "population_size" not in values["expectations"]:
-            raise ValueError(
-                "Project `expectations` section must include `population_size` section",
-            )
-
-        return values
-
-    @root_validator()
-    def validate_outputs_per_version(
-        cls, values: PartiallyValidatedPipeline
-    ) -> PartiallyValidatedPipeline:
-        """
-        Ensure outputs are unique for version 2 onwards
-
-        We validate this on Pipeline so we can get the version
-        """
-
-        # we're not using pre=True in the validator so we can rely on the
-        # version and action keys being the correct type but we have to handle
-        # them not existing
-        if not (version := values.get("version")):
-            return values  # handle missing version
-
-        if (actions := values.get("actions")) is None:
-            return values  # hand no actions
-
-        feat = get_feature_flags_for_version(version)
-        if not feat.UNIQUE_OUTPUT_PATH:
-            return values
-
-        # find duplicate paths defined in the outputs section
-        seen_files = []
-        for config in actions.values():
-            for output in config.outputs.dict(exclude_unset=True).values():
-                for filename in output.values():
-                    if filename in seen_files:
-                        raise ValueError(f"Output path {filename} is not unique")
-
-                    seen_files.append(filename)
-
-        return values
-
-    @root_validator(pre=True)
-    def validate_actions_run(cls, values: RawPipeline) -> RawPipeline:
-        # TODO: move to Action when we move name onto it
-        for action_id, config in values.get("actions", {}).items():
-            if config["run"] == "":
-                # key is present but empty
-                raise ValueError(
-                    f"run must have a value, {action_id} has an empty run key"
-                )
-
-        return values
-
-    @validator("actions")
-    def validate_unique_commands(cls, actions: Dict[str, Action]) -> Dict[str, Action]:
-        seen: Dict[Command, List[str]] = defaultdict(list)
-        for name, config in actions.items():
-            run = config.run
-            if run in seen:
-                raise ValueError(
-                    f"Action {name} has the same 'run' command as other actions: {' ,'.join(seen[run])}"
-                )
-            seen[run].append(name)
-
-        return actions
-
-    @validator("actions")
-    def validate_needs_are_comma_delimited(
-        cls, actions: Dict[str, Action]
-    ) -> Dict[str, Action]:
-        space_delimited = {}
-        for name, action in actions.items():
-            # find needs definitions with spaces in them
-            incorrect = [dep for dep in action.needs if " " in dep]
-            if incorrect:
-                space_delimited[name] = incorrect
-
-        if not space_delimited:
-            return actions
-
-        def iter_incorrect_needs(
-            space_delimited: Dict[str, List[str]]
-        ) -> Iterable[str]:
-            for name, needs in space_delimited.items():
-                yield f"Action: {name}"
-                for need in needs:
-                    yield f" - {need}"
-
-        msg = [
-            "`needs` actions should be separated with commas. The following actions need fixing:",
-            *iter_incorrect_needs(space_delimited),
-        ]
-
-        raise ValueError("\n".join(msg))
-
-    @validator("actions")
-    def validate_needs_exist(cls, actions: Dict[str, Action]) -> Dict[str, Action]:
-        missing = {}
-        for name, action in actions.items():
-            unknown_needs = set(action.needs) - set(actions)
-            if unknown_needs:
-                missing[name] = unknown_needs
-
-        if not missing:
-            return actions
-
-        def iter_missing_needs(missing: Dict[str, Set[str]]) -> Iterable[str]:
-            for name, needs in missing.items():
-                yield f"Action: {name}"
-                for need in needs:
-                    yield f" - {need}"
-
-        msg = [
-            "One or more actions is referencing unknown actions in its needs list:",
-            *iter_missing_needs(missing),
-        ]
-        raise ValueError("\n".join(msg))
-
-    @root_validator(pre=True)
-    def validate_version_exists(cls, values: RawPipeline) -> RawPipeline:
-        """
-        Ensure the version key exists.
-
-        This is a re-implementation of pydantic's field validation so we can
-        get a custom error message.  This can be removed when we add a wrapper
-        around the models to generate more UI friendly error messages.
-        """
-        if "version" in values:
-            return values
-
-        raise ValueError(
-            f"Project file must have a `version` attribute specifying which "
-            f"version of the project configuration format it uses (current "
-            f"latest version is {LATEST_VERSION})"
-        )
-
-    @validator("version", pre=True)
-    def validate_version_value(cls, value: str) -> float:
-        try:
-            return float(value)
-        except (TypeError, ValueError):
-            raise ValueError(
-                f"`version` must be a number between 1 and {LATEST_VERSION}"
-            )

@@ -8,3 +8,7 @@ class InvalidPatternError(ProjectValidationError):
 
 class YAMLError(Exception):
     pass
+
+
+class ValidationError(Exception):
+    pass
