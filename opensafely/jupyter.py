@@ -123,7 +123,7 @@ def open_browser(name, port):
 
 def get_free_port():
     sock = socket.socket()
-    sock.bind(("", 0))
+    sock.bind(("127.0.0.1", 0))
     port = sock.getsockname()[1]
     sock.close()
     return port
@@ -175,6 +175,8 @@ def main(directory, name, port, no_browser, jupyter_args):
     ]
 
     debug("docker: " + " ".join(docker_args))
-    ps = utils.run_docker(docker_args, "python", jupyter_cmd, interactive=True)
+    ps = utils.run_docker(
+        docker_args, "python", jupyter_cmd, interactive=True, directory=directory
+    )
     # we want to exit with the same code that jupyter did
     return ps.returncode
