@@ -12,28 +12,14 @@ BIN_DIR = "bin" if os.name != "nt" else "Scripts"
 project_fixture_path = Path(__file__).parent / "fixtures" / "projects"
 
 
-@pytest.mark.parametrize(
-    "package_type,ext", [("sdist", "tar.gz"), ("bdist_wheel", "whl")]
-)
-def test_packaging(package_type, ext, tmp_path):
-    project_root = Path(__file__).parent.parent
-    # This is pretty yucky. Ideally we'd stick all the build artefacts in a
-    # temporary directory but I can't seem to persuade setuptools to do this
-    shutil.rmtree(project_root / "dist", ignore_errors=True)
-    shutil.rmtree(project_root / "build", ignore_errors=True)
-    # Build the package
-    subprocess_run(
-        [sys.executable, "setup.py", package_type],
-        check=True,
-        cwd=project_root,
-    )
+@pytest.mark.parametrize("package_type", ["sdist", "bdist_wheel"])
+def test_packaging(package_type, tmp_path):
+    package_path = build_package(package_type)
     # Install it in a temporary virtualenv
     subprocess_run([sys.executable, "-m", "venv", tmp_path], check=True)
     # sdist requires wheel to build
     subprocess_run([tmp_path / BIN_DIR / "pip", "install", "wheel"], check=True)
-
-    package = list(project_root.glob(f"dist/*.{ext}"))[0]
-    subprocess_run([tmp_path / BIN_DIR / "pip", "install", package], check=True)
+    subprocess_run([tmp_path / BIN_DIR / "pip", "install", package_path], check=True)
 
     # Smoketest it by running `--help` and `--version`. This is actually a more
     # comprehensive test than you might think as it involves importing
@@ -53,6 +39,23 @@ def test_packaging(package_type, ext, tmp_path):
             check=True,
             cwd=str(project_fixture_path),
         )
+
+
+def build_package(package_type):
+    extension = {"sdist": "tar.gz", "bdist_wheel": "whl"}[package_type]
+    project_root = Path(__file__).parent.parent
+    # This is pretty yucky. Ideally we'd stick all the build artefacts in a
+    # temporary directory but I can't seem to persuade setuptools to do this
+    shutil.rmtree(project_root / "dist", ignore_errors=True)
+    shutil.rmtree(project_root / "build", ignore_errors=True)
+    # Build the package
+    subprocess_run(
+        [sys.executable, "setup.py", package_type],
+        check=True,
+        cwd=project_root,
+    )
+    package_path = list(project_root.glob(f"dist/*.{extension}"))[0]
+    return package_path
 
 
 def subprocess_run(cmd_args, **kwargs):
