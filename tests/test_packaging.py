@@ -6,14 +6,31 @@ from pathlib import Path, PurePath
 
 import pytest
 
+import opensafely
+
 
 BIN_DIR = "bin" if os.name != "nt" else "Scripts"
 
 project_fixture_path = Path(__file__).parent / "fixtures" / "projects"
 
 
+@pytest.fixture
+def older_version_file():
+    # This is really not very nice, but short of reworking the way versioning is handled
+    # (which I don't want to do at the moment) I can't think of another way. In order to
+    # build a package with the right version (both in the metadata and in the code
+    # itself) we need to temporarily update the VERSION file.
+    version_file_path = Path(opensafely.__file__).parent / "VERSION"
+    orig_contents = version_file_path.read_bytes()
+    try:
+        version_file_path.write_text("0.1")
+        yield
+    finally:
+        version_file_path.write_bytes(orig_contents)
+
+
 @pytest.mark.parametrize("package_type", ["sdist", "bdist_wheel"])
-def test_packaging(package_type, tmp_path):
+def test_packaging(package_type, tmp_path, older_version_file):
     package_path = build_package(package_type)
     # Install it in a temporary virtualenv
     subprocess_run([sys.executable, "-m", "venv", tmp_path], check=True)
@@ -27,9 +44,6 @@ def test_packaging(package_type, tmp_path):
     # vendoring and packaging, issues tend to show up at import time.
     subprocess_run([tmp_path / BIN_DIR / "opensafely", "run", "--help"], check=True)
     subprocess_run([tmp_path / BIN_DIR / "opensafely", "--version"], check=True)
-    # This always triggers an upgrade because the development version is always
-    # considered lower than any other version
-    subprocess_run([tmp_path / BIN_DIR / "opensafely", "upgrade", "1.7.0"], check=True)
 
     # only on linux, as that has docker installed in GH
     if sys.platform == "linux":
@@ -39,6 +53,17 @@ def test_packaging(package_type, tmp_path):
             check=True,
             cwd=str(project_fixture_path),
         )
+
+    # This always triggers an upgrade because the development version is always
+    # considered lower than any other version
+    result = subprocess_run(
+        [tmp_path / BIN_DIR / "opensafely", "upgrade"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    assert "Attempting uninstall: opensafely" in result.stdout
+    assert "Successfully installed opensafely" in result.stdout
 
 
 def build_package(package_type):
