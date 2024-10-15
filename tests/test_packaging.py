@@ -66,6 +66,35 @@ def test_packaging(package_type, tmp_path, older_version_file):
     assert "Successfully installed opensafely" in result.stdout
 
 
+def test_installing_with_uv(tmp_path, older_version_file):
+    uv_bin = shutil.which("uv")
+    if uv_bin is None:
+        pytest.skip("Skipping as `uv` not installed")
+
+    package_path = build_package("bdist_wheel")
+    bin_path = tmp_path / "bin"
+    uv_env = dict(
+        os.environ,
+        UV_TOOL_BIN_DIR=bin_path,
+        UV_TOOL_DIR=tmp_path / "tools",
+    )
+    python_version = f"python{sys.version_info[0]}.{sys.version_info[1]}"
+    subprocess_run(
+        [uv_bin, "tool", "install", "--python", python_version, package_path],
+        env=uv_env,
+        check=True,
+    )
+    # Basic smoketest
+    subprocess_run([bin_path / "opensafely", "run", "--help"], check=True)
+    subprocess_run([bin_path / "opensafely", "--version"], check=True)
+    # The `upgrade` command should prompt the user to use `uv upgrade` instead
+    result = subprocess_run(
+        [bin_path / "opensafely", "upgrade"], capture_output=True, text=True
+    )
+    assert result.returncode != 0
+    assert "uv tool upgrade opensafely" in result.stdout
+
+
 def build_package(package_type):
     extension = {"sdist": "tar.gz", "bdist_wheel": "whl"}[package_type]
     project_root = Path(__file__).parent.parent
