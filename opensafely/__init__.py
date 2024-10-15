@@ -65,10 +65,15 @@ def warn_if_updates_needed(argv):
         try:
             latest = upgrade.check_version()
             if latest:
+                upgrade_command = (
+                    "uv tool upgrade opensafely"
+                    if upgrade.is_installed_with_uv()
+                    else "opensafely upgrade"
+                )
                 print(
                     f"Warning: there is a newer version of opensafely available ({latest})"
-                    " - please upgrade by running:\n"
-                    "    opensafely upgrade\n",
+                    f" - please upgrade by running:\n"
+                    f"    {upgrade_command}\n",
                     file=sys.stderr,
                 )
                 # if we're out of date, don't warn the user about out of date images as well
