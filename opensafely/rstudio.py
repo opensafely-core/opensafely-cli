@@ -38,9 +38,7 @@ def add_arguments(parser):
         help="Directory to run the RStudio Server session in (default is current dir)",
     )
     parser.add_argument(
-        "--name",
-        help="Name of docker image (defaults to use directory name)",
-        default="rstudio",
+        "--name", help="Name of docker image (defaults to use directory name)"
     )
 
     parser.add_argument(
