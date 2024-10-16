@@ -128,6 +128,9 @@ def main(directory, name, port):
     ]
 
     debug("docker: " + " ".join(docker_args))
+    print(
+        f"Opening an RStudio Server session at http://localhost:{port}/ , please press Ctrl+C here to end the session"
+    )
     ps = utils.run_docker(
         docker_args, "rstudio", "", interactive=True, user="0:0", directory=directory
     )
