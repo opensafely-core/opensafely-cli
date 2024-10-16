@@ -28,6 +28,17 @@ def main(version):
         print(f"opensafely is already at version {version}")
         return 0
 
+    if is_installed_with_uv():
+        print(
+            "The OpenSAFELY tool has been installed using `uv` so cannot be directly"
+            " upgraded.\n"
+            "\n"
+            "Instead, please run:\n"
+            "\n"
+            "    uv tool upgrade opensafely\n"
+        )
+        return 1
+
     # Windows shennanigans: pip triggers a permissions error when it tries to
     # update the currently executing binary. However if we replace the binary
     # with a copy of itself (i.e. copy to a temporary file and then move the
@@ -84,3 +95,10 @@ def check_version():
         return latest
     else:
         return False
+
+
+def is_installed_with_uv():
+    # This was the most robust way I could think of for detecting a `uv` installation.
+    # I'm reasonably confident in its specificity. It's possible that a `uv` change will
+    # cause this to give false negatives, but the tests should catch that.
+    return Path(sys.prefix).joinpath("uv-receipt.toml").exists()

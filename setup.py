@@ -17,6 +17,9 @@ setup(
     author="OpenSAFELY",
     author_email="tech@opensafely.org",
     python_requires=">=3.8",
+    install_requires=[
+        "setuptools",
+    ],
     entry_points={"console_scripts": ["opensafely=opensafely:main"]},
     classifiers=["License :: OSI Approved :: GNU General Public License v3 (GPLv3)"],
     project_urls={
