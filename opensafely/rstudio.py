@@ -44,7 +44,7 @@ def add_arguments(parser):
     parser.add_argument(
         "--port",
         "-p",
-        default=8787,
+        default=None,
         help="Port to run on",
     )
 
