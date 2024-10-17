@@ -92,7 +92,7 @@ def git_bash_tty_wrapper():
 def run_docker(
     docker_args,
     image,
-    cmd,
+    cmd=(),
     directory=None,
     interactive=False,
     user=None,

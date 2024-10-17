@@ -36,7 +36,7 @@ def add_arguments(parser):
         "--port",
         "-p",
         default=None,
-        help="Port to run on",
+        help="Port to run on (random by default)",
     )
     parser.add_argument(
         "jupyter_args",
@@ -89,9 +89,6 @@ def main(directory, name, port, no_browser, jupyter_args):
         name = f"os-jupyter-{directory.name}"
 
     if port is None:
-        # this is a race condition, as something else could consume the socket
-        # before docker binds to it, but the chance of that on a user's
-        # personal machine is very small.
         port = str(utils.get_free_port())
 
     jupyter_cmd = [

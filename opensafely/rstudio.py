@@ -19,12 +19,11 @@ def add_arguments(parser):
     parser.add_argument(
         "--name", help="Name of docker image (defaults to use directory name)"
     )
-
     parser.add_argument(
         "--port",
         "-p",
         default=None,
-        help="Port to run on",
+        help="Port to run on (random by default)",
     )
 
 
@@ -37,8 +36,6 @@ def main(directory, name, port):
 
     url = f"http://localhost:{port}"
 
-    # Determine if on Linux, if so obtain user id
-    # And need to know in Windows win32 for text file line endings setting
     if platform == "linux":
         uid = os.getuid()
     else:
@@ -57,14 +54,19 @@ def main(directory, name, port):
 
     utils.debug("docker: " + " ".join(docker_args))
     print(
-        f"Opening an RStudio Server session at http://localhost:{port}/ when "
-        "you are finished working please press Ctrl+C here to end the session"
+        f"Opening an RStudio Server session at {url}. "
+        "When you are finished working please press Ctrl+C here to end the session"
     )
 
     utils.open_in_thread(utils.open_browser, (url,))
 
     ps = utils.run_docker(
-        docker_args, "rstudio", "", interactive=True, user="0:0", directory=directory
+        docker_args,
+        image="rstudio",
+        interactive=True,
+        # rstudio needs to start as root, but drops privileges to uid later
+        user="0:0",
+        directory=directory,
     )
 
     # we want to exit with the same code that rstudio-server did
