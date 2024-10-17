@@ -116,7 +116,6 @@ def main(directory, name, port):
         uid = None
 
     docker_args = [
-        "--platform=linux/amd64",
         f"-p={port}:8787",
         f"--name={name}",
         f"--hostname={name}",

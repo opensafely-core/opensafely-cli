@@ -97,6 +97,9 @@ def run_docker(
         "--rm",
         "--init",
         "--label=opensafely",
+        # all our docker images are this platform
+        # helps when running on M-series macs.
+        "--platform=linux/amd64",
     ]
 
     if interactive:
