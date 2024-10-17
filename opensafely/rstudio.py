@@ -1,5 +1,4 @@
 import os
-import socket
 import sys
 import threading
 import time
@@ -12,21 +11,6 @@ from opensafely import utils
 
 
 DESCRIPTION = "Run an RStudio Server session using the OpenSAFELY environment"
-
-
-# poor mans debugging because debugging threads on windows is hard
-if os.environ.get("DEBUG", False):
-
-    def debug(msg):
-        # threaded output for some reason needs the carriage return or else
-        # it doesn't reset the cursor.
-        sys.stderr.write("DEBUG: " + msg.replace("\n", "\r\n") + "\r\n")
-        sys.stderr.flush()
-
-else:
-
-    def debug(msg):
-        pass
 
 
 def add_arguments(parser):
@@ -52,10 +36,10 @@ def add_arguments(parser):
 def open_browser(name, port):
     try:
         url = f"http://localhost:{port}"
-        debug(f"open_browser: url={url}")
+        utils.debug(f"open_browser: url={url}")
 
         # wait for port to be open
-        debug("open_browser: waiting for port")
+        utils.debug("open_browser: waiting for port")
         start = time.time()
         while time.time() - start < 60.0:
             try:
@@ -66,11 +50,11 @@ def open_browser(name, port):
                 break
 
         if not response:
-            debug("open_browser: open_browser: could not get response")
+            utils.debug("open_browser: open_browser: could not get response")
             return
 
         # open a webbrowser pointing to the docker container
-        debug("open_browser: open_browser: opening browser window")
+        utils.debug("open_browser: open_browser: opening browser window")
         webbrowser.open(url, new=2)
 
     except Exception:
@@ -83,29 +67,18 @@ def open_browser(name, port):
         sys.stderr.flush()
 
 
-def get_free_port():
-    sock = socket.socket()
-    sock.bind(("127.0.0.1", 0))
-    port = sock.getsockname()[1]
-    sock.close()
-    return port
-
-
 def main(directory, name, port):
     if name is None:
         name = f"os-rstudio-{directory.name}"
 
     if port is None:
-        # this is a race condition, as something else could consume the socket
-        # before docker binds to it, but the chance of that on a user's
-        # personal machine is very small.
-        port = str(get_free_port())
+        port = str(utils.get_free_port())
 
     # if not no_browser:
     # start thread to open web browser
     thread = threading.Thread(target=open_browser, args=(name, port), daemon=True)
     thread.name = "browser thread"
-    debug("starting open_browser thread")
+    utils.debug("starting open_browser thread")
     thread.start()
 
     # Determine if on Linux, if so obtain user id
@@ -126,7 +99,7 @@ def main(directory, name, port):
         f"--env=HOSTUID={uid}",
     ]
 
-    debug("docker: " + " ".join(docker_args))
+    utils.debug("docker: " + " ".join(docker_args))
     print(
         f"Opening an RStudio Server session at http://localhost:{port}/ when "
         "you are finished working please press Ctrl+C here to end the session"

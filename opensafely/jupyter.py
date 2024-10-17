@@ -1,7 +1,6 @@
 import argparse
 import json
 import os
-import socket
 import subprocess
 import sys
 import threading
@@ -14,21 +13,6 @@ from opensafely import utils
 
 
 DESCRIPTION = "Run a jupyter lab notebook using the OpenSAFELY environment"
-
-
-# poor mans debugging because debugging threads on windows is hard
-if os.environ.get("DEBUG", False):
-
-    def debug(msg):
-        # threaded output for some reason needs the carriage return or else
-        # it doesn't reset the cursor.
-        sys.stderr.write("DEBUG: " + msg.replace("\n", "\r\n") + "\r\n")
-        sys.stderr.flush()
-
-else:
-
-    def debug(msg):
-        pass
 
 
 def add_arguments(parser):
@@ -80,20 +64,20 @@ def open_browser(name, port):
                 capture_output=True,
             )
             if ps.returncode == 0:
-                debug(ps.stdout)
+                utils.debug(ps.stdout)
                 metadata = json.loads(ps.stdout)
             else:
                 time.sleep(1)
 
         if metadata is None:
-            debug("open_browser: Could not get metadata")
+            utils.debug("get_metadata: Could not get metadata")
             return
 
         url = f"http://localhost:{port}/?token={metadata['token']}"
-        debug(f"open_browser: url={url}")
+        utils.debug(f"open_browser: url={url}")
 
         # wait for port to be open
-        debug("open_browser: waiting for port")
+        utils.debug("open_browser: waiting for port")
         start = time.time()
         while time.time() - start < 60.0:
             try:
@@ -104,11 +88,11 @@ def open_browser(name, port):
                 break
 
         if not response:
-            debug("open_browser: open_browser: could not get response")
+            utils.debug("open_browser: open_browser: could not get response")
             return
 
         # open a webbrowser pointing to the docker container
-        debug("open_browser: open_browser: opening browser window")
+        utils.debug("open_browser: open_browser: opening browser window")
         webbrowser.open(url, new=2)
 
     except Exception:
@@ -121,14 +105,6 @@ def open_browser(name, port):
         sys.stderr.flush()
 
 
-def get_free_port():
-    sock = socket.socket()
-    sock.bind(("127.0.0.1", 0))
-    port = sock.getsockname()[1]
-    sock.close()
-    return port
-
-
 def main(directory, name, port, no_browser, jupyter_args):
     if name is None:
         name = f"os-jupyter-{directory.name}"
@@ -137,7 +113,7 @@ def main(directory, name, port, no_browser, jupyter_args):
         # this is a race condition, as something else could consume the socket
         # before docker binds to it, but the chance of that on a user's
         # personal machine is very small.
-        port = str(get_free_port())
+        port = str(utils.get_free_port())
 
     jupyter_cmd = [
         "jupyter",
@@ -158,7 +134,7 @@ def main(directory, name, port, no_browser, jupyter_args):
         # start thread to open web browser
         thread = threading.Thread(target=open_browser, args=(name, port), daemon=True)
         thread.name = "browser thread"
-        debug("starting open_browser thread")
+        utils.debug("starting open_browser thread")
         thread.start()
 
     docker_args = [
@@ -174,7 +150,8 @@ def main(directory, name, port, no_browser, jupyter_args):
         "PYTHONPATH=/workspace",
     ]
 
-    debug("docker: " + " ".join(docker_args))
+    utils.debug("docker: " + " ".join(docker_args))
+    ps = utils.run_docker(docker_args, "python", jupyter_cmd, interactive=True)
     ps = utils.run_docker(
         docker_args, "python", jupyter_cmd, interactive=True, directory=directory
     )

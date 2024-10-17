@@ -3,10 +3,26 @@
 import os
 import pathlib
 import shutil
+import socket
 import subprocess
 import sys
 
 from opensafely._vendor.jobrunner import config
+
+
+# poor mans debugging because debugging threads on windows is hard
+if os.environ.get("DEBUG", False):
+
+    def debug(msg):
+        # threaded output for some reason needs the carriage return or else
+        # it doesn't reset the cursor.
+        sys.stderr.write("DEBUG: " + msg.replace("\n", "\r\n") + "\r\n")
+        sys.stderr.flush()
+
+else:
+
+    def debug(msg):
+        pass
 
 
 def get_default_user():
@@ -131,3 +147,15 @@ def run_docker(
         print(" ".join(docker_cmd))
 
     return subprocess.run(docker_cmd, *args, **kwargs)
+
+
+def get_free_port():
+    """Get a port that is free on the users host machine"""
+    # this is a race condition, as something else could consume the socket
+    # before docker binds to it, but the chance of that on a user's
+    # personal machine is very small.
+    sock = socket.socket()
+    sock.bind(("127.0.0.1", 0))
+    port = sock.getsockname()[1]
+    sock.close()
+    return port
