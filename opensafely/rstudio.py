@@ -45,12 +45,13 @@ def main(directory, name, port):
         f"-p={port}:8787",
         f"--name={name}",
         f"--hostname={name}",
-        "--volume="
-        + os.path.join(os.path.expanduser("~"), ".gitconfig")
-        + ":/home/rstudio/local-gitconfig",
         f"--env=HOSTPLATFORM={platform}",
         f"--env=HOSTUID={uid}",
     ]
+
+    gitconfig = Path.home() / ".gitconfig"
+    if gitconfig.exists():
+        docker_args.append(f"--volume={gitconfig}:/home/rstudio/local-gitconfig")
 
     utils.debug("docker: " + " ".join(docker_args))
     print(
