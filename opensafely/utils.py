@@ -6,6 +6,10 @@ import shutil
 import socket
 import subprocess
 import sys
+import threading
+import time
+import webbrowser
+from urllib import request
 
 from opensafely._vendor.jobrunner import config
 
@@ -159,3 +163,47 @@ def get_free_port():
     port = sock.getsockname()[1]
     sock.close()
     return port
+
+
+def print_exception_from_thread(exc):
+    # reformat exception printing to work from thread
+    import traceback
+
+    sys.stderr.write("Error in background thread:\r\n")
+    tb = traceback.format_exc(exc).replace("\n", "\r\n")
+    sys.stderr.write(tb)
+    sys.stderr.flush()
+
+
+def open_browser(url):
+    try:
+        debug(f"open_browser: url={url}")
+
+        # wait for port to be open
+        debug("open_browser: waiting for port")
+        start = time.time()
+        while time.time() - start < 60.0:
+            try:
+                response = request.urlopen(url, timeout=1)
+            except (request.URLError, OSError):
+                pass
+            else:
+                break
+
+        if not response:
+            debug("open_browser: open_browser: could not get response")
+            return
+
+        # open a webbrowser pointing to the docker container
+        debug("open_browser: open_browser: opening browser window")
+        webbrowser.open(url, new=2)
+
+    except Exception as exc:
+        print_exception_from_thread(exc)
+
+
+def open_in_thread(target, args):
+    thread = threading.Thread(target=target, args=args, daemon=True)
+    thread.name = "browser thread"
+    debug("starting browser thread")
+    thread.start()

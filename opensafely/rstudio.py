@@ -1,11 +1,6 @@
 import os
-import sys
-import threading
-import time
-import webbrowser
 from pathlib import Path
 from sys import platform
-from urllib import request
 
 from opensafely import utils
 
@@ -33,40 +28,6 @@ def add_arguments(parser):
     )
 
 
-def open_browser(name, port):
-    try:
-        url = f"http://localhost:{port}"
-        utils.debug(f"open_browser: url={url}")
-
-        # wait for port to be open
-        utils.debug("open_browser: waiting for port")
-        start = time.time()
-        while time.time() - start < 60.0:
-            try:
-                response = request.urlopen(url, timeout=1)
-            except (request.URLError, OSError):
-                pass
-            else:
-                break
-
-        if not response:
-            utils.debug("open_browser: open_browser: could not get response")
-            return
-
-        # open a webbrowser pointing to the docker container
-        utils.debug("open_browser: open_browser: opening browser window")
-        webbrowser.open(url, new=2)
-
-    except Exception:
-        # reformat exception printing to work from thread
-        import traceback
-
-        sys.stderr.write("Error in open browser thread:\r\n")
-        tb = traceback.format_exc().replace("\n", "\r\n")
-        sys.stderr.write(tb)
-        sys.stderr.flush()
-
-
 def main(directory, name, port):
     if name is None:
         name = f"os-rstudio-{directory.name}"
@@ -74,12 +35,7 @@ def main(directory, name, port):
     if port is None:
         port = str(utils.get_free_port())
 
-    # if not no_browser:
-    # start thread to open web browser
-    thread = threading.Thread(target=open_browser, args=(name, port), daemon=True)
-    thread.name = "browser thread"
-    utils.debug("starting open_browser thread")
-    thread.start()
+    url = f"http://localhost:{port}"
 
     # Determine if on Linux, if so obtain user id
     # And need to know in Windows win32 for text file line endings setting
@@ -104,8 +60,12 @@ def main(directory, name, port):
         f"Opening an RStudio Server session at http://localhost:{port}/ when "
         "you are finished working please press Ctrl+C here to end the session"
     )
+
+    utils.open_in_thread(utils.open_browser, (url,))
+
     ps = utils.run_docker(
         docker_args, "rstudio", "", interactive=True, user="0:0", directory=directory
     )
+
     # we want to exit with the same code that rstudio-server did
     return ps.returncode
