@@ -23,5 +23,5 @@ def get_output_dirs(output_spec: Outputs) -> list[PurePosixPath]:
 
 
 def iter_all_outputs(output_spec: Outputs) -> Iterator[str]:
-    for group in output_spec.dict(exclude_unset=True).values():
+    for group in output_spec.dict().values():
         yield from group.values()

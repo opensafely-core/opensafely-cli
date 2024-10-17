@@ -13,7 +13,6 @@ LEVEL4_FILE_TYPES = set(
         ".svgz",
         # reports
         ".html",
-        ".pdf",
         ".txt",
         ".log",
         ".json",

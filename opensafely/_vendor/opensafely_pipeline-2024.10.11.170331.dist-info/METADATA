@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: opensafely-pipeline
-Version: 2024.3.19.153938
+Version: 2024.10.11.170331
 Summary: OpenSAFELY pipeline configuration parsing library
 Author-email: OpenSAFELY <tech@opensafely.org>
 License: ${GITHUB_REPOSITORY_NAME}
@@ -26,8 +26,10 @@ Classifier: License :: OSI Approved :: GNU General Public License v3 or later (G
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: pydantic <2
 Requires-Dist: ruyaml
+Provides-Extra: fastparser
+Requires-Dist: ruamel-yaml==0.18.6; extra == "fastparser"
+Requires-Dist: ruamel-yaml-clib==0.2.8; extra == "fastparser"
 
 # OpenSAFELY Pipeline Parser
 
@@ -39,7 +41,7 @@ For example:
         data = load_pipeline(f.read())
 
 
-The returned object is a Pydantic model, `Pipeline`, defined in `pipeline/models.py`.
+The returned object is an instance of `pipeline.models.Pipeline`.
 
 
 ## Developer docs
