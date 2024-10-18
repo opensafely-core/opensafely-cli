@@ -14,6 +14,20 @@ from opensafely._vendor.ruyaml.error import (
     YAMLWarning,
 )
 
+
+# Import and construct a fast YAML parser, if it's available
+try:
+    import ruamel.yaml.cyaml  # type: ignore
+
+    # Unlike `PARSER` below we don't use the round-trip (`rt`) option because we don't
+    # intend to use this for user-facing error reporting and so we're not interested in
+    # retaining line-numbers – we just want it to be as fast as possible.
+    FAST_PARSER: ruamel.yaml.YAML | None = ruamel.yaml.YAML(
+        typ=["safe"], pure=False
+    )  # pragma: no cover
+except ImportError:  # pragma: no cover
+    FAST_PARSER = None
+
 from . import exceptions
 
 
@@ -56,6 +70,19 @@ def make_yaml_error_more_helpful(
 
 
 def parse_yaml_file(data: str | Path, filename: str | None = None) -> dict[str, Any]:
+    # If a fast parser is availabe and can parse the input without error then we just
+    # return it. This results in a very significant speed-up for large files. If there
+    # are errors then we re-parse using the pure Python parser which gives much more
+    # helpful error messages.
+    #
+    # Note that this _is_ covered by tests in CI but, because we're not combining
+    # coverage across multiple runs, we have to mark it as uncovered.
+    if FAST_PARSER is not None:  # pragma: no cover
+        try:
+            return FAST_PARSER.load(data)  # type: ignore[no-any-return]
+        except Exception:
+            pass
+
     try:
         return PARSER.load(data)  # type: ignore[no-any-return]
     # ruyaml doesn't have a nice exception hierarchy so we have to catch these
