@@ -9,3 +9,4 @@ venv/
 .coverage
 tests/fixtures/projects/metadata/
 tests/fixtures/projects/output/
+.Rhistory
