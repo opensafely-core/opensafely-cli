@@ -1,4 +1,5 @@
 import os
+import subprocess
 from pathlib import Path
 from sys import platform
 
@@ -40,6 +41,22 @@ def main(directory, name, port):
         uid = os.getuid()
     else:
         uid = None
+
+    # check for rstudio image, if not present pull image
+    imgchk = subprocess.run(
+        ["docker", "image", "inspect", "ghcr.io/opensafely-core/rstudio:latest"],
+        capture_output=True,
+    )
+    if imgchk.returncode == 1:
+        subprocess.run(
+            [
+                "docker",
+                "pull",
+                "--platform=linux/amd64",
+                "ghcr.io/opensafely-core/rstudio:latest",
+            ],
+            check=True,
+        )
 
     docker_args = [
         f"-p={port}:8787",

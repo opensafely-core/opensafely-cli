@@ -26,6 +26,8 @@ def test_rstudio(run, tmp_path, monkeypatch, gitconfig_exists):
     else:
         uid = None
 
+    run.expect(["docker", "image", "inspect", "ghcr.io/opensafely-core/rstudio:latest"])
+
     expected = [
         "docker",
         "run",
