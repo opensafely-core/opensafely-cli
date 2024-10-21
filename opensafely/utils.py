@@ -165,12 +165,12 @@ def get_free_port():
     return port
 
 
-def print_exception_from_thread(exc):
+def print_exception_from_thread(*exc_info):
     # reformat exception printing to work from thread in windows
     import traceback
 
     sys.stderr.write("Error in background thread:\r\n")
-    tb = traceback.format_exc(exc).replace("\n", "\r\n")
+    tb = "".join(traceback.format_exception(*exc_info)).replace("\n", "\r\n")
     sys.stderr.write(tb)
     sys.stderr.flush()
 
@@ -198,8 +198,8 @@ def open_browser(url, timeout=60.0):
         debug("open_browser: open_browser: opening browser window")
         webbrowser.open(url, new=2)
 
-    except Exception as exc:
-        print_exception_from_thread(exc)
+    except Exception:
+        print_exception_from_thread(*sys.exc_info())
 
 
 def open_in_thread(target, args):

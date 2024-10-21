@@ -2,6 +2,7 @@ import argparse
 import json
 import os
 import subprocess
+import sys
 import time
 from pathlib import Path
 
@@ -80,8 +81,8 @@ def read_metadata_and_open(name, port):
             utils.open_browser(url)
         else:
             utils.debug("could not retrieve login token from jupyter container")
-    except Exception as exc:
-        utils.print_exception_from_thread(exc)
+    except Exception:
+        utils.print_exception_from_thread(*sys.exc_info())
 
 
 def main(directory, name, port, no_browser, jupyter_args):
