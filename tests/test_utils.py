@@ -125,3 +125,44 @@ def test_run_docker_interactive_tty(run, no_user, monkeypatch):
         ],
     )
     utils.run_docker([], "ehrql:v1", [], interactive=True)
+
+
+def test_open_browser_timeout(monkeypatch, capsys):
+    monkeypatch.setitem(os.environ, "DEBUG", "TRUE")
+
+    mock_open = mock.Mock(spec=utils.webbrowser.open)
+    monkeypatch.setattr(utils.webbrowser, "open", mock_open)
+
+    port = utils.get_free_port()
+    url = f"http://localhost:{port}/"
+    utils.open_browser(url, timeout=0.01)
+
+    assert not mock_open.called
+    _, err = capsys.readouterr()
+    assert f"Could not connect to {url}" in err
+
+
+def test_open_browser_error(monkeypatch, capsys):
+    # turn on debug logging
+    monkeypatch.setitem(os.environ, "DEBUG", "TRUE")
+
+    # return successful response from poll
+    mock_get = mock.Mock(spec=utils.requests.get)
+    response = utils.requests.Response()
+    response.status_code = 200
+    mock_get.return_value = response
+    monkeypatch.setattr(utils.requests, "get", mock_get)
+
+    # raise exception when calling webbrowser.open
+    mock_open = mock.Mock(spec=utils.webbrowser.open)
+    mock_open.side_effect = Exception("TEST ERROR")
+    monkeypatch.setattr(utils.webbrowser, "open", mock_open)
+
+    port = utils.get_free_port()
+    url = f"http://localhost:{port}/"
+    utils.open_browser(url, timeout=0.01)
+
+    mock_open.assert_called_with(url, new=2)
+    out, err = capsys.readouterr()
+    assert out == ""
+    assert "TEST ERROR" in err

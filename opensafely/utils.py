@@ -176,11 +176,12 @@ def open_browser(url, timeout=60.0):
         # wait for port to be open
         debug("open_browser: waiting for port")
         start = time.time()
+        response = None
         while time.time() - start < timeout:
             try:
                 response = requests.get(url, timeout=1)
             except Exception:
-                pass
+                time.sleep(0.5)
             else:
                 break
 

@@ -19,7 +19,7 @@ def test_rstudio(run, tmp_path, monkeypatch, gitconfig_exists):
     # windows
     monkeypatch.setitem(os.environ, "USERPROFILE", str(home))
 
-    # mock the webbrowser.open call
+    # mock the open_browser call
     mock_open_browser = mock.Mock(spec=utils.open_browser)
     monkeypatch.setattr(utils, "open_browser", mock_open_browser)
 
