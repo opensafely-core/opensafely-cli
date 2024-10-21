@@ -9,8 +9,8 @@ import sys
 import threading
 import time
 import webbrowser
-from urllib import request
 
+from opensafely._vendor import requests
 from opensafely._vendor.jobrunner import config
 
 
@@ -166,7 +166,7 @@ def get_free_port():
 
 
 def print_exception_from_thread(exc):
-    # reformat exception printing to work from thread
+    # reformat exception printing to work from thread in windows
     import traceback
 
     sys.stderr.write("Error in background thread:\r\n")
@@ -175,17 +175,17 @@ def print_exception_from_thread(exc):
     sys.stderr.flush()
 
 
-def open_browser(url):
+def open_browser(url, timeout=60.0):
     try:
         debug(f"open_browser: url={url}")
 
         # wait for port to be open
         debug("open_browser: waiting for port")
         start = time.time()
-        while time.time() - start < 60.0:
+        while time.time() - start < timeout:
             try:
-                response = request.urlopen(url, timeout=1)
-            except (request.URLError, OSError):
+                response = requests.get(url, timeout=1)
+            except Exception:
                 pass
             else:
                 break
