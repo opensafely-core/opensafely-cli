@@ -3,10 +3,30 @@
 import os
 import pathlib
 import shutil
+import socket
 import subprocess
 import sys
+import threading
+import time
+import webbrowser
+from urllib import request
 
 from opensafely._vendor.jobrunner import config
+
+
+# poor mans debugging because debugging threads on windows is hard
+if os.environ.get("DEBUG", False):
+
+    def debug(msg):
+        # threaded output for some reason needs the carriage return or else
+        # it doesn't reset the cursor.
+        sys.stderr.write("DEBUG: " + msg.replace("\n", "\r\n") + "\r\n")
+        sys.stderr.flush()
+
+else:
+
+    def debug(msg):
+        pass
 
 
 def get_default_user():
@@ -72,7 +92,7 @@ def git_bash_tty_wrapper():
 def run_docker(
     docker_args,
     image,
-    cmd,
+    cmd=(),
     directory=None,
     interactive=False,
     user=None,
@@ -97,6 +117,9 @@ def run_docker(
         "--rm",
         "--init",
         "--label=opensafely",
+        # all our docker images are this platform
+        # helps when running on M-series macs.
+        "--platform=linux/amd64",
     ]
 
     if interactive:
@@ -128,3 +151,59 @@ def run_docker(
         print(" ".join(docker_cmd))
 
     return subprocess.run(docker_cmd, *args, **kwargs)
+
+
+def get_free_port():
+    """Get a port that is free on the users host machine"""
+    # this is a race condition, as something else could consume the socket
+    # before docker binds to it, but the chance of that on a user's
+    # personal machine is very small.
+    sock = socket.socket()
+    sock.bind(("127.0.0.1", 0))
+    port = sock.getsockname()[1]
+    sock.close()
+    return port
+
+
+def print_exception_from_thread(exc):
+    # reformat exception printing to work from thread
+    import traceback
+
+    sys.stderr.write("Error in background thread:\r\n")
+    tb = traceback.format_exc(exc).replace("\n", "\r\n")
+    sys.stderr.write(tb)
+    sys.stderr.flush()
+
+
+def open_browser(url):
+    try:
+        debug(f"open_browser: url={url}")
+
+        # wait for port to be open
+        debug("open_browser: waiting for port")
+        start = time.time()
+        while time.time() - start < 60.0:
+            try:
+                response = request.urlopen(url, timeout=1)
+            except (request.URLError, OSError):
+                pass
+            else:
+                break
+
+        if not response:
+            debug("open_browser: open_browser: could not get response")
+            return
+
+        # open a webbrowser pointing to the docker container
+        debug("open_browser: open_browser: opening browser window")
+        webbrowser.open(url, new=2)
+
+    except Exception as exc:
+        print_exception_from_thread(exc)
+
+
+def open_in_thread(target, args):
+    thread = threading.Thread(target=target, args=args, daemon=True)
+    thread.name = "browser thread"
+    debug("starting browser thread")
+    thread.start()

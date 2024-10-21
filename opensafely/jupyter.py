@@ -1,34 +1,14 @@
 import argparse
 import json
 import os
-import socket
 import subprocess
-import sys
-import threading
 import time
-import webbrowser
 from pathlib import Path
-from urllib import request
 
 from opensafely import utils
 
 
 DESCRIPTION = "Run a jupyter lab notebook using the OpenSAFELY environment"
-
-
-# poor mans debugging because debugging threads on windows is hard
-if os.environ.get("DEBUG", False):
-
-    def debug(msg):
-        # threaded output for some reason needs the carriage return or else
-        # it doesn't reset the cursor.
-        sys.stderr.write("DEBUG: " + msg.replace("\n", "\r\n") + "\r\n")
-        sys.stderr.flush()
-
-else:
-
-    def debug(msg):
-        pass
 
 
 def add_arguments(parser):
@@ -56,7 +36,7 @@ def add_arguments(parser):
         "--port",
         "-p",
         default=None,
-        help="Port to run on",
+        help="Port to run on (random by default)",
     )
     parser.add_argument(
         "jupyter_args",
@@ -66,67 +46,42 @@ def add_arguments(parser):
     )
 
 
-def open_browser(name, port):
+def get_metadata(name):
+    """Read the login token from the generated json file in the container"""
+    metadata = None
+    metadata_path = "/tmp/.local/share/jupyter/runtime/nbserver-*.json"
+
+    # wait for jupyter to be set up
+    start = time.time()
+    while metadata is None and time.time() - start < 120.0:
+        ps = subprocess.run(
+            ["docker", "exec", name, "bash", "-c", f"cat {metadata_path}"],
+            text=True,
+            capture_output=True,
+        )
+        if ps.returncode == 0:
+            utils.debug(ps.stdout)
+            metadata = json.loads(ps.stdout)
+        else:
+            time.sleep(1)
+
+    if metadata is None:
+        utils.debug("get_metadata: Could not get metadata")
+        return None
+
+    return metadata
+
+
+def read_metadata_and_open(name, port):
     try:
-        metadata = None
-        metadata_path = "/tmp/.local/share/jupyter/runtime/nbserver-*.json"
-
-        # wait for jupyter to be set up
-        start = time.time()
-        while metadata is None and time.time() - start < 120.0:
-            ps = subprocess.run(
-                ["docker", "exec", name, "bash", "-c", f"cat {metadata_path}"],
-                text=True,
-                capture_output=True,
-            )
-            if ps.returncode == 0:
-                debug(ps.stdout)
-                metadata = json.loads(ps.stdout)
-            else:
-                time.sleep(1)
-
-        if metadata is None:
-            debug("open_browser: Could not get metadata")
-            return
-
-        url = f"http://localhost:{port}/?token={metadata['token']}"
-        debug(f"open_browser: url={url}")
-
-        # wait for port to be open
-        debug("open_browser: waiting for port")
-        start = time.time()
-        while time.time() - start < 60.0:
-            try:
-                response = request.urlopen(url, timeout=1)
-            except (request.URLError, OSError):
-                pass
-            else:
-                break
-
-        if not response:
-            debug("open_browser: open_browser: could not get response")
-            return
-
-        # open a webbrowser pointing to the docker container
-        debug("open_browser: open_browser: opening browser window")
-        webbrowser.open(url, new=2)
-
-    except Exception:
-        # reformat exception printing to work from thread
-        import traceback
-
-        sys.stderr.write("Error in open browser thread:\r\n")
-        tb = traceback.format_exc().replace("\n", "\r\n")
-        sys.stderr.write(tb)
-        sys.stderr.flush()
-
-
-def get_free_port():
-    sock = socket.socket()
-    sock.bind(("127.0.0.1", 0))
-    port = sock.getsockname()[1]
-    sock.close()
-    return port
+        metadata = get_metadata(name)
+        if metadata:
+            url = f"http://localhost:{port}/?token={metadata['token']}"
+            utils.open_browser(url)
+        else:
+            utils.debug("could not retrieve login token from jupyter container")
+    except Exception as exc:
+        utils.print_exception_from_thread(exc)
 
 
 def main(directory, name, port, no_browser, jupyter_args):
@@ -134,10 +89,7 @@ def main(directory, name, port, no_browser, jupyter_args):
         name = f"os-jupyter-{directory.name}"
 
     if port is None:
-        # this is a race condition, as something else could consume the socket
-        # before docker binds to it, but the chance of that on a user's
-        # personal machine is very small.
-        port = str(get_free_port())
+        port = str(utils.get_free_port())
 
     jupyter_cmd = [
         "jupyter",
@@ -154,13 +106,6 @@ def main(directory, name, port, no_browser, jupyter_args):
     print(f"Running following jupyter cmd in OpenSAFELY docker container {name}...")
     print(" ".join(jupyter_cmd))
 
-    if not no_browser:
-        # start thread to open web browser
-        thread = threading.Thread(target=open_browser, args=(name, port), daemon=True)
-        thread.name = "browser thread"
-        debug("starting open_browser thread")
-        thread.start()
-
     docker_args = [
         # we use our port on both sides of the docker port mapping so that
         # jupyter's logging uses the correct port from the user's perspective
@@ -174,9 +119,14 @@ def main(directory, name, port, no_browser, jupyter_args):
         "PYTHONPATH=/workspace",
     ]
 
-    debug("docker: " + " ".join(docker_args))
+    if not no_browser:
+        utils.open_in_thread(read_metadata_and_open, (name, port))
+
+    utils.debug("docker: " + " ".join(docker_args))
+
     ps = utils.run_docker(
         docker_args, "python", jupyter_cmd, interactive=True, directory=directory
     )
+
     # we want to exit with the same code that jupyter did
     return ps.returncode
