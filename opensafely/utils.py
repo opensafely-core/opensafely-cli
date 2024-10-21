@@ -14,19 +14,13 @@ from opensafely._vendor import requests
 from opensafely._vendor.jobrunner import config
 
 
-# poor mans debugging because debugging threads on windows is hard
-if os.environ.get("DEBUG", False):
-
-    def debug(msg):
+def debug(msg):
+    """Windows threaded debugger."""
+    if os.environ.get("DEBUG", False):
         # threaded output for some reason needs the carriage return or else
         # it doesn't reset the cursor.
         sys.stderr.write("DEBUG: " + msg.replace("\n", "\r\n") + "\r\n")
         sys.stderr.flush()
-
-else:
-
-    def debug(msg):
-        pass
 
 
 def get_default_user():
@@ -191,11 +185,13 @@ def open_browser(url, timeout=60.0):
                 break
 
         if not response:
-            debug("open_browser: open_browser: could not get response")
+            # always write a failure message
+            sys.stderr.write(f"Could not connect to {url} to open browser\r\n")
+            sys.stderr.flush()
             return
 
         # open a webbrowser pointing to the docker container
-        debug("open_browser: open_browser: opening browser window")
+        debug("open_browser: opening browser window")
         webbrowser.open(url, new=2)
 
     except Exception:
