@@ -2,7 +2,6 @@ import argparse
 import shlex
 import subprocess
 import sys
-from collections import deque
 from pathlib import Path
 
 # ensure pkg_resources can find the package metadata we have included, as the
@@ -31,7 +30,7 @@ mocker._original_send = requests.Session.send
 _actual_run = subprocess.run
 
 
-class SubprocessRunFixture(deque):
+class SubprocessRunFixture(list):
     """Fixture for mocking subprocess.run.
 
     Add expected calls and their responses to subprocess.run:
@@ -56,6 +55,10 @@ class SubprocessRunFixture(deque):
     """
 
     strict = True
+    concurrent = False
+
+    class CommandNotFound(Exception):
+        pass
 
     def expect(
         self,
@@ -75,40 +78,25 @@ class SubprocessRunFixture(deque):
 
     def run(self, cmd, *args, **kwargs):
         """The replacement run() function."""
-        expected, value, exc, env = self.popleft()
-        # text and check affect the return value and behaviour of run()
-        text = kwargs.get("text", False)
-        check = kwargs.get("check", False)
-        actual_env = kwargs.get("env", None)
 
-        # handle some windows calls being wrapped in winpty
-        winpty = False
-        if sys.platform == "win32":
-            if "winpty" in cmd[0] and cmd[1] == "--":
-                # strip winpty from cmd, do compare the wrapper
-                cmd = cmd[2:]
-                winpty = True
-
-        # first up, do we expect this cmd?
-        cmd_matches = expected == cmd
-
-        # windows/git-bash interative docker commands will always include tty,
-        # so check if we match w/o it
-        if not cmd_matches and winpty and "--tty" in cmd:
-            cmd_no_tty = cmd[:]
-            cmd_no_tty.remove("--tty")
-            cmd_matches = expected == cmd_no_tty
-
-        if not cmd_matches:
+        try:
+            expected, value, exc, env = self.find_cmd(cmd)
+        except self.CommandNotFound:
             if self.strict:
+                expected = "\n".join(str(x[0]) for x in self)
                 raise AssertionError(
                     f"run fixture got unexpected call:\n"
-                    f"Received: {cmd}\n"
-                    f"Expected: {expected}"
+                    f"Received:\n{cmd}\n"
+                    f"Expected:\n{expected}"
                 )
             else:
                 # pass through to system
                 return _actual_run(cmd, *args, **kwargs)
+
+        # text and check affect the return value and behaviour of run()
+        text = kwargs.get("text", False)
+        check = kwargs.get("check", False)
+        actual_env = kwargs.get("env", None)
 
         # next: are we expecting an exception?
         if exc is not None:
@@ -145,6 +133,39 @@ class SubprocessRunFixture(deque):
                     )
 
         return value
+
+    def find_cmd(self, cmd):
+        """Search list and find command."""
+        for i, (expected, value, exc, env) in enumerate(self):
+            if self.cmd_matches(expected, cmd):
+                del self[i]
+                return expected, value, exc, env
+
+            if not self.concurrent:
+                raise self.CommandNotFound(cmd)
+
+        raise self.CommandNotFound(cmd)
+
+    def cmd_matches(self, expected, cmd):
+        # handle some windows calls being wrapped in winpty
+        winpty = False
+        if sys.platform == "win32":
+            if "winpty" in cmd[0] and cmd[1] == "--":
+                # strip winpty from cmd, do compare the wrapper
+                cmd = cmd[2:]
+                winpty = True
+
+        # first up, do we expect this cmd?
+        matches = expected == cmd
+
+        # windows/git-bash interative docker commands will always include tty,
+        # so check if we match w/o it
+        if not matches and winpty and "--tty" in cmd:
+            cmd_no_tty = cmd[:]
+            cmd_no_tty.remove("--tty")
+            matches = expected == cmd_no_tty
+
+        return matches
 
 
 @pytest.fixture
