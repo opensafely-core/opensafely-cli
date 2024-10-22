@@ -169,7 +169,7 @@ def print_exception_from_thread(*exc_info):
     sys.stderr.flush()
 
 
-def open_browser(url, timeout=60.0):
+def open_browser(url, timeout=30.0):
     try:
         debug(f"open_browser: url={url}")
 

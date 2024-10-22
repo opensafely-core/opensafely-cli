@@ -43,7 +43,7 @@ def test_jupyter(run, no_user, monkeypatch):
             "foo",
         ]
     )
-    # fetach the metadata
+    # fetch the metadata
     run.expect(
         [
             "docker",
