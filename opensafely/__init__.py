@@ -1,5 +1,6 @@
 import argparse
 import logging
+import os
 import sys
 import tempfile
 from datetime import datetime, timedelta
@@ -150,6 +151,9 @@ def main():
 
     function = kwargs.pop("function")
     debug = kwargs.pop("global_debug")
+
+    if debug:
+        os.environ["DEBUG"] = "true"
 
     try:
         success = function(**kwargs)
