@@ -41,7 +41,7 @@ RESTRICTED_DATASETS = [
         cohort_extractor_function_names=[
             "with_record_in_ukrr",
         ],
-        ehrql_table_names=[],
+        ehrql_table_names=["ukrr"],
     ),
     RestrictedDataset(
         name="icnarc",
