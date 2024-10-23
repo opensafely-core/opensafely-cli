@@ -1,10 +1,19 @@
 import pathlib
+from unittest import mock
 
-from opensafely import jupyter
+from opensafely import jupyter, utils
 from tests.conftest import run_main
 
 
-def test_jupyter(run, no_user):
+def test_jupyter(run, no_user, monkeypatch):
+    # easier to monkeypatch open_browser that try match the underlying
+    # subprocess calls.
+    mock_open_browser = mock.Mock(spec=utils.open_browser)
+    monkeypatch.setattr(utils, "open_browser", mock_open_browser)
+
+    # these calls are done in different threads, so can come in any order
+    run.concurrent = True
+
     run.expect(
         [
             "docker",
@@ -34,5 +43,18 @@ def test_jupyter(run, no_user):
             "foo",
         ]
     )
+    # fetch the metadata
+    run.expect(
+        [
+            "docker",
+            "exec",
+            "test_jupyter",
+            "bash",
+            "-c",
+            "cat /tmp/.local/share/jupyter/runtime/nbserver-*.json",
+        ],
+        stdout='{"token": "TOKEN"}',
+    )
 
-    assert run_main(jupyter, "--port 1234 --name test_jupyter --no-browser foo") == 0
+    assert run_main(jupyter, "--port 1234 --name test_jupyter foo") == 0
+    mock_open_browser.assert_called_with("http://localhost:1234/?token=TOKEN")

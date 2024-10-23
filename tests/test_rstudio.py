@@ -1,10 +1,11 @@
 import os
 import pathlib
 from sys import platform
+from unittest import mock
 
 import pytest
 
-from opensafely import rstudio
+from opensafely import rstudio, utils
 from tests.conftest import run_main
 
 
@@ -17,6 +18,10 @@ def test_rstudio(run, tmp_path, monkeypatch, gitconfig_exists):
     monkeypatch.setitem(os.environ, "HOME", str(home))
     # windows
     monkeypatch.setitem(os.environ, "USERPROFILE", str(home))
+
+    # mock the open_browser call
+    mock_open_browser = mock.Mock(spec=utils.open_browser)
+    monkeypatch.setattr(utils, "open_browser", mock_open_browser)
 
     if gitconfig_exists:
         (home / ".gitconfig").touch()
@@ -55,3 +60,4 @@ def test_rstudio(run, tmp_path, monkeypatch, gitconfig_exists):
     run.expect(expected + ["ghcr.io/opensafely-core/rstudio"])
 
     assert run_main(rstudio, "--port 8787 --name test_rstudio") == 0
+    mock_open_browser.assert_called_with("http://localhost:8787")
