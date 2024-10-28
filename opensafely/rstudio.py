@@ -4,6 +4,7 @@ from pathlib import Path
 from sys import platform
 
 from opensafely import utils
+from opensafely._vendor.jobrunner.cli.local_run import docker_preflight_check
 
 
 DESCRIPTION = "Run an RStudio Server session using the OpenSAFELY environment"
@@ -29,6 +30,9 @@ def add_arguments(parser):
 
 
 def main(directory, name, port):
+    if not docker_preflight_check():
+        return False
+
     if name is None:
         name = f"os-rstudio-{directory.name}"
 

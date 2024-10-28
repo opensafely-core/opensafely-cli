@@ -14,6 +14,8 @@ def test_jupyter(run, no_user, monkeypatch):
     # these calls are done in different threads, so can come in any order
     run.concurrent = True
 
+    run.expect(["docker", "info"])
+
     run.expect(
         [
             "docker",

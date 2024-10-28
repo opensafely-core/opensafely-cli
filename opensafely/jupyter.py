@@ -7,6 +7,7 @@ import time
 from pathlib import Path
 
 from opensafely import utils
+from opensafely._vendor.jobrunner.cli.local_run import docker_preflight_check
 
 
 DESCRIPTION = "Run a jupyter lab notebook using the OpenSAFELY environment"
@@ -86,6 +87,9 @@ def read_metadata_and_open(name, port):
 
 
 def main(directory, name, port, no_browser, jupyter_args):
+    if not docker_preflight_check():
+        return False
+
     if name is None:
         name = f"os-jupyter-{directory.name}"
 
