@@ -30,6 +30,10 @@ def add_arguments(parser):
     )
 
     parser_update = subparsers.add_parser(
+        "add", help="Add an OpenCodelists codelist to your project"
+    )
+
+    parser_update = subparsers.add_parser(
         "update",
         help=(
             f"Update codelists, using specification at "
@@ -61,6 +65,20 @@ def add_arguments(parser):
 # by the default `show_help` above
 def main():
     pass
+
+
+def add(codelist_url, codelists_dir=None):
+    if not codelists_dir:
+        codelists_dir = Path.cwd() / CODELISTS_DIR
+    codelists_file = get_codelist_file(codelists_dir)
+    if OPENCODELISTS_BASE_URL not in codelist_url:
+        exit_with_error(f"Unable to parse URL, {OPENCODELISTS_BASE_URL} not found")
+    line = codelist_url.replace(f"{OPENCODELISTS_BASE_URL}/codelist/", "")
+    with codelists_file.open("r+") as f:
+        if not f.readlines()[-1].endswith("\n"):
+            line = "\n" + line
+        f.write(line + "\n")
+    update(codelists_dir)
 
 
 def update(codelists_dir=None):
@@ -247,12 +265,17 @@ class Codelist:
     filename: Path
 
 
-def parse_codelist_file(codelists_dir):
+def get_codelist_file(codelists_dir):
     if not codelists_dir.exists() or not codelists_dir.is_dir():
         exit_with_error(f"No '{CODELISTS_DIR}' folder found")
     codelists_file = codelists_dir / CODELISTS_FILE
     if not codelists_file.exists():
         exit_with_error(f"No file found at '{CODELISTS_DIR}/{CODELISTS_FILE}'")
+    return codelists_file
+
+
+def parse_codelist_file(codelists_dir):
+    codelists_file = get_codelist_file(codelists_dir)
     codelists = []
     codelist_versions = {}
     for line in codelists_file.read_text().splitlines():
