@@ -260,3 +260,93 @@ def test_codelists_check_with_upstream_changes_in_CI(
     os.chdir(codelists_path)
     # check doesn't fail in CI if there are upstream errors only
     assert codelists.check()
+
+
+def test_codelists_add(codelists_path, requests_mock):
+    codelists_path /= "codelists"
+    codelists_file = codelists_path / "codelists.txt"
+    prior_codelists = codelists_file.read_text()
+    for codelist in prior_codelists.splitlines():
+        requests_mock.get(
+            f"https://www.opencodelists.org/codelist/{codelist.rstrip('/')}/download.csv",
+            text="foo",
+        )
+    requests_mock.get(
+        "https://www.opencodelists.org/"
+        "codelist/project123/codelist456/version1/download.csv",
+        text="foo",
+    )
+
+    codelists.add(
+        "https://www.opencodelists.org/codelist/project123/codelist456/version1",
+        codelists_path,
+    )
+
+    assert (
+        codelists_file.read_text()
+        == prior_codelists + "project123/codelist456/version1\n"
+    )
+    assert (codelists_path / "project123-codelist456.csv").read_text() == "foo"
+
+
+def test_codelists_add_with_anchor_url(codelists_path, requests_mock):
+    codelists_path /= "codelists"
+    codelists_file = codelists_path / "codelists.txt"
+    prior_codelists = codelists_file.read_text()
+    for codelist in prior_codelists.split("\n"):
+        if codelist:
+            requests_mock.get(
+                f"https://www.opencodelists.org/codelist/{codelist.rstrip('/')}/download.csv",
+                text="foo",
+            )
+    requests_mock.get(
+        "https://www.opencodelists.org/"
+        "codelist/project123/codelist456/version1/download.csv",
+        text="foo",
+    )
+
+    codelists.add(
+        "https://www.opencodelists.org/codelist/project123/codelist456/version1/#full-list",
+        codelists_path,
+    )
+
+    assert (
+        codelists_file.read_text()
+        == prior_codelists + "project123/codelist456/version1/\n"
+    )
+    assert (codelists_path / "project123-codelist456.csv").read_text() == "foo"
+
+
+def test_codelists_add_with_download_url(codelists_path, requests_mock):
+    codelists_path /= "codelists"
+    codelists_file = codelists_path / "codelists.txt"
+    prior_codelists = codelists_file.read_text()
+    for codelist in prior_codelists.split("\n"):
+        if codelist:
+            requests_mock.get(
+                f"https://www.opencodelists.org/codelist/{codelist.rstrip('/')}/download.csv",
+                text="foo",
+            )
+    requests_mock.get(
+        "https://www.opencodelists.org/"
+        "codelist/project123/codelist456/version1/download.csv",
+        text="foo",
+    )
+
+    codelists.add(
+        "https://www.opencodelists.org/codelist/project123/codelist456/version1/download.csv",
+        codelists_path,
+    )
+
+    assert (
+        codelists_file.read_text()
+        == prior_codelists + "project123/codelist456/version1\n"
+    )
+    assert (codelists_path / "project123-codelist456.csv").read_text() == "foo"
+
+
+def test_codelists_add_with_invalid_url(codelists_path):
+    codelists_path /= "codelists"
+
+    with pytest.raises(SystemExit):
+        codelists.add("https://example.com/codelists/test/")

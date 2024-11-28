@@ -29,6 +29,14 @@ def add_arguments(parser):
         title="available commands", description="", metavar="COMMAND"
     )
 
+    parser_add = subparsers.add_parser(
+        "add", help="Add an OpenCodelists codelist to your project"
+    )
+    parser_add.add_argument(
+        "codelist_url", help="URL of the codelist to be added to your project"
+    )
+    parser_add.set_defaults(function=add)
+
     parser_update = subparsers.add_parser(
         "update",
         help=(
@@ -61,6 +69,44 @@ def add_arguments(parser):
 # by the default `show_help` above
 def main():
     pass
+
+
+def add(codelist_url, codelists_dir=None):
+    if OPENCODELISTS_BASE_URL not in codelist_url:
+        exit_with_error(f"Unable to parse URL, {OPENCODELISTS_BASE_URL} not found")
+
+    if not codelists_dir:
+        codelists_dir = get_codelists_dir()
+
+    codelists_file = get_codelist_file(codelists_dir)
+
+    codelist_handle = codelist_url.replace(f"{OPENCODELISTS_BASE_URL}/codelist/", "")
+
+    # trim any anchors from the end
+    if "#" in codelist_handle:
+        codelist_handle = codelist_handle[: codelist_handle.find("#")]
+
+    # turn a download url into a base codelist version url
+    if codelist_handle.endswith(".csv"):
+        codelist_handle = codelist_handle[: codelist_handle.rfind("/")]
+
+    # parse the line to make sure it's valid before adding to file
+    codelist = parse_codelist_file_line(codelist_handle)
+
+    with codelists_file.open("r+") as f:
+        lines = f.readlines()
+        if lines and not lines[-1].endswith("\n"):
+            codelist_handle = "\n" + codelist_handle
+        f.write(codelist_handle + "\n")
+
+    # parse the codelists file to make sure it's valid
+    parse_codelist_file(codelists_dir)
+
+    # download to the codelists dir
+    codelist.filename = codelists_dir / codelist.filename
+    downloaded_on, sha = fetch_codelist(codelist)
+
+    write_manifest(codelists_dir, [(codelist, downloaded_on, sha)], True)
 
 
 def update(codelists_dir=None):
