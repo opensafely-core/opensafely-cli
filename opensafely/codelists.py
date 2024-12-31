@@ -126,25 +126,29 @@ def check_upstream(codelists_dir=None):
         "manifest": manifest_file.read_text(),
     }
     url = f"{OPENCODELISTS_BASE_URL}/api/v1/check/"
-    response = requests.post(url, post_data).json()
-    status = response["status"]
+    response = requests.post(url, post_data)
+    response.raise_for_status()
+    response_json = response.json()
+    if "status" not in response_json:
+        raise ValueError("status not found in response")
+    status = response_json["status"]
 
     if status == "error":
         # The OpenCodelists check endpoint returns an error in the response data if it
         # encounters an invalid user, organisation or codelist in the codelists.txt file, or
         # if any codelists in codelists.csv don't match the expected pattern. These should all
         # be fixable by `opensafely codelists update`.
-        if "error" in response["data"]:
+        if "error" in response_json["data"]:
             error_message = (
-                f"Error checking upstream codelists: {response['data']['error']}\n"
+                f"Error checking upstream codelists: {response_json['data']['error']}\n"
             )
-        elif response["data"]["added"] or response["data"]["removed"]:
+        elif response_json["data"]["added"] or response_json["data"]["removed"]:
             error_message = (
                 "Codelists have been added or removed\n\n"
                 "For details, run:\n\n  opensafely codelists check\n"
             )
         else:
-            changed = "\n  ".join(response["data"]["changed"])
+            changed = "\n  ".join(response_json["data"]["changed"])
             error_message = (
                 f"Some codelists are out of date\nCodelists affected:\n  {changed}\n"
             )
@@ -221,11 +225,18 @@ def check():
 
     try:
         check_upstream(codelists_dir)
-    except requests.exceptions.ConnectionError:
-        print(
-            f"Local codelists OK; could not contact {OPENCODELISTS_BASE_URL} for upstream check,"
-            "try again later"
-        )
+    except (
+        requests.exceptions.ConnectionError,
+        requests.exceptions.HTTPError,
+        ValueError,
+    ) as e:
+        if e is ValueError and e.message != "status not found in response":
+            raise e
+        else:
+            print(
+                f"Local codelists OK; could not contact {OPENCODELISTS_BASE_URL} for upstream check,"
+                "try again later"
+            )
     return True
 
 

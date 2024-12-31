@@ -87,6 +87,24 @@ def test_codelists_check_passes_if_opencodelists_is_down(requests_mock, codelist
     assert codelists.check()
 
 
+def test_codelists_check_passes_if_opencodelists_return_lacks_status(
+    mock_check, codelists_path
+):
+    mock_check(response={"test": "ok"})
+    os.chdir(codelists_path)
+    assert codelists.check()
+
+
+def test_codelists_check_passes_if_opencodelists_returns_error(
+    requests_mock, codelists_path
+):
+    requests_mock.post(
+        "https://www.opencodelists.org/api/v1/check/", exc=requests.exceptions.HTTPError
+    )
+    os.chdir(codelists_path)
+    assert codelists.check()
+
+
 def test_codelists_check_fail_if_list_updated(codelists_path):
     with open(codelists_path / "codelists/codelists.txt", "a") as f:
         f.write("\nsomeproject/somelist/someversion")
