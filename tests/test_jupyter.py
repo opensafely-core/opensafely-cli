@@ -52,7 +52,7 @@ def test_jupyter(run, no_user, monkeypatch):
             "test_jupyter",
             "bash",
             "-c",
-            "cat /tmp/.local/share/jupyter/runtime/nbserver-*.json",
+            "cat /tmp/.local/share/jupyter/runtime/*server-*.json",
         ],
         stdout='{"token": "TOKEN"}',
     )

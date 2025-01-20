@@ -44,7 +44,7 @@ def add_arguments(parser):
 def get_metadata(name, timeout=30.0):
     """Read the login token from the generated json file in the container"""
     metadata = None
-    metadata_path = "/tmp/.local/share/jupyter/runtime/nbserver-*.json"
+    metadata_path = "/tmp/.local/share/jupyter/runtime/*server-*.json"
 
     # wait for jupyter to be set up
     start = time.time()
@@ -61,7 +61,8 @@ def get_metadata(name, timeout=30.0):
             time.sleep(1)
 
     if metadata is None:
-        utils.debug("get_metadata: Could not get metadata")
+        utils.debug("get_metadata: Could not get jupyter metadata")
+        utils.debug(ps.stderr)
         return None
 
     return metadata
