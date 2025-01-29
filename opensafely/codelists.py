@@ -29,6 +29,14 @@ def add_arguments(parser):
         title="available commands", description="", metavar="COMMAND"
     )
 
+    parser_add = subparsers.add_parser(
+        "add", help="Add an OpenCodelists codelist to your project"
+    )
+    parser_add.add_argument(
+        "codelist_url", help="URL of the codelist to be added to your project"
+    )
+    parser_add.set_defaults(function=add)
+
     parser_update = subparsers.add_parser(
         "update",
         help=(
@@ -63,39 +71,93 @@ def main():
     pass
 
 
+def add(codelist_url, codelists_dir=None):
+    if OPENCODELISTS_BASE_URL not in codelist_url:
+        exit_with_error(f"Unable to parse URL, {OPENCODELISTS_BASE_URL} not found")
+
+    if not codelists_dir:
+        codelists_dir = get_codelists_dir()
+
+    codelists_file = get_codelist_file(codelists_dir)
+
+    codelist_handle = codelist_url.replace(f"{OPENCODELISTS_BASE_URL}/codelist/", "")
+
+    # trim any anchors from the end
+    if "#" in codelist_handle:
+        codelist_handle = codelist_handle[: codelist_handle.find("#")]
+
+    # turn a download url into a base codelist version url
+    if codelist_handle.endswith(".csv"):
+        codelist_handle = codelist_handle[: codelist_handle.rfind("/")]
+
+    # parse the line to make sure it's valid before adding to file
+    codelist = parse_codelist_file_line(codelist_handle)
+
+    with codelists_file.open("r+") as f:
+        lines = f.readlines()
+        if lines and not lines[-1].endswith("\n"):
+            codelist_handle = "\n" + codelist_handle
+        f.write(codelist_handle + "\n")
+
+    # parse the codelists file to make sure it's valid
+    parse_codelist_file(codelists_dir)
+
+    # download to the codelists dir
+    codelist.filename = codelists_dir / codelist.filename
+    downloaded_on, sha = fetch_codelist(codelist)
+
+    write_manifest(codelists_dir, [(codelist, downloaded_on, sha)], True)
+
+
 def update(codelists_dir=None):
     if not codelists_dir:
         codelists_dir = Path.cwd() / CODELISTS_DIR
     codelists = parse_codelist_file(codelists_dir)
     old_files = set(codelists_dir.glob("*.csv"))
     new_files = set()
-    manifest = {"files": {}}
+    downloaded_codelists = []
     for codelist in codelists:
         print(f"Fetching {codelist.id}")
-        try:
-            response = requests.get(codelist.download_url)
-            response.raise_for_status()
-        except Exception as e:
-            exit_with_error(
-                f"Error downloading codelist: {e}\n\n"
-                f"Check that you can access the codelist at:\n{codelist.url}"
-            )
-        codelist.filename.write_bytes(response.content)
+        downloaded_at, sha = fetch_codelist(codelist)
+        downloaded_codelists.append((codelist, downloaded_at, sha))
         new_files.add(codelist.filename)
-        key = str(codelist.filename.relative_to(codelists_dir))
-        manifest["files"][key] = {
-            "id": codelist.id,
-            "url": codelist.url,
-            "downloaded_at": f"{datetime.datetime.utcnow()}Z",
-            "sha": hash_bytes(response.content),
-        }
-    manifest_file = codelists_dir / MANIFEST_FILE
-    preserve_download_dates(manifest, manifest_file)
-    manifest_file.write_text(json.dumps(manifest, indent=2))
+    write_manifest(codelists_dir, downloaded_codelists, False)
     for file in old_files - new_files:
         print(f"Deleting {file.name}")
         file.unlink()
     return True
+
+
+def write_manifest(codelists_dir, downloaded_codelists, append):
+    manifest = {"files": {}}
+    for codelist, downloaded_at, sha in downloaded_codelists:
+        key = str(codelist.filename.relative_to(codelists_dir))
+        manifest["files"][key] = {
+            "id": codelist.id,
+            "url": codelist.url,
+            "downloaded_at": f"{downloaded_at}Z",
+            "sha": sha,
+        }
+    manifest_file = codelists_dir / MANIFEST_FILE
+    if append:
+        old_manifest = get_manifest(codelists_dir)
+        manifest["files"].update(old_manifest["files"])
+    else:
+        preserve_download_dates(manifest, manifest_file)
+    manifest_file.write_text(json.dumps(manifest, indent=2))
+
+
+def fetch_codelist(codelist):
+    try:
+        response = requests.get(codelist.download_url)
+        response.raise_for_status()
+    except Exception as e:
+        exit_with_error(
+            f"Error downloading codelist: {e}\n\n"
+            f"Check that you can access the codelist at:\n{codelist.url}"
+        )
+    codelist.filename.write_bytes(response.content)
+    return (datetime.datetime.utcnow(), hash_bytes(response.content))
 
 
 def get_codelists_dir(codelists_dir=None):
@@ -104,6 +166,15 @@ def get_codelists_dir(codelists_dir=None):
         print(f"No '{CODELISTS_DIR}' directory present so nothing to check")
         return
     return codelists_dir
+
+
+def get_codelist_file(codelists_dir):
+    if not codelists_dir.exists() or not codelists_dir.is_dir():
+        exit_with_error(f"No '{CODELISTS_DIR}' folder found")
+    codelists_file = codelists_dir / CODELISTS_FILE
+    if not codelists_file.exists():
+        exit_with_error(f"No file found at '{CODELISTS_DIR}/{CODELISTS_FILE}'")
+    return codelists_file
 
 
 def check_upstream(codelists_dir=None):
@@ -167,30 +238,7 @@ def check():
         return True
 
     codelists = parse_codelist_file(codelists_dir)
-    manifest_file = codelists_dir / MANIFEST_FILE
-    if not manifest_file.exists():
-        # This is here so that switching to use this test in Github Actions
-        # doesn't cause existing repos which previously passed to start
-        # failing. It works by creating a temporary manifest file and then
-        # checking against that. Functionally, this is the same as the old test
-        # which would check against the OpenCodelists website every time.
-        if os.environ.get("GITHUB_WORKFLOW"):
-            print(
-                "==> WARNING\n"
-                "    Using temporary workaround for Github Actions tests.\n"
-                "    You should run: opensafely codelists update\n"
-            )
-            manifest = make_temporary_manifest(codelists_dir)
-        else:
-            exit_with_prompt(f"No file found at '{CODELISTS_DIR}/{MANIFEST_FILE}'.")
-    else:
-        try:
-            manifest = json.loads(manifest_file.read_text())
-        except json.decoder.JSONDecodeError:
-            exit_with_prompt(
-                f"'{CODELISTS_DIR}/{MANIFEST_FILE}' is invalid.\n"
-                "Note that this file is automatically generated and should not be manually edited.\n"
-            )
+    manifest = get_manifest(codelists_dir)
     all_ids = {codelist.id for codelist in codelists}
     ids_in_manifest = {f["id"] for f in manifest["files"].values()}
     if all_ids != ids_in_manifest:
@@ -229,6 +277,35 @@ def check():
     return True
 
 
+def get_manifest(codelists_dir):
+    manifest_file = codelists_dir / MANIFEST_FILE
+    if not manifest_file.exists():
+        # This is here so that switching to use this test in Github Actions
+        # doesn't cause existing repos which previously passed to start
+        # failing. It works by creating a temporary manifest file and then
+        # checking against that. Functionally, this is the same as the old test
+        # which would check against the OpenCodelists website every time.
+        if os.environ.get("GITHUB_WORKFLOW"):
+            print(
+                "==> WARNING\n"
+                "    Using temporary workaround for Github Actions tests.\n"
+                "    You should run: opensafely codelists update\n"
+            )
+            manifest = make_temporary_manifest(codelists_dir)
+        else:
+            exit_with_prompt(f"No file found at '{CODELISTS_DIR}/{MANIFEST_FILE}'.")
+    else:
+        try:
+            manifest = json.loads(manifest_file.read_text())
+        except json.decoder.JSONDecodeError:
+            exit_with_prompt(
+                f"'{CODELISTS_DIR}/{MANIFEST_FILE}' is invalid.\n"
+                "Note that this file is automatically generated and should not be manually edited.\n"
+            )
+
+    return manifest
+
+
 def make_temporary_manifest(codelists_dir):
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -242,50 +319,58 @@ def make_temporary_manifest(codelists_dir):
 @dataclasses.dataclass
 class Codelist:
     id: str  # noqa: A003
+    codelist: str
+    version: str
     url: str
     download_url: str
     filename: Path
 
 
+def parse_codelist_file_line(line):
+    line = line.strip().rstrip("/")
+    if not line or line.startswith("#"):
+        return
+    tokens = line.split("/")
+    if len(tokens) not in [3, 4]:
+        exit_with_error(
+            f"{line} does not match [project]/[codelist]/[version] "
+            "or user/[username]/[codelist]/[version]"
+        )
+    line_without_version = "/".join(tokens[:-1])
+    line_version = tokens[-1]
+
+    url = f"{OPENCODELISTS_BASE_URL}/codelist/{line}/"
+    filename = "-".join(tokens[:-1]) + ".csv"
+    return Codelist(
+        id=line,
+        codelist=line_without_version,
+        version=line_version,
+        url=url,
+        download_url=f"{url}download.csv",
+        filename=Path(filename),
+    )
+
+
 def parse_codelist_file(codelists_dir):
-    if not codelists_dir.exists() or not codelists_dir.is_dir():
-        exit_with_error(f"No '{CODELISTS_DIR}' folder found")
-    codelists_file = codelists_dir / CODELISTS_FILE
-    if not codelists_file.exists():
-        exit_with_error(f"No file found at '{CODELISTS_DIR}/{CODELISTS_FILE}'")
+    codelists_file = get_codelist_file(codelists_dir)
     codelists = []
     codelist_versions = {}
     for line in codelists_file.read_text().splitlines():
-        line = line.strip().rstrip("/")
-        if not line or line.startswith("#"):
+        codelist = parse_codelist_file_line(line)
+        if not codelist:
             continue
-        tokens = line.split("/")
-        if len(tokens) not in [3, 4]:
-            exit_with_error(
-                f"{line} does not match [project]/[codelist]/[version] "
-                "or user/[username]/[codelist]/[version]"
-            )
-        line_without_version = "/".join(tokens[:-1])
-        existing_version = codelist_versions.get(line_without_version)
-        line_version = tokens[-1]
-        if existing_version == line_version:
+        codelist.filename = codelists_dir / codelist.filename
+        existing_version = codelist_versions.get(codelist.codelist)
+
+        if existing_version == codelist.version:
             exit_with_error(f"{line} is a duplicate of a previous line")
         if existing_version is not None:
             exit_with_error(
                 f"{line} conflicts with a different version of the same codelist: {existing_version}"
             )
-        codelist_versions[line_without_version] = line_version
+        codelist_versions[codelist.codelist] = codelist.version
+        codelists.append(codelist)
 
-        url = f"{OPENCODELISTS_BASE_URL}/codelist/{line}/"
-        filename = "-".join(tokens[:-1]) + ".csv"
-        codelists.append(
-            Codelist(
-                id=line,
-                url=url,
-                download_url=f"{url}download.csv",
-                filename=codelists_dir / filename,
-            )
-        )
     return codelists
 
 
