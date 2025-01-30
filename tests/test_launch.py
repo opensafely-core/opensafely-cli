@@ -9,7 +9,16 @@ from opensafely import launch, utils
 from tests.conftest import run_main
 
 
-def test_jupyter(run, no_user, monkeypatch):
+@pytest.mark.parametrize("version", ["", "v2"])
+def test_jupyter(run, no_user, monkeypatch, version):
+
+    if not version:
+        tool = "jupyter"
+        used_version = "v2"
+    else:
+        tool = f"jupyter:{version}"
+        used_version = version
+
     # easier to monkeypatch open_browser that try match the underlying
     # subprocess calls.
     mock_open_browser = mock.Mock(spec=utils.open_browser)
@@ -37,7 +46,7 @@ def test_jupyter(run, no_user, monkeypatch):
             "HOME=/tmp",
             "--env",
             "PYTHONPATH=/workspace",
-            "ghcr.io/opensafely-core/python",
+            f"ghcr.io/opensafely-core/python:{used_version}",
             "jupyter",
             "lab",
             "--ip=0.0.0.0",
@@ -61,12 +70,20 @@ def test_jupyter(run, no_user, monkeypatch):
         stdout='{"token": "TOKEN"}',
     )
 
-    assert run_main(launch, "jupyter --port 1234 --name test_jupyter") == 0
+    assert run_main(launch, f"{tool} --port 1234 --name test_jupyter") == 0
     mock_open_browser.assert_called_with("http://localhost:1234/?token=TOKEN")
 
 
+@pytest.mark.parametrize("version", ["", "v2"])
 @pytest.mark.parametrize("gitconfig_exists", [True, False])
-def test_rstudio(run, tmp_path, monkeypatch, gitconfig_exists):
+def test_rstudio(run, tmp_path, monkeypatch, gitconfig_exists, version):
+
+    if not version:
+        tool = "rstudio"
+        used_version = "v2"
+    else:
+        tool = f"rstudio:{version}"
+        used_version = version
 
     home = tmp_path / "home"
     home.mkdir()
@@ -89,7 +106,14 @@ def test_rstudio(run, tmp_path, monkeypatch, gitconfig_exists):
 
     run.expect(["docker", "info"])
 
-    run.expect(["docker", "image", "inspect", "ghcr.io/opensafely-core/rstudio:latest"])
+    run.expect(
+        [
+            "docker",
+            "image",
+            "inspect",
+            f"ghcr.io/opensafely-core/rstudio:{used_version}",
+        ]
+    )
 
     expected = [
         "docker",
@@ -115,7 +139,7 @@ def test_rstudio(run, tmp_path, monkeypatch, gitconfig_exists):
             + ":/home/rstudio/local-gitconfig",
         )
 
-    run.expect(expected + ["ghcr.io/opensafely-core/rstudio"])
+    run.expect(expected + [f"ghcr.io/opensafely-core/rstudio:{used_version}"])
 
-    assert run_main(launch, "rstudio --port 8787 --name test_rstudio") == 0
+    assert run_main(launch, f"{tool} --port 8787 --name test_rstudio") == 0
     mock_open_browser.assert_called_with("http://localhost:8787")

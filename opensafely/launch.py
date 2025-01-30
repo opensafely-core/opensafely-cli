@@ -49,25 +49,27 @@ def add_arguments(parser):
 
 def main(tool, directory, name, port, no_browser):
 
-    if tool == "rstudio":
+    tool_name, _, version = tool.partition(":")
+
+    if tool_name == "rstudio":
         func = launch_rstudio
-    elif tool == "jupyter":
+    elif tool_name == "jupyter":
         func = launch_jupyter
     else:
         raise argparse.ArgumentTypeError(
-            f"{tool} is not a recognised tool to launch. Choose from rstudio, jupyter"
+            f"{tool_name} is not a recognised tool to launch. Choose from rstudio, jupyter"
         )
 
     if not docker_preflight_check():
         return False
 
     if name is None:
-        name = f"os-{tool}-{directory.name}"
+        name = f"os-{tool_name}-{directory.name}"
 
     if port is None:
         port = str(utils.get_free_port())
 
-    return func(directory, name, port, no_browser)
+    return func(version, directory, name, port, no_browser)
 
 
 def get_jupyter_metadata(name, timeout=30.0):
@@ -108,7 +110,11 @@ def read_jupyter_metadata_and_open(name, port):
         utils.print_exception_from_thread(*sys.exc_info())
 
 
-def launch_jupyter(directory, name, port, no_browser):
+def launch_jupyter(version, directory, name, port, no_browser):
+
+    if not version:
+        version = "v2"
+
     jupyter_cmd = [
         "jupyter",
         "lab",
@@ -142,14 +148,21 @@ def launch_jupyter(directory, name, port, no_browser):
     utils.debug("docker: " + " ".join(docker_args))
 
     ps = utils.run_docker(
-        docker_args, "python", jupyter_cmd, interactive=True, directory=directory
+        docker_args,
+        f"python:{version}",
+        jupyter_cmd,
+        interactive=True,
+        directory=directory,
     )
 
     # we want to exit with the same code that jupyter did
     return ps.returncode
 
 
-def launch_rstudio(directory, name, port, no_browser):
+def launch_rstudio(version, directory, name, port, no_browser):
+    if not version:
+        version = "v2"
+
     url = f"http://localhost:{port}"
 
     if sys.platform == "linux":
@@ -159,7 +172,7 @@ def launch_rstudio(directory, name, port, no_browser):
 
     # check for rstudio image, if not present pull image
     imgchk = subprocess.run(
-        ["docker", "image", "inspect", "ghcr.io/opensafely-core/rstudio:latest"],
+        ["docker", "image", "inspect", f"ghcr.io/opensafely-core/rstudio:{version}"],
         capture_output=True,
     )
     if imgchk.returncode == 1:
@@ -168,7 +181,7 @@ def launch_rstudio(directory, name, port, no_browser):
                 "docker",
                 "pull",
                 "--platform=linux/amd64",
-                "ghcr.io/opensafely-core/rstudio:latest",
+                f"ghcr.io/opensafely-core/rstudio:{version}",
             ],
             check=True,
         )
@@ -196,7 +209,7 @@ def launch_rstudio(directory, name, port, no_browser):
 
     ps = utils.run_docker(
         docker_args,
-        image="rstudio",
+        image=f"rstudio:{version}",
         interactive=True,
         # rstudio needs to start as root, but drops privileges to uid later
         user="0:0",

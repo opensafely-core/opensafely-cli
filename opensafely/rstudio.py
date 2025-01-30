@@ -10,4 +10,4 @@ def main(directory, name, port, no_browser):
     print(
         "opensafely rstudio command is deprecated - instead use: opensafely launch rstudio"
     )
-    return launch.main("rstudio", directory, name, port, no_browser)
+    return launch.main("rstudio:v1", directory, name, port, no_browser)
