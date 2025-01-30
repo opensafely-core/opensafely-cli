@@ -22,6 +22,13 @@ def add_arguments(parser):
         "--name", help="Name of docker image (defaults to use directory name)"
     )
     parser.add_argument(
+        "--no-browser",
+        "-n",
+        default=False,
+        action="store_true",
+        help="Do not attempt to open a browser",
+    )
+    parser.add_argument(
         "--port",
         "-p",
         default=None,
@@ -29,7 +36,7 @@ def add_arguments(parser):
     )
 
 
-def main(directory, name, port):
+def main(directory, name, port, no_browser):
     if not docker_preflight_check():
         return False
 
@@ -80,7 +87,8 @@ def main(directory, name, port):
         "When you are finished working please press Ctrl+C here to end the session"
     )
 
-    utils.open_in_thread(utils.open_browser, (url,))
+    if not no_browser:
+        utils.open_in_thread(utils.open_browser, (url,))
 
     ps = utils.run_docker(
         docker_args,
