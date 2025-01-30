@@ -214,6 +214,10 @@ class Action:
 
         return action
 
+    # Valid image versions. `dev` is for local testing
+    # Note: at some point, we probably want to disallow latest.
+    VERSION_REGEX = re.compile(r"^((v[\d.]+)|dev|latest)$")
+
     @classmethod
     def parse_run_string(cls, action_id: str, run: str) -> Command:
         if run == "":
@@ -224,9 +228,11 @@ class Action:
         parts = shlex.split(run)
 
         name, _, version = parts[0].partition(":")
-        if not version:
+
+        vmatch = cls.VERSION_REGEX.match(version)
+        if not vmatch:
             raise ValidationError(
-                f"{name} must have a version specified (e.g. {name}:0.5.2)",
+                f"Action command {name} must have a version specified in the form :vN (e.g. {name}:v2)",
             )
 
         return Command(raw=run)

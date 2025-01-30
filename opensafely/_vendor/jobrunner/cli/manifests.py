@@ -1,6 +1,7 @@
 """
 Ops utility for backfilling manifest.json files from db
 """
+
 import argparse
 
 from opensafely._vendor.jobrunner.executors import local

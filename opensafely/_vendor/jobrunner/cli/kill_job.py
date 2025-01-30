@@ -1,6 +1,7 @@
 """
 Ops utility for killing jobs and cleaning up containers and volumes
 """
+
 import argparse
 
 from opensafely._vendor.jobrunner.executors import local
