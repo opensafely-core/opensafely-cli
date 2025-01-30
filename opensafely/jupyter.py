@@ -1,4 +1,3 @@
-import argparse
 import json
 import os
 import subprocess
@@ -40,12 +39,6 @@ def add_arguments(parser):
         default=None,
         help="Port to run on (random by default)",
     )
-    parser.add_argument(
-        "jupyter_args",
-        nargs=argparse.REMAINDER,
-        metavar="...",
-        help="Any additional arguments to pass to the jupyter lab command",
-    )
 
 
 def get_metadata(name, timeout=30.0):
@@ -86,7 +79,7 @@ def read_metadata_and_open(name, port):
         utils.print_exception_from_thread(*sys.exc_info())
 
 
-def main(directory, name, port, no_browser, jupyter_args):
+def main(directory, name, port, no_browser):
     if not docker_preflight_check():
         return False
 
@@ -105,7 +98,6 @@ def main(directory, name, port, no_browser, jupyter_args):
         "--no-browser",
         # display the url from the hosts perspective
         f"--LabApp.custom_display_url=http://localhost:{port}/",
-        *jupyter_args,
     ]
 
     print(f"Running following jupyter cmd in OpenSAFELY docker container {name}...")

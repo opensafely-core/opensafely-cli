@@ -42,7 +42,6 @@ def test_jupyter(run, no_user, monkeypatch):
             "--no-browser",
             # display the url from the hosts perspective
             "--LabApp.custom_display_url=http://localhost:1234/",
-            "foo",
         ]
     )
     # fetch the metadata
@@ -58,5 +57,5 @@ def test_jupyter(run, no_user, monkeypatch):
         stdout='{"token": "TOKEN"}',
     )
 
-    assert run_main(jupyter, "--port 1234 --name test_jupyter foo") == 0
+    assert run_main(jupyter, "--port 1234 --name test_jupyter") == 0
     mock_open_browser.assert_called_with("http://localhost:1234/?token=TOKEN")
