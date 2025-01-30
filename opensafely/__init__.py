@@ -22,6 +22,7 @@ from opensafely import (  # noqa: E402
     extract_stats,
     info,
     jupyter,
+    launch,
     pull,
     rstudio,
     unzip,
@@ -137,12 +138,15 @@ def main():
     add_subcommand("pull", pull)
     add_subcommand("upgrade", upgrade)
     add_subcommand("check", check)
-    add_subcommand("jupyter", jupyter)
     add_subcommand("unzip", unzip)
     add_subcommand("extract-stats", extract_stats)
     add_subcommand("info", info)
     add_subcommand("exec", execute)
     add_subcommand("clean", clean)
+    add_subcommand("launch", launch)
+
+    # deprecated
+    add_subcommand("jupyter", jupyter)
     add_subcommand("rstudio", rstudio)
 
     warn_if_updates_needed(sys.argv)
