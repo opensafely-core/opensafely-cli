@@ -10,7 +10,7 @@ from opensafely import launch, utils
 from tests.conftest import run_main
 
 
-@pytest.mark.parametrize("version", ["", "v2"])
+@pytest.mark.parametrize("version", ["", "v1"])
 def test_jupyter(run, no_user, monkeypatch, version):
 
     if not version:
@@ -23,7 +23,7 @@ def test_jupyter(run, no_user, monkeypatch, version):
     # easier to monkeypatch open_browser that try match the underlying
     # subprocess calls.
     mock_open_browser = mock.Mock(spec=utils.open_browser)
-    monkeypatch.setattr(utils, "open_browser", mock_open_browser)
+    monkeypatch.setattr(launch.utils, "open_browser", mock_open_browser)
 
     mock_token_hex = mock.Mock(spec=secrets.token_urlsafe)
     mock_token_hex.return_value = "TOKEN"
@@ -136,3 +136,32 @@ def test_rstudio(run, tmp_path, monkeypatch, gitconfig_exists, version):
 
     assert run_main(launch, f"{tool} --port 8787 --name test_rstudio") == 0
     mock_open_browser.assert_called_with("http://localhost:8787")
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="Only runs on Linux")
+@pytest.mark.parametrize("tool", ["jupyter", "rstudio"])
+@pytest.mark.functional
+def test_launch_browser(monkeypatch, docker, tool):
+    """This test's the --background flag, as well as providing base functional tests."""
+
+    mock_open_browser = mock.Mock(spec=utils.open_browser)
+    monkeypatch.setattr(launch.utils, "open_browser", mock_open_browser)
+
+    args = f"{tool} --port 1234 --name test_launch_browser_{tool} --background"
+
+    assert run_main(launch, args) == 0
+    assert mock_open_browser.mock_calls[0].args[0].startswith("http://localhost:1234")
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="Only runs on Linux")
+@pytest.mark.functional
+def test_launch_no_browser(monkeypatch, docker):
+    """Just test rstudio, as the logic is the same for each"""
+
+    mock_open_browser = mock.Mock(spec=utils.open_browser)
+    monkeypatch.setattr(launch.utils, "open_browser", mock_open_browser)
+
+    args = "rstudio --port 1234 --name test_launch_no_browser --background --no-browser"
+
+    assert run_main(launch, args) == 0
+    assert not mock_open_browser.called

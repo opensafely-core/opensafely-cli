@@ -14,6 +14,10 @@ from opensafely._vendor import requests
 from opensafely._vendor.jobrunner import config
 
 
+# all docker containers we run will be tagged with this label
+DOCKER_LABEL = "opensafely"
+
+
 def debug(msg):
     """Windows threaded debugger."""
     if os.environ.get("DEBUG", False):
@@ -89,6 +93,7 @@ def run_docker(
     cmd=(),
     directory=None,
     interactive=False,
+    detach=False,
     user=None,
     verbose=False,
     *args,
@@ -102,6 +107,9 @@ def run_docker(
     - passes through any other args to subprocess.run
     """
 
+    if interactive and detach:
+        raise Exception("Cannot use both interactive and background")
+
     if user is None:
         user = DEFAULT_USER
 
@@ -110,13 +118,15 @@ def run_docker(
         "run",
         "--rm",
         "--init",
-        "--label=opensafely",
+        f"--label={DOCKER_LABEL}",
         # all our docker images are this platform
         # helps when running on M-series macs.
         "--platform=linux/amd64",
     ]
 
-    if interactive:
+    if detach:
+        base_cmd += ["--detach"]
+    elif interactive:
         base_cmd += ["--interactive"]
         wrapper = git_bash_tty_wrapper()
         if (sys.stdin.isatty() and sys.stdout.isatty()) or wrapper:
@@ -204,3 +214,4 @@ def open_in_thread(target, args):
     thread.name = "browser thread"
     debug("starting browser thread")
     thread.start()
+    return thread

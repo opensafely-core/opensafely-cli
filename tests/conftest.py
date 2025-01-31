@@ -224,3 +224,31 @@ def set_pypi_version(requests_mock):
         )
 
     return set
+
+
+@pytest.fixture
+def docker(monkeypatch):
+    test_label = "opensafely-cli-tests"
+    monkeypatch.setattr(utils, "DOCKER_LABEL", test_label)
+    yield
+    delete_docker_entities("container", test_label)
+
+
+def delete_docker_entities(entity, label, ignore_errors=False):
+    ls_args = [
+        "docker",
+        entity,
+        "ls",
+        "--all" if entity == "container" else None,
+        "--filter",
+        f"label={label}",
+        "--quiet",
+    ]
+    ls_args = list(filter(None, ls_args))
+    response = subprocess.run(
+        ls_args, capture_output=True, encoding="ascii", check=not ignore_errors
+    )
+    ids = response.stdout.split()
+    if ids and response.returncode == 0:
+        rm_args = ["docker", entity, "rm", "--force"] + ids
+        subprocess.run(rm_args, capture_output=True, check=not ignore_errors)

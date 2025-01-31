@@ -36,6 +36,13 @@ def add_base_args(parser):
         action="store_true",
         help="Do not attempt to open a browser",
     )
+    parser.add_argument(
+        "--background",
+        "-b",
+        default=False,
+        action="store_true",
+        help="Run docker container in background",
+    )
 
 
 def add_arguments(parser):
@@ -46,7 +53,7 @@ def add_arguments(parser):
     add_base_args(parser)
 
 
-def main(tool, directory, name, port, no_browser):
+def main(tool, directory, name, port, no_browser, background):
 
     tool_name, _, version = tool.partition(":")
 
@@ -68,10 +75,10 @@ def main(tool, directory, name, port, no_browser):
     if port is None:
         port = str(utils.get_free_port())
 
-    return func(version, directory, name, port, no_browser)
+    return func(version, directory, name, port, no_browser, background)
 
 
-def launch_jupyter(version, directory, name, port, no_browser):
+def launch_jupyter(version, directory, name, port, no_browser, background):
 
     if not version:
         version = "v2"
@@ -109,27 +116,17 @@ def launch_jupyter(version, directory, name, port, no_browser):
         f"JUPYTER_TOKEN={token}",
     ]
 
-    utils.debug("docker: " + " ".join(docker_args))
-
-    print(f"Opening a Jupyter Lab session at {url}.")
-    print("When you are finished working please press Ctrl+C here to end the session.")
-
-    if not no_browser:
-        utils.open_in_thread(utils.open_browser, (url,))
-
-    ps = utils.run_docker(
-        docker_args,
-        f"python:{version}",
-        jupyter_cmd,
-        interactive=True,
+    kwargs = dict(
+        image=f"python:{version}",
+        cmd=jupyter_cmd,
         directory=directory,
     )
 
-    # we want to exit with the same code that jupyter did
-    return ps.returncode
+    print(f"Starting a Jupyter Lab session at {url}.")
+    return run_tool(docker_args, kwargs, background, no_browser, url)
 
 
-def launch_rstudio(version, directory, name, port, no_browser):
+def launch_rstudio(version, directory, name, port, no_browser, background):
     if not version:
         version = "v2"
 
@@ -168,23 +165,41 @@ def launch_rstudio(version, directory, name, port, no_browser):
     if gitconfig.exists():
         docker_args.append(f"--volume={gitconfig}:/home/rstudio/local-gitconfig")
 
-    utils.debug("docker: " + " ".join(docker_args))
-    print(
-        f"Opening an RStudio Server session at {url}. "
-        "When you are finished working please press Ctrl+C here to end the session"
-    )
-
-    if not no_browser:
-        utils.open_in_thread(utils.open_browser, (url,))
-
-    ps = utils.run_docker(
-        docker_args,
+    kwargs = dict(
         image=f"rstudio:{version}",
-        interactive=True,
         # rstudio needs to start as root, but drops privileges to uid later
         user="0:0",
         directory=directory,
     )
 
-    # we want to exit with the same code that rstudio-server did
+    utils.debug("docker: " + " ".join(docker_args))
+    print(f"Opening an RStudio Server session at {url}.")
+    return run_tool(docker_args, kwargs, background, no_browser, url)
+
+
+def run_tool(docker_args, kwargs, background, no_browser, url):
+    if background:
+        kwargs["detach"] = True
+        kwargs["capture_output"] = True
+        kwargs["text"] = True
+    else:
+        kwargs["interactive"] = True
+        print(
+            "When you are finished working please press Ctrl+C here to end the session."
+        )
+        # running in foreground, so use thread to open browser
+        if not no_browser:
+            utils.open_in_thread(utils.open_browser, (url,))
+
+    ps = utils.run_docker(docker_args, **kwargs)
+
+    if background:
+        if ps.returncode == 0:
+            if not no_browser:
+                utils.open_browser(url)
+        else:
+            print(ps.stdout)
+            print(ps.stderr, file=sys.stderr)
+
+    # we want to exit with the same code that docker did
     return ps.returncode
