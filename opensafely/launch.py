@@ -43,6 +43,13 @@ def add_base_args(parser):
         action="store_true",
         help="Run docker container in background",
     )
+    parser.add_argument(
+        "--force",
+        "-f",
+        default=False,
+        action="store_true",
+        help="Force remove any old docker containers that are running",
+    )
 
 
 def add_arguments(parser):
@@ -53,7 +60,7 @@ def add_arguments(parser):
     add_base_args(parser)
 
 
-def main(tool, directory, name, port, no_browser, background):
+def main(tool, directory, name, port, no_browser, background, force):
 
     tool_name, _, version = tool.partition(":")
 
@@ -71,6 +78,27 @@ def main(tool, directory, name, port, no_browser, background):
 
     if name is None:
         name = f"os-{tool_name}-{directory.name}"
+
+    # does the container for this tool/workspace already exist?
+    ps = utils.dockerctl("inspect", name, check=False)
+    if ps.returncode == 0:
+        if force:
+            # rename the current container, then stop it. Docker will clean it
+            # up, and we free to reuse the name immeadiately
+            old = name + "_deleting"
+            utils.dockerctl("rename", name, old)
+            utils.dockerctl("stop", old)
+        else:  # re-use
+            # check the label for url information
+            url = utils.dockerctl(
+                "inspect", "-f", '{{index .Config.Labels "url"}}', name
+            ).stdout.strip()
+            print(f"{tool_name} is already running at {url}")
+            print("Use --force to force to remove it and start a new instance")
+            if not no_browser:
+                print(f"Opening browser at {url}")
+                utils.open_browser(url)
+            return 0
 
     if port is None:
         port = str(utils.get_free_port())
@@ -114,6 +142,8 @@ def launch_jupyter(version, directory, name, port, no_browser, background):
         # fix the token ahead of time
         "--env",
         f"JUPYTER_TOKEN={token}",
+        # store label for later use
+        f"--label=url={url}",
     ]
 
     kwargs = dict(
@@ -157,8 +187,11 @@ def launch_rstudio(version, directory, name, port, no_browser, background):
         f"-p={port}:8787",
         f"--name={name}",
         f"--hostname={name}",
+        # needed for rstudio user management
         f"--env=HOSTPLATFORM={sys.platform}",
         f"--env=HOSTUID={uid}",
+        # store label for later use
+        f"--label=url={url}",
     ]
 
     gitconfig = Path.home() / ".gitconfig"

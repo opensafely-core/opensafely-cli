@@ -33,6 +33,7 @@ def test_jupyter(run, no_user, monkeypatch, version):
     run.concurrent = True
 
     run.expect(["docker", "info"])
+    run.expect(["docker", "inspect", "test_jupyter"], returncode=1)
     run.expect(
         [
             "docker",
@@ -52,6 +53,7 @@ def test_jupyter(run, no_user, monkeypatch, version):
             "PYTHONPATH=/workspace",
             "--env",
             "JUPYTER_TOKEN=TOKEN",
+            "--label=url=http://localhost:1234/?token=TOKEN",
             f"ghcr.io/opensafely-core/python:{used_version}",
             "jupyter",
             "lab",
@@ -99,6 +101,7 @@ def test_rstudio(run, tmp_path, monkeypatch, gitconfig_exists, version):
 
     run.expect(["docker", "info"])
 
+    run.expect(["docker", "inspect", "test_rstudio"], returncode=1)
     run.expect(
         [
             "docker",
@@ -123,6 +126,7 @@ def test_rstudio(run, tmp_path, monkeypatch, gitconfig_exists, version):
         "--hostname=test_rstudio",
         "--env=HOSTPLATFORM=" + sys.platform,
         f"--env=HOSTUID={uid}",
+        "--label=url=http://localhost:8787",
     ]
 
     if gitconfig_exists:
@@ -165,3 +169,29 @@ def test_launch_no_browser(monkeypatch, docker):
 
     assert run_main(launch, args) == 0
     assert not mock_open_browser.called
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="Only runs on Linux")
+@pytest.mark.functional
+def test_launch_force(monkeypatch, docker):
+    mock_open_browser = mock.Mock(spec=utils.open_browser)
+    monkeypatch.setattr(launch.utils, "open_browser", mock_open_browser)
+
+    # start rstuido
+    assert run_main(launch, "rstudio --port 1234 --name test_force --background") == 0
+    assert mock_open_browser.call_count == 1
+    assert mock_open_browser.mock_calls[0].args[0] == "http://localhost:1234"
+
+    # try again, without ---force
+    # should not error, but still open browser, but on original port, not requested port
+    assert run_main(launch, "rstudio --port 4321 --name test_force --background") == 0
+    assert mock_open_browser.call_count == 2
+    assert mock_open_browser.mock_calls[1].args[0] == "http://localhost:1234"
+
+    # try agin, but with --force, whcih should kill the old one and start new one on requested port
+    assert (
+        run_main(launch, "rstudio --port 4321 --name test_force --background --force")
+        == 0
+    )
+    assert mock_open_browser.call_count == 3
+    assert mock_open_browser.mock_calls[2].args[0] == "http://localhost:4321"

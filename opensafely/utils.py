@@ -157,6 +157,28 @@ def run_docker(
     return subprocess.run(docker_cmd, *args, **kwargs)
 
 
+def dockerctl(cmd, *args, check=True, capture_output=True, text=True, **kwargs):
+    """Utility function to docker commands that are *not* run.
+
+    Sets some defaults:
+     - check=True
+     - capture_output=True
+     - text=True
+
+    Also ensures
+    """
+
+    assert cmd != "run", "Use run_docker not dockerctl"
+
+    return subprocess.run(
+        ["docker", cmd] + list(args),
+        check=check,
+        capture_output=capture_output,
+        text=text,
+        **kwargs,
+    )
+
+
 def get_free_port():
     """Get a port that is free on the users host machine"""
     # this is a race condition, as something else could consume the socket
