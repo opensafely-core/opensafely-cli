@@ -10,4 +10,4 @@ def main(directory, name, port, no_browser):
     print(
         "opensafely jupyter command is deprecated - instead use: opensafely launch jupyter"
     )
-    return launch.main("jupyter:v1", directory, name, port, no_browser)
+    return 1
