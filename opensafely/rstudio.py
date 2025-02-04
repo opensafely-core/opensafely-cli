@@ -1,12 +1,9 @@
-from opensafely import launch
-
-
 DESCRIPTION = "DEPRECATED. Use: opensafely launch rstudio"
 
-add_arguments = launch.add_base_args
+add_arguments = lambda _: None
 
 
-def main(directory, name, port, no_browser):
+def main(*args, **kwargs):
     print(
         "opensafely rstudio command is deprecated - instead use: opensafely launch rstudio"
     )
