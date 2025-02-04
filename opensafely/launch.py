@@ -1,9 +1,8 @@
 import argparse
-import json
 import os
+import secrets
 import subprocess
 import sys
-import time
 from pathlib import Path
 
 from opensafely import utils
@@ -72,48 +71,13 @@ def main(tool, directory, name, port, no_browser):
     return func(version, directory, name, port, no_browser)
 
 
-def get_jupyter_metadata(name, timeout=30.0):
-    """Read the login token from the generated json file in the container"""
-    metadata = None
-    metadata_path = "/tmp/.local/share/jupyter/runtime/*server-*.json"
-
-    # wait for jupyter to be set up
-    start = time.time()
-    while metadata is None and time.time() - start < timeout:
-        ps = subprocess.run(
-            ["docker", "exec", name, "bash", "-c", f"cat {metadata_path}"],
-            text=True,
-            capture_output=True,
-        )
-        if ps.returncode == 0:
-            utils.debug(ps.stdout)
-            metadata = json.loads(ps.stdout)
-        else:
-            time.sleep(1)
-
-    if metadata is None:
-        utils.debug("get_jupyter_metadata: Could not get metadata")
-        return None
-
-    return metadata
-
-
-def read_jupyter_metadata_and_open(name, port):
-    try:
-        metadata = get_jupyter_metadata(name)
-        if metadata:
-            url = f"http://localhost:{port}/?token={metadata['token']}"
-            utils.open_browser(url)
-        else:
-            utils.debug("could not retrieve login token from jupyter container")
-    except Exception:
-        utils.print_exception_from_thread(*sys.exc_info())
-
-
 def launch_jupyter(version, directory, name, port, no_browser):
 
     if not version:
         version = "v2"
+
+    token = secrets.token_urlsafe(8)
+    url = f"http://localhost:{port}/?token={token}"
 
     jupyter_cmd = [
         "jupyter",
@@ -140,12 +104,18 @@ def launch_jupyter(version, directory, name, port, no_browser):
         # allow importing from the top level
         "--env",
         "PYTHONPATH=/workspace",
+        # fix the token ahead of time
+        "--env",
+        f"JUPYTER_TOKEN={token}",
     ]
 
-    if not no_browser:
-        utils.open_in_thread(read_jupyter_metadata_and_open, (name, port))
-
     utils.debug("docker: " + " ".join(docker_args))
+
+    print(f"Opening a Jupyter Lab session at {url}.")
+    print("When you are finished working please press Ctrl+C here to end the session.")
+
+    if not no_browser:
+        utils.open_in_thread(utils.open_browser, (url,))
 
     ps = utils.run_docker(
         docker_args,
