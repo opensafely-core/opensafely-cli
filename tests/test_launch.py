@@ -59,10 +59,10 @@ def test_jupyter(run, no_user, monkeypatch, version):
             "lab",
             "--ip=0.0.0.0",
             "--port=1234",
-            "--allow-root",
             "--no-browser",
-            # display the url from the hosts perspective
-            "--LabApp.custom_display_url=http://localhost:1234/",
+            "--ServerApp.custom_display_url=http://localhost:1234/",
+            "-y",  # do not ask for confirmation on quiting
+            "--Application.log_level=ERROR",  # errors only please
         ]
     )
     assert run_main(launch, f"{tool} --port 1234 --name test_jupyter") == 0

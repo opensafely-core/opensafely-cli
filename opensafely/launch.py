@@ -119,10 +119,11 @@ def launch_jupyter(version, directory, name, port, no_browser, background):
         "lab",
         "--ip=0.0.0.0",
         f"--port={port}",
-        "--allow-root",
-        "--no-browser",
+        "--no-browser",  # we open the brower
         # display the url from the hosts perspective
-        f"--LabApp.custom_display_url=http://localhost:{port}/",
+        f"--ServerApp.custom_display_url=http://localhost:{port}/",
+        "-y",  # do not ask for confirmation on quiting
+        "--Application.log_level=ERROR",  # only log errors
     ]
 
     print(f"Running following jupyter cmd in OpenSAFELY docker container {name}...")
