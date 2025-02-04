@@ -50,3 +50,15 @@ New versions are tagged, and the PyPI package built and published, automatically
 via GitHub actions on merges to `main`.  Note that the version will be bumped
 according to information parsed from the commits using semantic-release conventions (e.g. `fix:`, `feat:`).  If no semantic commit is found since the last tag, a new version
 will not be released.
+
+## Local Builds
+
+Making a local build can be useful for testing and QA purposes.
+This is done by running:
+```
+python setup.py sdist bdist_wheel
+```
+
+which will output a `.tar.gz` and `.whl` file in the `dist/` directory.
+The latter of which can be passed to `pip install` for installation,
+ideally in a separate virtual environment for testing/QA purposes.
