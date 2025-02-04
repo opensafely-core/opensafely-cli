@@ -1,7 +1,6 @@
 import argparse
 import os
 import secrets
-import subprocess
 import sys
 from pathlib import Path
 
@@ -166,22 +165,6 @@ def launch_rstudio(version, directory, name, port, no_browser, background):
         uid = os.getuid()
     else:
         uid = None
-
-    # check for rstudio image, if not present pull image
-    imgchk = subprocess.run(
-        ["docker", "image", "inspect", f"ghcr.io/opensafely-core/rstudio:{version}"],
-        capture_output=True,
-    )
-    if imgchk.returncode == 1:
-        subprocess.run(
-            [
-                "docker",
-                "pull",
-                "--platform=linux/amd64",
-                f"ghcr.io/opensafely-core/rstudio:{version}",
-            ],
-            check=True,
-        )
 
     docker_args = [
         f"-p={port}:8787",

@@ -102,15 +102,6 @@ def test_rstudio(run, tmp_path, monkeypatch, gitconfig_exists, version):
     run.expect(["docker", "info"])
 
     run.expect(["docker", "inspect", "test_rstudio"], returncode=1)
-    run.expect(
-        [
-            "docker",
-            "image",
-            "inspect",
-            f"ghcr.io/opensafely-core/rstudio:{used_version}",
-        ]
-    )
-
     expected = [
         "docker",
         "run",
