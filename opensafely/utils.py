@@ -151,8 +151,11 @@ def run_docker(
         *cmd,
     ]
 
+    cmd = " ".join(docker_cmd)
     if verbose:
-        print(" ".join(docker_cmd))
+        print(cmd)
+    else:
+        debug(cmd)
 
     return subprocess.run(docker_cmd, *args, **kwargs)
 

@@ -126,8 +126,7 @@ def launch_jupyter(version, directory, name, port, no_browser, background):
         "--Application.log_level=ERROR",  # only log errors
     ]
 
-    print(f"Running following jupyter cmd in OpenSAFELY docker container {name}...")
-    print(" ".join(jupyter_cmd))
+    utils.debug(" ".join(jupyter_cmd))
 
     docker_args = [
         # we use our port on both sides of the docker port mapping so that
@@ -206,7 +205,6 @@ def launch_rstudio(version, directory, name, port, no_browser, background):
         directory=directory,
     )
 
-    utils.debug("docker: " + " ".join(docker_args))
     print(f"Opening an RStudio Server session at {url}.")
     return run_tool(docker_args, kwargs, background, no_browser, url)
 
