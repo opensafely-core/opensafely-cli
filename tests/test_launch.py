@@ -137,7 +137,7 @@ def test_rstudio(run, tmp_path, monkeypatch, gitconfig_exists, version):
 @pytest.mark.parametrize("tool", ["jupyter", "rstudio"])
 @pytest.mark.functional
 def test_launch_browser(monkeypatch, docker, tool):
-    """This test's the --background flag, as well as providing base functional tests."""
+    """This tests the --background flag, as well as providing base functional tests."""
 
     mock_open_browser = mock.Mock(spec=utils.open_browser)
     monkeypatch.setattr(launch.utils, "open_browser", mock_open_browser)
