@@ -17,7 +17,7 @@ def add_base_args(parser):
         "-d",
         default=os.getcwd(),
         type=Path,
-        help="Directory to run the RStudio Server session in (default is current dir)",
+        help="Directory to run the tool from (default is current dir)",
     )
     parser.add_argument(
         "--name", help="Name of docker container (defaults to use directory name)"
@@ -47,7 +47,7 @@ def add_base_args(parser):
         "-f",
         default=False,
         action="store_true",
-        help="Force remove any old docker containers that are running",
+        help="Force a new version of the tool to run",
     )
 
 
