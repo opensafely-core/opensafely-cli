@@ -1,9 +1,7 @@
 import argparse
-import json
 import os
-import subprocess
+import secrets
 import sys
-import time
 from pathlib import Path
 
 from opensafely import utils
@@ -37,6 +35,20 @@ def add_base_args(parser):
         action="store_true",
         help="Do not attempt to open a browser",
     )
+    parser.add_argument(
+        "--background",
+        "-b",
+        default=False,
+        action="store_true",
+        help="Run docker container in background",
+    )
+    parser.add_argument(
+        "--force",
+        "-f",
+        default=False,
+        action="store_true",
+        help="Force remove any old docker containers that are running",
+    )
 
 
 def add_arguments(parser):
@@ -47,7 +59,7 @@ def add_arguments(parser):
     add_base_args(parser)
 
 
-def main(tool, directory, name, port, no_browser):
+def main(tool, directory, name, port, no_browser, background, force):
 
     tool_name, _, version = tool.partition(":")
 
@@ -66,68 +78,54 @@ def main(tool, directory, name, port, no_browser):
     if name is None:
         name = f"os-{tool_name}-{directory.name}"
 
+    # does the container for this tool/workspace already exist?
+    ps = utils.dockerctl("inspect", name, check=False)
+    if ps.returncode == 0:
+        if force:
+            # rename the current container, then stop it. Docker will clean it
+            # up, and we free to reuse the name immeadiately
+            old = name + "_deleting"
+            utils.dockerctl("rename", name, old)
+            utils.dockerctl("stop", old)
+        else:  # re-use
+            # check the label for url information
+            url = utils.dockerctl(
+                "inspect", "-f", '{{index .Config.Labels "url"}}', name
+            ).stdout.strip()
+            print(f"{tool_name} is already running at {url}")
+            print("Use --force to force to remove it and start a new instance")
+            if not no_browser:
+                print(f"Opening browser at {url}")
+                utils.open_browser(url)
+            return 0
+
     if port is None:
         port = str(utils.get_free_port())
 
-    return func(version, directory, name, port, no_browser)
+    return func(version, directory, name, port, no_browser, background)
 
 
-def get_jupyter_metadata(name, timeout=30.0):
-    """Read the login token from the generated json file in the container"""
-    metadata = None
-    metadata_path = "/tmp/.local/share/jupyter/runtime/*server-*.json"
-
-    # wait for jupyter to be set up
-    start = time.time()
-    while metadata is None and time.time() - start < timeout:
-        ps = subprocess.run(
-            ["docker", "exec", name, "bash", "-c", f"cat {metadata_path}"],
-            text=True,
-            capture_output=True,
-        )
-        if ps.returncode == 0:
-            utils.debug(ps.stdout)
-            metadata = json.loads(ps.stdout)
-        else:
-            time.sleep(1)
-
-    if metadata is None:
-        utils.debug("get_jupyter_metadata: Could not get metadata")
-        return None
-
-    return metadata
-
-
-def read_jupyter_metadata_and_open(name, port):
-    try:
-        metadata = get_jupyter_metadata(name)
-        if metadata:
-            url = f"http://localhost:{port}/?token={metadata['token']}"
-            utils.open_browser(url)
-        else:
-            utils.debug("could not retrieve login token from jupyter container")
-    except Exception:
-        utils.print_exception_from_thread(*sys.exc_info())
-
-
-def launch_jupyter(version, directory, name, port, no_browser):
+def launch_jupyter(version, directory, name, port, no_browser, background):
 
     if not version:
         version = "v2"
+
+    token = secrets.token_urlsafe(8)
+    url = f"http://localhost:{port}/?token={token}"
 
     jupyter_cmd = [
         "jupyter",
         "lab",
         "--ip=0.0.0.0",
         f"--port={port}",
-        "--allow-root",
-        "--no-browser",
+        "--no-browser",  # we open the browser
         # display the url from the hosts perspective
-        f"--LabApp.custom_display_url=http://localhost:{port}/",
+        f"--ServerApp.custom_display_url=http://localhost:{port}/",
+        "-y",  # do not ask for confirmation on quitting
+        "--Application.log_level=ERROR",  # only log errors
     ]
 
-    print(f"Running following jupyter cmd in OpenSAFELY docker container {name}...")
-    print(" ".join(jupyter_cmd))
+    utils.debug(" ".join(jupyter_cmd))
 
     docker_args = [
         # we use our port on both sides of the docker port mapping so that
@@ -140,26 +138,24 @@ def launch_jupyter(version, directory, name, port, no_browser):
         # allow importing from the top level
         "--env",
         "PYTHONPATH=/workspace",
+        # fix the token ahead of time
+        "--env",
+        f"JUPYTER_TOKEN={token}",
+        # store label for later use
+        f"--label=url={url}",
     ]
 
-    if not no_browser:
-        utils.open_in_thread(read_jupyter_metadata_and_open, (name, port))
-
-    utils.debug("docker: " + " ".join(docker_args))
-
-    ps = utils.run_docker(
-        docker_args,
-        f"python:{version}",
-        jupyter_cmd,
-        interactive=True,
+    kwargs = dict(
+        image=f"python:{version}",
+        cmd=jupyter_cmd,
         directory=directory,
     )
 
-    # we want to exit with the same code that jupyter did
-    return ps.returncode
+    print(f"Starting a Jupyter Lab session at {url}.")
+    return run_tool(docker_args, kwargs, background, no_browser, url)
 
 
-def launch_rstudio(version, directory, name, port, no_browser):
+def launch_rstudio(version, directory, name, port, no_browser, background):
     if not version:
         version = "v2"
 
@@ -170,51 +166,55 @@ def launch_rstudio(version, directory, name, port, no_browser):
     else:
         uid = None
 
-    # check for rstudio image, if not present pull image
-    imgchk = subprocess.run(
-        ["docker", "image", "inspect", f"ghcr.io/opensafely-core/rstudio:{version}"],
-        capture_output=True,
-    )
-    if imgchk.returncode == 1:
-        subprocess.run(
-            [
-                "docker",
-                "pull",
-                "--platform=linux/amd64",
-                f"ghcr.io/opensafely-core/rstudio:{version}",
-            ],
-            check=True,
-        )
-
     docker_args = [
         f"-p={port}:8787",
         f"--name={name}",
         f"--hostname={name}",
+        # needed for rstudio user management
         f"--env=HOSTPLATFORM={sys.platform}",
         f"--env=HOSTUID={uid}",
+        # store label for later use
+        f"--label=url={url}",
     ]
 
     gitconfig = Path.home() / ".gitconfig"
     if gitconfig.exists():
         docker_args.append(f"--volume={gitconfig}:/home/rstudio/local-gitconfig")
 
-    utils.debug("docker: " + " ".join(docker_args))
-    print(
-        f"Opening an RStudio Server session at {url}. "
-        "When you are finished working please press Ctrl+C here to end the session"
-    )
-
-    if not no_browser:
-        utils.open_in_thread(utils.open_browser, (url,))
-
-    ps = utils.run_docker(
-        docker_args,
+    kwargs = dict(
         image=f"rstudio:{version}",
-        interactive=True,
         # rstudio needs to start as root, but drops privileges to uid later
         user="0:0",
         directory=directory,
     )
 
-    # we want to exit with the same code that rstudio-server did
+    print(f"Opening an RStudio Server session at {url}.")
+    return run_tool(docker_args, kwargs, background, no_browser, url)
+
+
+def run_tool(docker_args, kwargs, background, no_browser, url):
+    if background:
+        kwargs["detach"] = True
+        kwargs["capture_output"] = True
+        kwargs["text"] = True
+    else:
+        kwargs["interactive"] = True
+        print(
+            "When you are finished working please press Ctrl+C here to end the session."
+        )
+        # running in foreground, so use thread to open browser
+        if not no_browser:
+            utils.open_in_thread(utils.open_browser, (url,))
+
+    ps = utils.run_docker(docker_args, **kwargs)
+
+    if background:
+        if ps.returncode == 0:
+            if not no_browser:
+                utils.open_browser(url)
+        else:
+            print(ps.stdout)
+            print(ps.stderr, file=sys.stderr)
+
+    # we want to exit with the same code that docker did
     return ps.returncode

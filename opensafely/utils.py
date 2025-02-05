@@ -14,6 +14,10 @@ from opensafely._vendor import requests
 from opensafely._vendor.jobrunner import config
 
 
+# all docker containers we run will be tagged with this label
+DOCKER_LABEL = "opensafely"
+
+
 def debug(msg):
     """Windows threaded debugger."""
     if os.environ.get("DEBUG", False):
@@ -89,6 +93,7 @@ def run_docker(
     cmd=(),
     directory=None,
     interactive=False,
+    detach=False,
     user=None,
     verbose=False,
     *args,
@@ -102,6 +107,9 @@ def run_docker(
     - passes through any other args to subprocess.run
     """
 
+    if interactive and detach:
+        raise Exception("Cannot use both interactive and background")
+
     if user is None:
         user = DEFAULT_USER
 
@@ -110,13 +118,15 @@ def run_docker(
         "run",
         "--rm",
         "--init",
-        "--label=opensafely",
+        f"--label={DOCKER_LABEL}",
         # all our docker images are this platform
         # helps when running on M-series macs.
         "--platform=linux/amd64",
     ]
 
-    if interactive:
+    if detach:
+        base_cmd += ["--detach"]
+    elif interactive:
         base_cmd += ["--interactive"]
         wrapper = git_bash_tty_wrapper()
         if (sys.stdin.isatty() and sys.stdout.isatty()) or wrapper:
@@ -141,10 +151,35 @@ def run_docker(
         *cmd,
     ]
 
+    cmd = " ".join(docker_cmd)
     if verbose:
-        print(" ".join(docker_cmd))
+        print(cmd)
+    else:
+        debug(cmd)
 
     return subprocess.run(docker_cmd, *args, **kwargs)
+
+
+def dockerctl(cmd, *args, check=True, capture_output=True, text=True, **kwargs):
+    """Utility function to docker commands that are *not* run.
+
+    Sets some defaults:
+     - check=True
+     - capture_output=True
+     - text=True
+
+    Also ensures
+    """
+
+    assert cmd != "run", "Use run_docker not dockerctl"
+
+    return subprocess.run(
+        ["docker", cmd] + list(args),
+        check=check,
+        capture_output=capture_output,
+        text=text,
+        **kwargs,
+    )
 
 
 def get_free_port():
@@ -204,3 +239,4 @@ def open_in_thread(target, args):
     thread.name = "browser thread"
     debug("starting browser thread")
     thread.start()
+    return thread
