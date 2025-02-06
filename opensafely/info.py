@@ -1,3 +1,4 @@
+import argparse
 import json
 import subprocess
 
@@ -9,7 +10,14 @@ DESCRIPTION = "Print information about the opensafely tool and available resourc
 
 
 def add_arguments(parser):
-    pass
+    # developer tool to print the list of versions in project.yaml
+    parser.add_argument(
+        "--list-project-images",
+        nargs="?",  # Makes the value optional
+        const="project.yaml",  # Used when flag is present without value
+        default=None,  # Used when flag is absent
+        help=argparse.SUPPRESS,
+    )
 
 
 INFO = """
@@ -20,7 +28,14 @@ docker cpu: {cpu}
 """
 
 
-def main():
+def main(list_project_images=None):
+
+    if list_project_images is not None:
+        images = pull.get_actions_from_project_file(list_project_images)
+        # part of transitioning away from using :latest in project.yaml
+        print("\n".join(i.replace(":latest", ":v1") for i in sorted(images)))
+        return True
+
     print("System information:")
     try:
         ps = subprocess.run(
@@ -50,3 +65,5 @@ def main():
         for image, sha in sorted(local_images.items()):
             update = "(needs update)" if image in updates else "(latest version)"
             print(f" - {image:24}: {sha[7:15]} {update}")
+
+    return True
