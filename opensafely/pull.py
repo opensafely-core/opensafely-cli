@@ -50,7 +50,10 @@ def add_arguments(parser):
     )
     parser.add_argument(
         "--project",
-        help="Use this project to yaml to decide which images to download",
+        nargs="?",  # Makes the value optional
+        const="project.yaml",  # Used when flag is present without value
+        default=None,  # Used when flag is absent
+        help="Use project.yaml to decide which images to download",
     )
 
 
@@ -60,7 +63,7 @@ def main(image="all", force=False, project=None):
 
     local_images = get_local_images()
 
-    if project:
+    if project is not None:
         force = True
         images = get_actions_from_project_file(project)
     elif image == "all":

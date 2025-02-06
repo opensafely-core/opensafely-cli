@@ -209,13 +209,14 @@ def test_get_actions_from_project_yaml_no_actions():
 @pytest.mark.parametrize(
     "argv,expected",
     [
-        ([], argparse.Namespace(image="all", force=False, project=None)),
-        (["--force"], argparse.Namespace(image="all", force=True, project=None)),
-        (["r"], argparse.Namespace(image="r", force=False, project=None)),
-        (["r", "--force"], argparse.Namespace(image="r", force=True, project=None)),
+        ([], dict(image="all", force=False, project=None)),
+        (["--force"], dict(image="all", force=True, project=None)),
+        (["r"], dict(image="r", force=False, project=None)),
+        (["r", "--force"], dict(image="r", force=True, project=None)),
+        (["--project"], dict(image="all", force=False, project="project.yaml")),
         (
             ["--project", "project.yaml"],
-            argparse.Namespace(image="all", force=False, project="project.yaml"),
+            dict(image="all", force=False, project="project.yaml"),
         ),
         (["invalid"], SystemExit()),
     ],
@@ -227,4 +228,4 @@ def test_pull_parser_valid(argv, expected, capsys):
         with pytest.raises(SystemExit):
             parser.parse_args(argv)
     else:
-        assert parser.parse_args(argv) == expected
+        assert parser.parse_args(argv) == argparse.Namespace(**expected)
