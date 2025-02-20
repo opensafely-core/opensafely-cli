@@ -46,5 +46,7 @@ opensafely/post-covid-kidney-outcomes:
   allow: ['appointments']
 opensafely/winter-pressures-phase-II:
   allow: ['appointments']
+opensafely/post-covid-cvd:
+  allow: ['appointments']
 opensafely/ckd-post-covid-outcomes:
   allow: ['ukrr']
