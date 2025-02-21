@@ -36,17 +36,21 @@ opensafely/post-covid-autoimmune:
   allow: ['appointments']
 opensafely/post-covid-neurodegenerative:
   allow: ['appointments']
+opensafely/post-covid-kidney-outcomes:
+  allow: ['appointments']
+opensafely/post-covid-cvd:
+  allow: ['appointments']
+opensafely/post-covid-cvd-methods:
+  allow: ['appointments']
+opensafely/post-covid-covid-respiratory:
+  allow: ['appointments']
 opensafely/winter-pressures:
   allow: ['appointments']
 opensafely/deaths-at-home-covid19:
   allow: ['appointments']
 opensafely/end-of-life-carequality:
   allow: ['appointments']
-opensafely/post-covid-kidney-outcomes:
-  allow: ['appointments']
 opensafely/winter-pressures-phase-II:
-  allow: ['appointments']
-opensafely/post-covid-cvd:
   allow: ['appointments']
 opensafely/ckd-post-covid-outcomes:
   allow: ['ukrr']
