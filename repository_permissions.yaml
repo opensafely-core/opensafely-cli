@@ -48,5 +48,9 @@ opensafely/winter-pressures-phase-II:
   allow: ['appointments']
 opensafely/post-covid-cvd:
   allow: ['appointments']
+opensafely/post-covid-cvd-methods:
+  allow: ['appointments']
+opensafely/post-covid-covid-respiratory:
+  allow: ['appointments']
 opensafely/ckd-post-covid-outcomes:
   allow: ['ukrr']
