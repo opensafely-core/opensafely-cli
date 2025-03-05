@@ -33,7 +33,12 @@ def test_jupyter(run, no_user, monkeypatch, version):
     run.concurrent = True
 
     run.expect(["docker", "info"])
+    # test if already running
     run.expect(["docker", "inspect", "test_jupyter"], returncode=1)
+
+    run.expect(
+        ["docker", "image", "inspect", f"ghcr.io/opensafely-core/python:{used_version}"]
+    )
     run.expect(
         [
             "docker",
@@ -100,8 +105,17 @@ def test_rstudio(run, tmp_path, monkeypatch, gitconfig_exists, version):
         uid = None
 
     run.expect(["docker", "info"])
-
+    # test if already running
     run.expect(["docker", "inspect", "test_rstudio"], returncode=1)
+
+    run.expect(
+        [
+            "docker",
+            "image",
+            "inspect",
+            f"ghcr.io/opensafely-core/rstudio:{used_version}",
+        ]
+    )
     expected = [
         "docker",
         "run",

@@ -6,6 +6,7 @@ from pathlib import Path
 
 from opensafely import utils
 from opensafely._vendor.jobrunner.cli.local_run import docker_preflight_check
+from opensafely.pull import REGISTRY
 
 
 DESCRIPTION = "Launch an RStudio Server or Jupyter Lab session in a browser"
@@ -145,8 +146,10 @@ def launch_jupyter(version, directory, name, port, no_browser, background):
         f"--label=url={url}",
     ]
 
+    image = f"python:{version}"
+    ensure_image(image)
     kwargs = dict(
-        image=f"python:{version}",
+        image=image,
         cmd=jupyter_cmd,
         directory=directory,
     )
@@ -181,8 +184,10 @@ def launch_rstudio(version, directory, name, port, no_browser, background):
     if gitconfig.exists():
         docker_args.append(f"--volume={gitconfig}:/home/rstudio/local-gitconfig")
 
+    image = f"rstudio:{version}"
+    ensure_image(image)
     kwargs = dict(
-        image=f"rstudio:{version}",
+        image=image,
         # rstudio needs to start as root, but drops privileges to uid later
         user="0:0",
         directory=directory,
@@ -218,3 +223,23 @@ def run_tool(docker_args, kwargs, background, no_browser, url):
 
     # we want to exit with the same code that docker did
     return ps.returncode
+
+
+def ensure_image(image):
+    """Ensure we have an image locally, and download it if not
+
+    If we download, we show we are downloading to the user.
+    """
+    # When using launch, if we do not have image locally, it can take a while
+    # to download.  While the `docker run ...` command would download it
+    # automatically, this can take so long that the open browser thread times
+    # out. Additionally this means that if running with --backround, the user
+    # cannot see we are downloading the image and it looks like we've just
+    # hung.
+    #
+    # So, instead, we eagerly ensure it is present before proceeding, so that
+    # we are not blocked, and we show this download to the user.
+    qualified_image = f"{REGISTRY}/{image}"
+    ps = utils.dockerctl("image", "inspect", qualified_image, check=False)
+    if ps.returncode != 0:
+        utils.dockerctl("pull", qualified_image, capture_output=False)
