@@ -44,7 +44,7 @@ def test_jupyter(run, no_user, monkeypatch, version):
             "--platform=linux/amd64",
             "--interactive",
             f"--volume={pathlib.Path.cwd()}://workspace",
-            "-p=1234:1234",
+            "-p=8888:8888",
             "--name=test_jupyter",
             "--hostname=test_jupyter",
             "--env",
@@ -53,20 +53,20 @@ def test_jupyter(run, no_user, monkeypatch, version):
             "PYTHONPATH=/workspace",
             "--env",
             "JUPYTER_TOKEN=TOKEN",
-            "--label=url=http://localhost:1234/?token=TOKEN",
+            "--label=url=http://localhost:8888/?token=TOKEN",
             f"ghcr.io/opensafely-core/python:{used_version}",
             "jupyter",
             "lab",
             "--ip=0.0.0.0",
-            "--port=1234",
+            "--port=8888",
             "--no-browser",
-            "--ServerApp.custom_display_url=http://localhost:1234/",
+            "--ServerApp.custom_display_url=http://localhost:8888/",
             "-y",  # do not ask for confirmation on quiting
             "--Application.log_level=ERROR",  # errors only please
         ]
     )
-    assert run_main(launch, f"{tool} --port 1234 --name test_jupyter") == 0
-    mock_open_browser.assert_called_with("http://localhost:1234/?token=TOKEN")
+    assert run_main(launch, f"{tool} --name test_jupyter") == 0
+    mock_open_browser.assert_called_with("http://localhost:8888/?token=TOKEN")
 
 
 @pytest.mark.parametrize("version", ["", "v2"])
@@ -129,7 +129,7 @@ def test_rstudio(run, tmp_path, monkeypatch, gitconfig_exists, version):
 
     run.expect(expected + [f"ghcr.io/opensafely-core/rstudio:{used_version}"])
 
-    assert run_main(launch, f"{tool} --port 8787 --name test_rstudio") == 0
+    assert run_main(launch, f"{tool} --name test_rstudio") == 0
     mock_open_browser.assert_called_with("http://localhost:8787")
 
 
@@ -156,7 +156,7 @@ def test_launch_no_browser(monkeypatch, docker):
     mock_open_browser = mock.Mock(spec=utils.open_browser)
     monkeypatch.setattr(launch.utils, "open_browser", mock_open_browser)
 
-    args = "rstudio --port 1234 --name test_launch_no_browser --background --no-browser"
+    args = "rstudio --name test_launch_no_browser --background --no-browser"
 
     assert run_main(launch, args) == 0
     assert not mock_open_browser.called
