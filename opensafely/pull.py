@@ -164,12 +164,12 @@ def remove_deprecated_images(local_images):
 
 
 def get_default_version_for_image(name):
-    if name in ["ehrql"]:
-        return "v1"
-    elif name == "python":
+    if name in ["python", "r"]:
         return "v2"
-    else:
+    elif name == "cohortextractor":
         return "latest"
+    else:
+        return "v1"
 
 
 session = requests.Session()

@@ -9,7 +9,7 @@ from opensafely import pull
 project_fixture_path = Path(__file__).parent / "fixtures" / "projects"
 
 
-def tag(image, version="latest"):
+def tag(image, version="v1"):
     return f"{pull.REGISTRY}/{image}:{version}"
 
 
@@ -44,11 +44,11 @@ def test_default_no_local_images(run, capsys):
 def test_default_no_local_images_force(run, capsys):
     run.expect(["docker", "info"])
     expect_local_images(run)
-    run.expect(["docker", "pull", tag("cohortextractor")])
-    run.expect(["docker", "pull", tag("ehrql", version="v1")])
+    run.expect(["docker", "pull", tag("cohortextractor", version="latest")])
+    run.expect(["docker", "pull", tag("ehrql")])
     run.expect(["docker", "pull", tag("jupyter")])
     run.expect(["docker", "pull", tag("python", version="v2")])
-    run.expect(["docker", "pull", tag("r")])
+    run.expect(["docker", "pull", tag("r", version="v2")])
     run.expect(["docker", "pull", tag("sqlrunner")])
     run.expect(["docker", "pull", tag("stata-mp")])
     run.expect(
@@ -68,19 +68,19 @@ def test_default_no_local_images_force(run, capsys):
     assert out.splitlines() == [
         "Updating OpenSAFELY cohortextractor:latest image",
         "Updating OpenSAFELY ehrql:v1 image",
-        "Updating OpenSAFELY jupyter:latest image",
+        "Updating OpenSAFELY jupyter:v1 image",
         "Updating OpenSAFELY python:v2 image",
-        "Updating OpenSAFELY r:latest image",
-        "Updating OpenSAFELY sqlrunner:latest image",
-        "Updating OpenSAFELY stata-mp:latest image",
+        "Updating OpenSAFELY r:v2 image",
+        "Updating OpenSAFELY sqlrunner:v1 image",
+        "Updating OpenSAFELY stata-mp:v1 image",
         "Pruning old OpenSAFELY docker images...",
     ]
 
 
 def test_default_with_local_images(run, capsys):
     run.expect(["docker", "info"])
-    expect_local_images(run, stdout="ghcr.io/opensafely-core/r:latest=sha")
-    run.expect(["docker", "pull", tag("r")])
+    expect_local_images(run, stdout="ghcr.io/opensafely-core/r:v2=sha")
+    run.expect(["docker", "pull", tag("r", version="v2")])
     run.expect(
         [
             "docker",
@@ -96,7 +96,7 @@ def test_default_with_local_images(run, capsys):
     out, err = capsys.readouterr()
     assert err == ""
     assert out.splitlines() == [
-        "Updating OpenSAFELY r:latest image",
+        "Updating OpenSAFELY r:v2 image",
         "Pruning old OpenSAFELY docker images...",
     ]
 
@@ -114,7 +114,7 @@ def test_default_with_old_docker(run, capsys):
 def test_specific_image(run, capsys):
     run.expect(["docker", "info"])
     expect_local_images(run)
-    run.expect(["docker", "pull", tag("r")])
+    run.expect(["docker", "pull", tag("r", version="v2")])
     run.expect(
         [
             "docker",
@@ -130,7 +130,7 @@ def test_specific_image(run, capsys):
     out, err = capsys.readouterr()
     assert err == ""
     assert out.splitlines() == [
-        "Updating OpenSAFELY r:latest image",
+        "Updating OpenSAFELY r:v2 image",
         "Pruning old OpenSAFELY docker images...",
     ]
 
@@ -138,9 +138,8 @@ def test_specific_image(run, capsys):
 def test_project(run, capsys):
     run.expect(["docker", "info"])
     expect_local_images(run)
-    run.expect(["docker", "pull", tag("cohortextractor")])
-    run.expect(["docker", "pull", tag("python")])
-    run.expect(["docker", "pull", tag("jupyter")])
+    run.expect(["docker", "pull", tag("ehrql")])
+    run.expect(["docker", "pull", tag("python", version="v2")])
     run.expect(
         [
             "docker",
@@ -156,9 +155,8 @@ def test_project(run, capsys):
     out, err = capsys.readouterr()
     assert err == ""
     assert out.splitlines() == [
-        "Updating OpenSAFELY cohortextractor:latest image",
-        "Updating OpenSAFELY python:latest image",
-        "Updating OpenSAFELY jupyter:latest image",
+        "Updating OpenSAFELY ehrql:v1 image",
+        "Updating OpenSAFELY python:v2 image",
         "Pruning old OpenSAFELY docker images...",
     ]
 
@@ -181,7 +179,7 @@ def test_remove_deprecated_images(run):
 def test_check_version_out_of_date(run):
     expect_local_images(
         run,
-        stdout="ghcr.io/opensafely-core/python:latest=sha256:oldsha",
+        stdout="ghcr.io/opensafely-core/python:v1=sha256:oldsha",
     )
     assert len(pull.check_version()) == 1
 
@@ -191,7 +189,7 @@ def test_check_version_up_to_date(run):
     pull.token = None
     expect_local_images(
         run,
-        stdout=f"ghcr.io/opensafely-core/python:latest={current_sha}",
+        stdout=f"ghcr.io/opensafely-core/python:v1={current_sha}",
     )
 
     assert len(pull.check_version()) == 0
