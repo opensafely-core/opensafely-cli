@@ -49,6 +49,7 @@ def test_default_no_local_images_force(run, capsys):
     run.expect(["docker", "pull", tag("jupyter")])
     run.expect(["docker", "pull", tag("python", version="v2")])
     run.expect(["docker", "pull", tag("r", version="v2")])
+    run.expect(["docker", "pull", tag("rstudio", version="v2")])
     run.expect(["docker", "pull", tag("sqlrunner")])
     run.expect(["docker", "pull", tag("stata-mp")])
     run.expect(
@@ -71,6 +72,7 @@ def test_default_no_local_images_force(run, capsys):
         "Updating OpenSAFELY jupyter:v1 image",
         "Updating OpenSAFELY python:v2 image",
         "Updating OpenSAFELY r:v2 image",
+        "Updating OpenSAFELY rstudio:v2 image",
         "Updating OpenSAFELY sqlrunner:v1 image",
         "Updating OpenSAFELY stata-mp:v1 image",
         "Pruning old OpenSAFELY docker images...",

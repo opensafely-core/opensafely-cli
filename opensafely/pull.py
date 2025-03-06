@@ -17,7 +17,8 @@ DESCRIPTION = (
 REGISTRY = config.DOCKER_REGISTRY
 # The deprecated `databuilder` name is still supported by job-runner, but we don't want
 # it showing up here
-IMAGES = list(config.ALLOWED_IMAGES - {"databuilder"})
+# Rstudio image is local only, not used in production
+IMAGES = list(config.ALLOWED_IMAGES - {"databuilder"}) + ["rstudio"]
 DEPRECATED_REGISTRIES = ["docker.opensafely.org", "ghcr.io/opensafely"]
 IMAGES.sort()  # this is just for consistency for testing
 
@@ -164,7 +165,7 @@ def remove_deprecated_images(local_images):
 
 
 def get_default_version_for_image(name):
-    if name in ["python", "r"]:
+    if name in ["python", "r", "rstudio"]:
         return "v2"
     elif name == "cohortextractor":
         return "latest"
