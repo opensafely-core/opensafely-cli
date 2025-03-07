@@ -19,7 +19,6 @@ from opensafely import (  # noqa: E402
     clean,
     codelists,
     execute,
-    extract_stats,
     info,
     jupyter,
     launch,
@@ -139,7 +138,6 @@ def main():
     add_subcommand("upgrade", upgrade)
     add_subcommand("check", check)
     add_subcommand("unzip", unzip)
-    add_subcommand("extract-stats", extract_stats)
     add_subcommand("info", info)
     add_subcommand("exec", execute)
     add_subcommand("clean", clean)
