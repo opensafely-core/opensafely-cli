@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: opensafely-pipeline
-Version: 2025.1.21.182725
+Version: 2025.3.6.161237
 Summary: OpenSAFELY pipeline configuration parsing library
 Author-email: OpenSAFELY <tech@opensafely.org>
 License: ${GITHUB_REPOSITORY_NAME}
