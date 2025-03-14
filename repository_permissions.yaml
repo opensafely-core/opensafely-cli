@@ -54,3 +54,5 @@ opensafely/winter-pressures-phase-II:
   allow: ['appointments']
 opensafely/ckd-post-covid-outcomes:
   allow: ['ukrr']
+opensafely/metformin_covid:
+  allow: ['appointments']
