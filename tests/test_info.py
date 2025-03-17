@@ -26,9 +26,8 @@ def test_list_project_images(capsys):
     assert err == ""
     assert out == textwrap.dedent(
         """
-       cohortextractor:v1
-       jupyter:v1
-       python:v1
+       ehrql:v1
+       python:v2
     """.lstrip(
             "\n"
         )
