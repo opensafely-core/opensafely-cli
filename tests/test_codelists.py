@@ -48,11 +48,13 @@ def test_codelists_update(tmp_path, requests_mock):
         "https://www.opencodelists.org/"
         "codelist/project123/codelist456/version2/download.csv",
         text="foo",
+        headers={"content-type": "text/csv"},
     )
     requests_mock.get(
         "https://www.opencodelists.org/"
         "codelist/user/user123/codelist098/version1/download.csv",
         text="bar",
+        headers={"content-type": "text/csv"},
     )
     codelists.update()
     assert (codelist_dir / "project123-codelist456.csv").read_text() == "foo"
@@ -270,11 +272,13 @@ def test_codelists_add(codelists_path, requests_mock):
         requests_mock.get(
             f"https://www.opencodelists.org/codelist/{codelist.rstrip('/')}/download.csv",
             text="foo",
+            headers={"content-type": "text/csv"},
         )
     requests_mock.get(
         "https://www.opencodelists.org/"
         "codelist/project123/codelist456/version1/download.csv",
         text="foo",
+        headers={"content-type": "text/csv"},
     )
 
     codelists.add(
@@ -298,11 +302,13 @@ def test_codelists_add_with_anchor_url(codelists_path, requests_mock):
             requests_mock.get(
                 f"https://www.opencodelists.org/codelist/{codelist.rstrip('/')}/download.csv",
                 text="foo",
+                headers={"content-type": "text/csv"},
             )
     requests_mock.get(
         "https://www.opencodelists.org/"
         "codelist/project123/codelist456/version1/download.csv",
         text="foo",
+        headers={"content-type": "text/csv"},
     )
 
     codelists.add(
@@ -326,11 +332,13 @@ def test_codelists_add_with_download_url(codelists_path, requests_mock):
             requests_mock.get(
                 f"https://www.opencodelists.org/codelist/{codelist.rstrip('/')}/download.csv",
                 text="foo",
+                headers={"content-type": "text/csv"},
             )
     requests_mock.get(
         "https://www.opencodelists.org/"
         "codelist/project123/codelist456/version1/download.csv",
         text="foo",
+        headers={"content-type": "text/csv"},
     )
 
     codelists.add(
