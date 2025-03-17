@@ -151,6 +151,16 @@ def fetch_codelist(codelist):
     try:
         response = requests.get(codelist.download_url)
         response.raise_for_status()
+        content_type = response.headers["content-type"]
+        if content_type != "text/csv":
+            if "this version is a draft" in response.text.lower():
+                exit_with_error(
+                    f"Codelist at:\n{codelist.url}\n"
+                    "is a draft codelist and cannot be added."
+                )
+            else:
+                raise ValueError("No codelist found at URL")
+
     except Exception as e:
         exit_with_error(
             f"Error downloading codelist: {e}\n\n"

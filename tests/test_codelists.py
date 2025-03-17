@@ -48,11 +48,13 @@ def test_codelists_update(tmp_path, requests_mock):
         "https://www.opencodelists.org/"
         "codelist/project123/codelist456/version2/download.csv",
         text="foo",
+        headers={"content-type": "text/csv"},
     )
     requests_mock.get(
         "https://www.opencodelists.org/"
         "codelist/user/user123/codelist098/version1/download.csv",
         text="bar",
+        headers={"content-type": "text/csv"},
     )
     codelists.update()
     assert (codelist_dir / "project123-codelist456.csv").read_text() == "foo"
@@ -270,11 +272,13 @@ def test_codelists_add(codelists_path, requests_mock):
         requests_mock.get(
             f"https://www.opencodelists.org/codelist/{codelist.rstrip('/')}/download.csv",
             text="foo",
+            headers={"content-type": "text/csv"},
         )
     requests_mock.get(
         "https://www.opencodelists.org/"
         "codelist/project123/codelist456/version1/download.csv",
         text="foo",
+        headers={"content-type": "text/csv"},
     )
 
     codelists.add(
@@ -298,11 +302,13 @@ def test_codelists_add_with_anchor_url(codelists_path, requests_mock):
             requests_mock.get(
                 f"https://www.opencodelists.org/codelist/{codelist.rstrip('/')}/download.csv",
                 text="foo",
+                headers={"content-type": "text/csv"},
             )
     requests_mock.get(
         "https://www.opencodelists.org/"
         "codelist/project123/codelist456/version1/download.csv",
         text="foo",
+        headers={"content-type": "text/csv"},
     )
 
     codelists.add(
@@ -326,11 +332,13 @@ def test_codelists_add_with_download_url(codelists_path, requests_mock):
             requests_mock.get(
                 f"https://www.opencodelists.org/codelist/{codelist.rstrip('/')}/download.csv",
                 text="foo",
+                headers={"content-type": "text/csv"},
             )
     requests_mock.get(
         "https://www.opencodelists.org/"
         "codelist/project123/codelist456/version1/download.csv",
         text="foo",
+        headers={"content-type": "text/csv"},
     )
 
     codelists.add(
@@ -350,3 +358,83 @@ def test_codelists_add_with_invalid_url(codelists_path):
 
     with pytest.raises(SystemExit):
         codelists.add("https://example.com/codelists/test/")
+
+
+def test_codelists_add_with_draft_url(codelists_path, requests_mock, capsys):
+    codelists_path /= "codelists"
+    codelists_file = codelists_path / "codelists.txt"
+    prior_codelists = codelists_file.read_text()
+    for codelist in prior_codelists.splitlines():
+        requests_mock.get(
+            f"https://www.opencodelists.org/codelist/{codelist.rstrip('/')}/download.csv",
+            text="foo",
+        )
+    requests_mock.get(
+        "https://www.opencodelists.org/"
+        "codelist/project123/codelist456/version1/download.csv",
+        text="""
+            <!DOCTYPE html>
+            <html lang="en" class="h-100">
+            <head>
+            <meta charset="utf-8" />
+            <title>OpenCodelists: Test Codelist 456 (Draft)</title>
+            </head>
+            <body>
+            <div>
+                <h1 class="h3">Test Codelist 456</h1>
+                <p class="text-muted">This version is a draft</p>
+            </div>
+            </body>
+            </html>
+        """,
+        headers={"content-type": "text/html; charset=utf-8"},
+    )
+
+    with pytest.raises(SystemExit):
+        codelists.add(
+            "https://www.opencodelists.org/codelist/project123/codelist456/version1",
+            codelists_path,
+        )
+    stdout, _ = capsys.readouterr()
+    assert "is a draft codelist and cannot be added" in stdout
+
+
+def test_codelists_add_with_valid_non_codelist_url(
+    codelists_path, requests_mock, capsys
+):
+    codelists_path /= "codelists"
+    codelists_file = codelists_path / "codelists.txt"
+    prior_codelists = codelists_file.read_text()
+    for codelist in prior_codelists.splitlines():
+        requests_mock.get(
+            f"https://www.opencodelists.org/codelist/{codelist.rstrip('/')}/download.csv",
+            text="foo",
+        )
+    requests_mock.get(
+        "https://www.opencodelists.org/"
+        "codelist/project123/codelist456/version1/download.csv",
+        text="""
+            <!DOCTYPE html>
+            <html lang="en" class="h-100">
+            <head>
+            <meta charset="utf-8" />
+            <title>Some Other Page</title>
+            </head>
+            <body>
+            <div>
+                <h1 class="h3">This is not a codelist</h1>
+                <p class="text-muted">It cannot meaningfully be downloaded</p>
+            </div>
+            </body>
+            </html>
+        """,
+        headers={"content-type": "text/html; charset=utf-8"},
+    )
+
+    with pytest.raises(SystemExit):
+        codelists.add(
+            "https://www.opencodelists.org/codelist/project123/codelist456/version1",
+            codelists_path,
+        )
+    stdout, _ = capsys.readouterr()
+    assert "No codelist found at URL" in stdout
