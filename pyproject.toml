@@ -28,7 +28,7 @@ substitute = [
   # The below import just pulls in some nasty backwards compatibility code that
   # we don't need. See:
   # https://github.com/psf/requests/blob/589c4547338b592b1fb77c65663d8aa6fbb7e38b/requests/packages.py
-  { match='from \. import packages', replace='' },
+  { match='from \. import packages, utils', replace='from opensafely._vendor.requests import utils' },
   { match='jobrunner.executors.local:LocalDockerAPI', replace='opensafely._vendor.jobrunner.executors.local:LocalDockerAPI' },
   { match='jobrunner.executors.volumes:DockerVolumeAPI', replace='opensafely._vendor.jobrunner.executors.volumes:DockerVolumeAPI' },
   { match='jobrunner.models', replace='opensafely._vendor.jobrunner.models' },
@@ -37,6 +37,9 @@ substitute = [
   { match='pydantic.types', replace='opensafely._vendor.pydantic.types'},
   { match='opentelemetry.sdk.metrics', replace='opensafely._vendor.opentelemetry.sdk.metrics'},
   { match='opentelemetry.sdk.resources', replace='opensafely._vendor.opentelemetry.sdk.resources'},
+  # Note we need to match "import ..." here otherwise urllib3.connection is matched in some
+  # local imports and patching that we don't want (particularly urllib3.http2.__init__.py)
+  { match='import urllib3.connection', replace='import opensafely._vendor.urllib3.connection'},
   { match='urllib3.contrib.securetransport', replace='opensafely._vendor.urllib3.contrib.securetransport'},
   { match='urllib3.contrib.pyopenssl', replace='opensafely._vendor.urllib3.contrib.pyopenssl'},
 ]

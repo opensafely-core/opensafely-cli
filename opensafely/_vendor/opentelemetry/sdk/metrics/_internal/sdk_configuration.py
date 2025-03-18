@@ -24,6 +24,7 @@ import opensafely._vendor.opentelemetry.sdk.resources
 
 @dataclass
 class SdkConfiguration:
+    exemplar_filter: "opensafely._vendor.opentelemetry.sdk.metrics.ExemplarFilter"
     resource: "opensafely._vendor.opentelemetry.sdk.resources.Resource"
     metric_readers: Sequence["opensafely._vendor.opentelemetry.sdk.metrics.MetricReader"]
     views: Sequence["opensafely._vendor.opentelemetry.sdk.metrics.View"]

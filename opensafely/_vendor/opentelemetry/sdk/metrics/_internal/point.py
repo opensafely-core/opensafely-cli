@@ -14,12 +14,13 @@
 
 # pylint: disable=unused-import
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from json import dumps, loads
 from typing import Optional, Sequence, Union
 
 # This kind of import is needed to avoid Sphinx errors.
 import opensafely._vendor.opentelemetry.sdk.metrics._internal
+from opensafely._vendor.opentelemetry.sdk.metrics._internal.exemplar import Exemplar
 from opensafely._vendor.opentelemetry.sdk.resources import Resource
 from opensafely._vendor.opentelemetry.sdk.util.instrumentation import InstrumentationScope
 from opensafely._vendor.opentelemetry.util.types import Attributes
@@ -35,8 +36,9 @@ class NumberDataPoint:
     start_time_unix_nano: int
     time_unix_nano: int
     value: Union[int, float]
+    exemplars: Sequence[Exemplar] = field(default_factory=list)
 
-    def to_json(self, indent=4) -> str:
+    def to_json(self, indent: Optional[int] = 4) -> str:
         return dumps(asdict(self), indent=indent)
 
 
@@ -55,9 +57,65 @@ class HistogramDataPoint:
     explicit_bounds: Sequence[float]
     min: float
     max: float
+    exemplars: Sequence[Exemplar] = field(default_factory=list)
 
-    def to_json(self, indent=4) -> str:
+    def to_json(self, indent: Optional[int] = 4) -> str:
         return dumps(asdict(self), indent=indent)
+
+
+@dataclass(frozen=True)
+class Buckets:
+    offset: int
+    bucket_counts: Sequence[int]
+
+
+@dataclass(frozen=True)
+class ExponentialHistogramDataPoint:
+    """Single data point in a timeseries whose boundaries are defined by an
+    exponential function. This timeseries describes the time-varying scalar
+    value of a metric.
+    """
+
+    attributes: Attributes
+    start_time_unix_nano: int
+    time_unix_nano: int
+    count: int
+    sum: Union[int, float]
+    scale: int
+    zero_count: int
+    positive: Buckets
+    negative: Buckets
+    flags: int
+    min: float
+    max: float
+    exemplars: Sequence[Exemplar] = field(default_factory=list)
+
+    def to_json(self, indent: Optional[int] = 4) -> str:
+        return dumps(asdict(self), indent=indent)
+
+
+@dataclass(frozen=True)
+class ExponentialHistogram:
+    """Represents the type of a metric that is calculated by aggregating as an
+    ExponentialHistogram of all reported measurements over a time interval.
+    """
+
+    data_points: Sequence[ExponentialHistogramDataPoint]
+    aggregation_temporality: (
+        "opensafely._vendor.opentelemetry.sdk.metrics.export.AggregationTemporality"
+    )
+
+    def to_json(self, indent: Optional[int] = 4) -> str:
+        return dumps(
+            {
+                "data_points": [
+                    loads(data_point.to_json(indent=indent))
+                    for data_point in self.data_points
+                ],
+                "aggregation_temporality": self.aggregation_temporality,
+            },
+            indent=indent,
+        )
 
 
 @dataclass(frozen=True)
@@ -71,7 +129,7 @@ class Sum:
     )
     is_monotonic: bool
 
-    def to_json(self, indent=4) -> str:
+    def to_json(self, indent: Optional[int] = 4) -> str:
         return dumps(
             {
                 "data_points": [
@@ -93,7 +151,7 @@ class Gauge:
 
     data_points: Sequence[NumberDataPoint]
 
-    def to_json(self, indent=4) -> str:
+    def to_json(self, indent: Optional[int] = 4) -> str:
         return dumps(
             {
                 "data_points": [
@@ -115,7 +173,7 @@ class Histogram:
         "opensafely._vendor.opentelemetry.sdk.metrics.export.AggregationTemporality"
     )
 
-    def to_json(self, indent=4) -> str:
+    def to_json(self, indent: Optional[int] = 4) -> str:
         return dumps(
             {
                 "data_points": [
@@ -128,8 +186,11 @@ class Histogram:
         )
 
 
-DataT = Union[Sum, Gauge, Histogram]
-DataPointT = Union[NumberDataPoint, HistogramDataPoint]
+# pylint: disable=invalid-name
+DataT = Union[Sum, Gauge, Histogram, ExponentialHistogram]
+DataPointT = Union[
+    NumberDataPoint, HistogramDataPoint, ExponentialHistogramDataPoint
+]
 
 
 @dataclass(frozen=True)
@@ -142,7 +203,7 @@ class Metric:
     unit: Optional[str]
     data: DataT
 
-    def to_json(self, indent=4) -> str:
+    def to_json(self, indent: Optional[int] = 4) -> str:
         return dumps(
             {
                 "name": self.name,
@@ -162,7 +223,7 @@ class ScopeMetrics:
     metrics: Sequence[Metric]
     schema_url: str
 
-    def to_json(self, indent=4) -> str:
+    def to_json(self, indent: Optional[int] = 4) -> str:
         return dumps(
             {
                 "scope": loads(self.scope.to_json(indent=indent)),
@@ -184,7 +245,7 @@ class ResourceMetrics:
     scope_metrics: Sequence[ScopeMetrics]
     schema_url: str
 
-    def to_json(self, indent=4) -> str:
+    def to_json(self, indent: Optional[int] = 4) -> str:
         return dumps(
             {
                 "resource": loads(self.resource.to_json(indent=indent)),
@@ -204,12 +265,13 @@ class MetricsData:
 
     resource_metrics: Sequence[ResourceMetrics]
 
-    def to_json(self, indent=4) -> str:
+    def to_json(self, indent: Optional[int] = 4) -> str:
         return dumps(
             {
                 "resource_metrics": [
                     loads(resource_metrics.to_json(indent=indent))
                     for resource_metrics in self.resource_metrics
                 ]
-            }
+            },
+            indent=indent,
         )

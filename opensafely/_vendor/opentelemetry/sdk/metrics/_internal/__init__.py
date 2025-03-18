@@ -12,9 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import weakref
 from atexit import register, unregister
 from logging import getLogger
+from os import environ
 from threading import Lock
+from time import time_ns
 from typing import Optional, Sequence
 
 # This kind of import is needed to avoid Sphinx errors.
@@ -30,9 +33,21 @@ from opensafely._vendor.opentelemetry.metrics import (
     ObservableUpDownCounter as APIObservableUpDownCounter,
 )
 from opensafely._vendor.opentelemetry.metrics import UpDownCounter as APIUpDownCounter
+from opensafely._vendor.opentelemetry.metrics import _Gauge as APIGauge
+from opensafely._vendor.opentelemetry.sdk.environment_variables import (
+    OTEL_METRICS_EXEMPLAR_FILTER,
+    OTEL_SDK_DISABLED,
+)
 from opensafely._vendor.opentelemetry.sdk.metrics._internal.exceptions import MetricsTimeoutError
+from opensafely._vendor.opentelemetry.sdk.metrics._internal.exemplar import (
+    AlwaysOffExemplarFilter,
+    AlwaysOnExemplarFilter,
+    ExemplarFilter,
+    TraceBasedExemplarFilter,
+)
 from opensafely._vendor.opentelemetry.sdk.metrics._internal.instrument import (
     _Counter,
+    _Gauge,
     _Histogram,
     _ObservableCounter,
     _ObservableGauge,
@@ -49,7 +64,9 @@ from opensafely._vendor.opentelemetry.sdk.metrics._internal.sdk_configuration im
 from opensafely._vendor.opentelemetry.sdk.resources import Resource
 from opensafely._vendor.opentelemetry.sdk.util.instrumentation import InstrumentationScope
 from opensafely._vendor.opentelemetry.util._once import Once
-from opensafely._vendor.opentelemetry.util._time import _time_ns
+from opensafely._vendor.opentelemetry.util.types import (
+    Attributes,
+)
 
 _logger = getLogger(__name__)
 
@@ -62,33 +79,33 @@ class Meter(APIMeter):
         instrumentation_scope: InstrumentationScope,
         measurement_consumer: MeasurementConsumer,
     ):
-        super().__init__(instrumentation_scope)
+        super().__init__(
+            name=instrumentation_scope.name,
+            version=instrumentation_scope.version,
+            schema_url=instrumentation_scope.schema_url,
+        )
         self._instrumentation_scope = instrumentation_scope
         self._measurement_consumer = measurement_consumer
         self._instrument_id_instrument = {}
         self._instrument_id_instrument_lock = Lock()
 
     def create_counter(self, name, unit="", description="") -> APICounter:
+        status = self._register_instrument(name, _Counter, unit, description)
 
-        (
-            is_instrument_registered,
-            instrument_id,
-        ) = self._is_instrument_registered(name, _Counter, unit, description)
-
-        if is_instrument_registered:
+        if status.conflict:
             # FIXME #2558 go through all views here and check if this
             # instrument registration conflict can be fixed. If it can be, do
             # not log the following warning.
-            _logger.warning(
-                "An instrument with name %s, type %s, unit %s and "
-                "description %s has been created already.",
+            self._log_instrument_registration_conflict(
                 name,
                 APICounter.__name__,
                 unit,
                 description,
+                status,
             )
+        if status.already_registered:
             with self._instrument_id_instrument_lock:
-                return self._instrument_id_instrument[instrument_id]
+                return self._instrument_id_instrument[status.instrument_id]
 
         instrument = _Counter(
             name,
@@ -99,34 +116,30 @@ class Meter(APIMeter):
         )
 
         with self._instrument_id_instrument_lock:
-            self._instrument_id_instrument[instrument_id] = instrument
+            self._instrument_id_instrument[status.instrument_id] = instrument
             return instrument
 
     def create_up_down_counter(
         self, name, unit="", description=""
     ) -> APIUpDownCounter:
-
-        (
-            is_instrument_registered,
-            instrument_id,
-        ) = self._is_instrument_registered(
+        status = self._register_instrument(
             name, _UpDownCounter, unit, description
         )
 
-        if is_instrument_registered:
+        if status.conflict:
             # FIXME #2558 go through all views here and check if this
             # instrument registration conflict can be fixed. If it can be, do
             # not log the following warning.
-            _logger.warning(
-                "An instrument with name %s, type %s, unit %s and "
-                "description %s has been created already.",
+            self._log_instrument_registration_conflict(
                 name,
                 APIUpDownCounter.__name__,
                 unit,
                 description,
+                status,
             )
+        if status.already_registered:
             with self._instrument_id_instrument_lock:
-                return self._instrument_id_instrument[instrument_id]
+                return self._instrument_id_instrument[status.instrument_id]
 
         instrument = _UpDownCounter(
             name,
@@ -137,34 +150,34 @@ class Meter(APIMeter):
         )
 
         with self._instrument_id_instrument_lock:
-            self._instrument_id_instrument[instrument_id] = instrument
+            self._instrument_id_instrument[status.instrument_id] = instrument
             return instrument
 
     def create_observable_counter(
-        self, name, callbacks=None, unit="", description=""
+        self,
+        name,
+        callbacks=None,
+        unit="",
+        description="",
     ) -> APIObservableCounter:
-
-        (
-            is_instrument_registered,
-            instrument_id,
-        ) = self._is_instrument_registered(
+        status = self._register_instrument(
             name, _ObservableCounter, unit, description
         )
 
-        if is_instrument_registered:
+        if status.conflict:
             # FIXME #2558 go through all views here and check if this
             # instrument registration conflict can be fixed. If it can be, do
             # not log the following warning.
-            _logger.warning(
-                "An instrument with name %s, type %s, unit %s and "
-                "description %s has been created already.",
+            self._log_instrument_registration_conflict(
                 name,
                 APIObservableCounter.__name__,
                 unit,
                 description,
+                status,
             )
+        if status.already_registered:
             with self._instrument_id_instrument_lock:
-                return self._instrument_id_instrument[instrument_id]
+                return self._instrument_id_instrument[status.instrument_id]
 
         instrument = _ObservableCounter(
             name,
@@ -178,30 +191,60 @@ class Meter(APIMeter):
         self._measurement_consumer.register_asynchronous_instrument(instrument)
 
         with self._instrument_id_instrument_lock:
-            self._instrument_id_instrument[instrument_id] = instrument
+            self._instrument_id_instrument[status.instrument_id] = instrument
             return instrument
 
-    def create_histogram(self, name, unit="", description="") -> APIHistogram:
+    def create_histogram(
+        self,
+        name: str,
+        unit: str = "",
+        description: str = "",
+        *,
+        explicit_bucket_boundaries_advisory: Optional[Sequence[float]] = None,
+    ) -> APIHistogram:
+        if explicit_bucket_boundaries_advisory is not None:
+            invalid_advisory = False
+            if isinstance(explicit_bucket_boundaries_advisory, Sequence):
+                try:
+                    invalid_advisory = not (
+                        all(
+                            isinstance(e, (float, int))
+                            for e in explicit_bucket_boundaries_advisory
+                        )
+                    )
+                except (KeyError, TypeError):
+                    invalid_advisory = True
+            else:
+                invalid_advisory = True
 
-        (
-            is_instrument_registered,
-            instrument_id,
-        ) = self._is_instrument_registered(name, _Histogram, unit, description)
+            if invalid_advisory:
+                explicit_bucket_boundaries_advisory = None
+                _logger.warning(
+                    "explicit_bucket_boundaries_advisory must be a sequence of numbers"
+                )
 
-        if is_instrument_registered:
+        status = self._register_instrument(
+            name,
+            _Histogram,
+            unit,
+            description,
+            explicit_bucket_boundaries_advisory,
+        )
+
+        if status.conflict:
             # FIXME #2558 go through all views here and check if this
             # instrument registration conflict can be fixed. If it can be, do
             # not log the following warning.
-            _logger.warning(
-                "An instrument with name %s, type %s, unit %s and "
-                "description %s has been created already.",
+            self._log_instrument_registration_conflict(
                 name,
                 APIHistogram.__name__,
                 unit,
                 description,
+                status,
             )
+        if status.already_registered:
             with self._instrument_id_instrument_lock:
-                return self._instrument_id_instrument[instrument_id]
+                return self._instrument_id_instrument[status.instrument_id]
 
         instrument = _Histogram(
             name,
@@ -209,36 +252,63 @@ class Meter(APIMeter):
             self._measurement_consumer,
             unit,
             description,
+            explicit_bucket_boundaries_advisory,
         )
         with self._instrument_id_instrument_lock:
-            self._instrument_id_instrument[instrument_id] = instrument
+            self._instrument_id_instrument[status.instrument_id] = instrument
+            return instrument
+
+    def create_gauge(self, name, unit="", description="") -> APIGauge:
+        status = self._register_instrument(name, _Gauge, unit, description)
+
+        if status.conflict:
+            # FIXME #2558 go through all views here and check if this
+            # instrument registration conflict can be fixed. If it can be, do
+            # not log the following warning.
+            self._log_instrument_registration_conflict(
+                name,
+                APIGauge.__name__,
+                unit,
+                description,
+                status,
+            )
+        if status.already_registered:
+            with self._instrument_id_instrument_lock:
+                return self._instrument_id_instrument[status.instrument_id]
+
+        instrument = _Gauge(
+            name,
+            self._instrumentation_scope,
+            self._measurement_consumer,
+            unit,
+            description,
+        )
+
+        with self._instrument_id_instrument_lock:
+            self._instrument_id_instrument[status.instrument_id] = instrument
             return instrument
 
     def create_observable_gauge(
         self, name, callbacks=None, unit="", description=""
     ) -> APIObservableGauge:
-
-        (
-            is_instrument_registered,
-            instrument_id,
-        ) = self._is_instrument_registered(
+        status = self._register_instrument(
             name, _ObservableGauge, unit, description
         )
 
-        if is_instrument_registered:
+        if status.conflict:
             # FIXME #2558 go through all views here and check if this
             # instrument registration conflict can be fixed. If it can be, do
             # not log the following warning.
-            _logger.warning(
-                "An instrument with name %s, type %s, unit %s and "
-                "description %s has been created already.",
+            self._log_instrument_registration_conflict(
                 name,
                 APIObservableGauge.__name__,
                 unit,
                 description,
+                status,
             )
+        if status.already_registered:
             with self._instrument_id_instrument_lock:
-                return self._instrument_id_instrument[instrument_id]
+                return self._instrument_id_instrument[status.instrument_id]
 
         instrument = _ObservableGauge(
             name,
@@ -252,34 +322,30 @@ class Meter(APIMeter):
         self._measurement_consumer.register_asynchronous_instrument(instrument)
 
         with self._instrument_id_instrument_lock:
-            self._instrument_id_instrument[instrument_id] = instrument
+            self._instrument_id_instrument[status.instrument_id] = instrument
             return instrument
 
     def create_observable_up_down_counter(
         self, name, callbacks=None, unit="", description=""
     ) -> APIObservableUpDownCounter:
-
-        (
-            is_instrument_registered,
-            instrument_id,
-        ) = self._is_instrument_registered(
+        status = self._register_instrument(
             name, _ObservableUpDownCounter, unit, description
         )
 
-        if is_instrument_registered:
+        if status.conflict:
             # FIXME #2558 go through all views here and check if this
             # instrument registration conflict can be fixed. If it can be, do
             # not log the following warning.
-            _logger.warning(
-                "An instrument with name %s, type %s, unit %s and "
-                "description %s has been created already.",
+            self._log_instrument_registration_conflict(
                 name,
                 APIObservableUpDownCounter.__name__,
                 unit,
                 description,
+                status,
             )
+        if status.already_registered:
             with self._instrument_id_instrument_lock:
-                return self._instrument_id_instrument[instrument_id]
+                return self._instrument_id_instrument[status.instrument_id]
 
         instrument = _ObservableUpDownCounter(
             name,
@@ -293,8 +359,19 @@ class Meter(APIMeter):
         self._measurement_consumer.register_asynchronous_instrument(instrument)
 
         with self._instrument_id_instrument_lock:
-            self._instrument_id_instrument[instrument_id] = instrument
+            self._instrument_id_instrument[status.instrument_id] = instrument
             return instrument
+
+
+def _get_exemplar_filter(exemplar_filter: str) -> ExemplarFilter:
+    if exemplar_filter == "trace_based":
+        return TraceBasedExemplarFilter()
+    if exemplar_filter == "always_on":
+        return AlwaysOnExemplarFilter()
+    if exemplar_filter == "always_off":
+        return AlwaysOffExemplarFilter()
+    msg = f"Unknown exemplar filter '{exemplar_filter}'."
+    raise ValueError(msg)
 
 
 class MeterProvider(APIMeterProvider):
@@ -330,21 +407,30 @@ class MeterProvider(APIMeterProvider):
     """
 
     _all_metric_readers_lock = Lock()
-    _all_metric_readers = set()
+    _all_metric_readers = weakref.WeakSet()
 
     def __init__(
         self,
         metric_readers: Sequence[
             "opensafely._vendor.opentelemetry.sdk.metrics.export.MetricReader"
         ] = (),
-        resource: Resource = Resource.create({}),
+        resource: Optional[Resource] = None,
+        exemplar_filter: Optional[ExemplarFilter] = None,
         shutdown_on_exit: bool = True,
         views: Sequence["opensafely._vendor.opentelemetry.sdk.metrics.view.View"] = (),
     ):
         self._lock = Lock()
         self._meter_lock = Lock()
         self._atexit_handler = None
+        if resource is None:
+            resource = Resource.create({})
         self._sdk_config = SdkConfiguration(
+            exemplar_filter=(
+                exemplar_filter
+                or _get_exemplar_filter(
+                    environ.get(OTEL_METRICS_EXEMPLAR_FILTER, "trace_based")
+                )
+            ),
             resource=resource,
             metric_readers=metric_readers,
             views=views,
@@ -352,16 +438,20 @@ class MeterProvider(APIMeterProvider):
         self._measurement_consumer = SynchronousMeasurementConsumer(
             sdk_config=self._sdk_config
         )
+        disabled = environ.get(OTEL_SDK_DISABLED, "")
+        self._disabled = disabled.lower().strip() == "true"
 
         if shutdown_on_exit:
             self._atexit_handler = register(self.shutdown)
 
         self._meters = {}
+        self._shutdown_once = Once()
+        self._shutdown = False
 
         for metric_reader in self._sdk_config.metric_readers:
-
             with self._all_metric_readers_lock:
                 if metric_reader in self._all_metric_readers:
+                    # pylint: disable=broad-exception-raised
                     raise Exception(
                         f"MetricReader {metric_reader} has been registered "
                         "already in other MeterProvider instance"
@@ -373,16 +463,13 @@ class MeterProvider(APIMeterProvider):
                 self._measurement_consumer.collect
             )
 
-        self._shutdown_once = Once()
-        self._shutdown = False
-
     def force_flush(self, timeout_millis: float = 10_000) -> bool:
-        deadline_ns = _time_ns() + timeout_millis * 10**6
+        deadline_ns = time_ns() + timeout_millis * 10**6
 
         metric_reader_error = {}
 
         for metric_reader in self._sdk_config.metric_readers:
-            current_ts = _time_ns()
+            current_ts = time_ns()
             try:
                 if current_ts >= deadline_ns:
                     raise MetricsTimeoutError(
@@ -392,13 +479,11 @@ class MeterProvider(APIMeterProvider):
                     timeout_millis=(deadline_ns - current_ts) / 10**6
                 )
 
-            # pylint: disable=broad-except
+            # pylint: disable=broad-exception-caught
             except Exception as error:
-
                 metric_reader_error[metric_reader] = error
 
         if metric_reader_error:
-
             metric_reader_error_string = "\n".join(
                 [
                     f"{metric_reader.__class__.__name__}: {repr(error)}"
@@ -406,6 +491,7 @@ class MeterProvider(APIMeterProvider):
                 ]
             )
 
+            # pylint: disable=broad-exception-raised
             raise Exception(
                 "MeterProvider.force_flush failed because the following "
                 "metric readers failed during collect:\n"
@@ -414,7 +500,7 @@ class MeterProvider(APIMeterProvider):
         return True
 
     def shutdown(self, timeout_millis: float = 30_000):
-        deadline_ns = _time_ns() + timeout_millis * 10**6
+        deadline_ns = time_ns() + timeout_millis * 10**6
 
         def _shutdown():
             self._shutdown = True
@@ -428,9 +514,10 @@ class MeterProvider(APIMeterProvider):
         metric_reader_error = {}
 
         for metric_reader in self._sdk_config.metric_readers:
-            current_ts = _time_ns()
+            current_ts = time_ns()
             try:
                 if current_ts >= deadline_ns:
+                    # pylint: disable=broad-exception-raised
                     raise Exception(
                         "Didn't get to execute, deadline already exceeded"
                     )
@@ -438,9 +525,8 @@ class MeterProvider(APIMeterProvider):
                     timeout_millis=(deadline_ns - current_ts) / 10**6
                 )
 
-            # pylint: disable=broad-except
+            # pylint: disable=broad-exception-caught
             except Exception as error:
-
                 metric_reader_error[metric_reader] = error
 
         if self._atexit_handler is not None:
@@ -448,7 +534,6 @@ class MeterProvider(APIMeterProvider):
             self._atexit_handler = None
 
         if metric_reader_error:
-
             metric_reader_error_string = "\n".join(
                 [
                     f"{metric_reader.__class__.__name__}: {repr(error)}"
@@ -456,6 +541,7 @@ class MeterProvider(APIMeterProvider):
                 ]
             )
 
+            # pylint: disable=broad-exception-raised
             raise Exception(
                 (
                     "MeterProvider.shutdown failed because the following "
@@ -469,7 +555,10 @@ class MeterProvider(APIMeterProvider):
         name: str,
         version: Optional[str] = None,
         schema_url: Optional[str] = None,
+        attributes: Optional[Attributes] = None,
     ) -> Meter:
+        if self._disabled:
+            return NoOpMeter(name, version=version, schema_url=schema_url)
 
         if self._shutdown:
             _logger.warning(
@@ -481,7 +570,7 @@ class MeterProvider(APIMeterProvider):
             _logger.warning("Meter name cannot be None or empty.")
             return NoOpMeter(name, version=version, schema_url=schema_url)
 
-        info = InstrumentationScope(name, version, schema_url)
+        info = InstrumentationScope(name, version, schema_url, attributes)
         with self._meter_lock:
             if not self._meters.get(info):
                 # FIXME #2558 pass SDKConfig object to meter so that the meter

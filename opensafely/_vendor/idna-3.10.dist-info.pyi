@@ -1,0 +1,1 @@
+from idna-3.10.dist-info import *

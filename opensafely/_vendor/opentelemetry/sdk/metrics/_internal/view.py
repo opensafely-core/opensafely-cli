@@ -15,18 +15,34 @@
 
 from fnmatch import fnmatch
 from logging import getLogger
-from typing import Optional, Set, Type
-
-# FIXME import from typing when support for 3.6 is removed
-from opensafely._vendor.typing_extensions import final
+from typing import Callable, Optional, Set, Type
 
 from opensafely._vendor.opentelemetry.metrics import Instrument
 from opensafely._vendor.opentelemetry.sdk.metrics._internal.aggregation import (
     Aggregation,
     DefaultAggregation,
+    _Aggregation,
+    _ExplicitBucketHistogramAggregation,
+    _ExponentialBucketHistogramAggregation,
+)
+from opensafely._vendor.opentelemetry.sdk.metrics._internal.exemplar import (
+    AlignedHistogramBucketExemplarReservoir,
+    ExemplarReservoirBuilder,
+    SimpleFixedSizeExemplarReservoir,
 )
 
 _logger = getLogger(__name__)
+
+
+def _default_reservoir_factory(
+    aggregation_type: Type[_Aggregation],
+) -> ExemplarReservoirBuilder:
+    """Default reservoir factory per aggregation."""
+    if issubclass(aggregation_type, _ExplicitBucketHistogramAggregation):
+        return AlignedHistogramBucketExemplarReservoir
+    if issubclass(aggregation_type, _ExponentialBucketHistogramAggregation):
+        return SimpleFixedSizeExemplarReservoir
+    return SimpleFixedSizeExemplarReservoir
 
 
 class View:
@@ -76,6 +92,12 @@ class View:
             corresponding metrics stream. If `None` an instance of
             `DefaultAggregation` will be used.
 
+        exemplar_reservoir_factory: This is a metric stream customizing attribute:
+            the exemplar reservoir factory
+
+        instrument_unit: This is an instrument matching attribute: the unit the
+            instrument must have to match the view.
+
     This class is not intended to be subclassed by the user.
     """
 
@@ -92,15 +114,21 @@ class View:
         description: Optional[str] = None,
         attribute_keys: Optional[Set[str]] = None,
         aggregation: Optional[Aggregation] = None,
+        exemplar_reservoir_factory: Optional[
+            Callable[[Type[_Aggregation]], ExemplarReservoirBuilder]
+        ] = None,
+        instrument_unit: Optional[str] = None,
     ):
         if (
             instrument_type
             is instrument_name
+            is instrument_unit
             is meter_name
             is meter_version
             is meter_schema_url
             is None
         ):
+            # pylint: disable=broad-exception-raised
             raise Exception(
                 "Some instrument selection "
                 f"criteria must be provided for View {name}"
@@ -111,17 +139,18 @@ class View:
             and instrument_name is not None
             and ("*" in instrument_name or "?" in instrument_name)
         ):
-
+            # pylint: disable=broad-exception-raised
             raise Exception(
                 f"View {name} declared with wildcard "
                 "characters in instrument_name"
             )
 
-        # _name, _description, _aggregation and _attribute_keys will be
-        # accessed when instantiating a _ViewInstrumentMatch.
+        # _name, _description, _aggregation, _exemplar_reservoir_factory and
+        # _attribute_keys will be accessed when instantiating a _ViewInstrumentMatch.
         self._name = name
         self._instrument_type = instrument_type
         self._instrument_name = instrument_name
+        self._instrument_unit = instrument_unit
         self._meter_name = meter_name
         self._meter_version = meter_version
         self._meter_schema_url = meter_schema_url
@@ -129,18 +158,23 @@ class View:
         self._description = description
         self._attribute_keys = attribute_keys
         self._aggregation = aggregation or self._default_aggregation
+        self._exemplar_reservoir_factory = (
+            exemplar_reservoir_factory or _default_reservoir_factory
+        )
 
     # pylint: disable=too-many-return-statements
     # pylint: disable=too-many-branches
-    @final
     def _match(self, instrument: Instrument) -> bool:
-
         if self._instrument_type is not None:
             if not isinstance(instrument, self._instrument_type):
                 return False
 
         if self._instrument_name is not None:
             if not fnmatch(instrument.name, self._instrument_name):
+                return False
+
+        if self._instrument_unit is not None:
+            if not fnmatch(instrument.unit, self._instrument_unit):
                 return False
 
         if self._meter_name is not None:
