@@ -4,88 +4,100 @@
 #
 #    pip-compile vendor.in
 #
-backoff==2.1.2
+certifi==2025.1.31
     # via
-    #   -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.75.3/requirements.prod.txt
-    #   opentelemetry-exporter-otlp-proto-http
-certifi==2020.11.8
-    # via
-    #   -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.75.3/requirements.prod.txt
+    #   -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.75.4/requirements.prod.txt
     #   requests
-chardet==3.0.4
+charset-normalizer==3.4.1
     # via
-    #   -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.75.3/requirements.prod.txt
+    #   -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.75.4/requirements.prod.txt
     #   requests
-deprecated==1.2.13
+deprecated==1.2.18
     # via
-    #   -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.75.3/requirements.prod.txt
+    #   -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.75.4/requirements.prod.txt
     #   opentelemetry-api
-distro==1.8.0
-    # via
-    #   -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.75.3/requirements.prod.txt
-    #   ruyaml
-googleapis-common-protos==1.56.4
-    # via
-    #   -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.75.3/requirements.prod.txt
     #   opentelemetry-exporter-otlp-proto-http
-idna==2.10
+    #   opentelemetry-semantic-conventions
+distro==1.9.0
     # via
-    #   -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.75.3/requirements.prod.txt
+    #   -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.75.4/requirements.prod.txt
+    #   ruyaml
+googleapis-common-protos==1.69.2
+    # via
+    #   -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.75.4/requirements.prod.txt
+    #   opentelemetry-exporter-otlp-proto-http
+idna==3.10
+    # via
+    #   -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.75.4/requirements.prod.txt
     #   requests
-opensafely-jobrunner @ git+https://github.com/opensafely-core/job-runner@v2.75.3
+importlib-metadata==8.5.0
+    # via
+    #   -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.75.4/requirements.prod.txt
+    #   opentelemetry-api
+opensafely-jobrunner @ git+https://github.com/opensafely-core/job-runner@v2.75.4
     # via -r vendor.in
 opensafely-pipeline @ https://github.com/opensafely-core/pipeline/archive/refs/tags/v2025.03.06.161237.zip
     # via
-    #   -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.75.3/requirements.prod.txt
+    #   -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.75.4/requirements.prod.txt
     #   opensafely-jobrunner
-opentelemetry-api==1.12.0
+opentelemetry-api==1.31.0
     # via
-    #   -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.75.3/requirements.prod.txt
+    #   -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.75.4/requirements.prod.txt
     #   opentelemetry-exporter-otlp-proto-http
     #   opentelemetry-sdk
-opentelemetry-exporter-otlp-proto-http==1.12.0
+    #   opentelemetry-semantic-conventions
+opentelemetry-exporter-otlp-proto-common==1.31.0
     # via
-    #   -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.75.3/requirements.prod.txt
+    #   -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.75.4/requirements.prod.txt
+    #   opentelemetry-exporter-otlp-proto-http
+opentelemetry-exporter-otlp-proto-http==1.31.0
+    # via
+    #   -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.75.4/requirements.prod.txt
     #   opensafely-jobrunner
-opentelemetry-proto==1.12.0
+opentelemetry-proto==1.31.0
     # via
-    #   -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.75.3/requirements.prod.txt
+    #   -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.75.4/requirements.prod.txt
+    #   opentelemetry-exporter-otlp-proto-common
     #   opentelemetry-exporter-otlp-proto-http
-opentelemetry-sdk==1.12.0
+opentelemetry-sdk==1.31.0
     # via
-    #   -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.75.3/requirements.prod.txt
+    #   -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.75.4/requirements.prod.txt
     #   opentelemetry-exporter-otlp-proto-http
-opentelemetry-semantic-conventions==0.33b0
+opentelemetry-semantic-conventions==0.52b0
     # via
-    #   -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.75.3/requirements.prod.txt
+    #   -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.75.4/requirements.prod.txt
     #   opentelemetry-sdk
-protobuf==3.20.2
+protobuf==5.29.3
     # via
-    #   -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.75.3/requirements.prod.txt
+    #   -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.75.4/requirements.prod.txt
     #   googleapis-common-protos
     #   opentelemetry-proto
-requests==2.25.0
+requests==2.32.3
     # via
-    #   -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.75.3/requirements.prod.txt
+    #   -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.75.4/requirements.prod.txt
     #   opensafely-jobrunner
     #   opentelemetry-exporter-otlp-proto-http
 ruyaml==0.91.0
     # via
-    #   -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.75.3/requirements.prod.txt
+    #   -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.75.4/requirements.prod.txt
     #   opensafely-jobrunner
     #   opensafely-pipeline
-typing-extensions==4.7.1
+typing-extensions==4.12.2
     # via
-    #   -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.75.3/requirements.prod.txt
+    #   -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.75.4/requirements.prod.txt
     #   opentelemetry-sdk
-urllib3==1.26.5
+urllib3==2.2.3
     # via
-    #   -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.75.3/requirements.prod.txt
+    #   -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.75.4/requirements.prod.txt
     #   requests
-wrapt==1.14.1
+wrapt==1.17.2
     # via
-    #   -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.75.3/requirements.prod.txt
+    #   -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.75.4/requirements.prod.txt
     #   deprecated
+zipp==3.20.2
+    # via
+    #   -r https://raw.githubusercontent.com/opensafely-core/job-runner/v2.75.4/requirements.prod.txt
+    #   importlib-metadata
 
 # The following packages are considered to be unsafe in a requirements file:
 # setuptools
