@@ -13,12 +13,15 @@
 # limitations under the License.
 
 # pylint: disable=too-many-ancestors, unused-import
+from __future__ import annotations
 
 from logging import getLogger
-from typing import Dict, Generator, Iterable, List, Optional, Union
+from time import time_ns
+from typing import Generator, Iterable, List, Sequence, Union
 
 # This kind of import is needed to avoid Sphinx errors.
 import opensafely._vendor.opentelemetry.sdk.metrics
+from opensafely._vendor.opentelemetry.context import Context, get_current
 from opensafely._vendor.opentelemetry.metrics import CallbackT
 from opensafely._vendor.opentelemetry.metrics import Counter as APICounter
 from opensafely._vendor.opentelemetry.metrics import Histogram as APIHistogram
@@ -28,7 +31,11 @@ from opensafely._vendor.opentelemetry.metrics import (
     ObservableUpDownCounter as APIObservableUpDownCounter,
 )
 from opensafely._vendor.opentelemetry.metrics import UpDownCounter as APIUpDownCounter
-from opensafely._vendor.opentelemetry.metrics._internal.instrument import CallbackOptions
+from opensafely._vendor.opentelemetry.metrics import _Gauge as APIGauge
+from opensafely._vendor.opentelemetry.metrics._internal.instrument import (
+    CallbackOptions,
+    _MetricsHistogramAdvisory,
+)
 from opensafely._vendor.opentelemetry.sdk.metrics._internal.measurement import Measurement
 from opensafely._vendor.opentelemetry.sdk.util.instrumentation import InstrumentationScope
 
@@ -53,9 +60,11 @@ class _Synchronous:
         result = self._check_name_unit_description(name, unit, description)
 
         if result["name"] is None:
+            # pylint: disable=broad-exception-raised
             raise Exception(_ERROR_MESSAGE.format(name))
 
         if result["unit"] is None:
+            # pylint: disable=broad-exception-raised
             raise Exception(_ERROR_MESSAGE.format(unit))
 
         name = result["name"]
@@ -76,7 +85,7 @@ class _Asynchronous:
         name: str,
         instrumentation_scope: InstrumentationScope,
         measurement_consumer: "opensafely._vendor.opentelemetry.sdk.metrics.MeasurementConsumer",
-        callbacks: Optional[Iterable[CallbackT]] = None,
+        callbacks: Iterable[CallbackT] | None = None,
         unit: str = "",
         description: str = "",
     ):
@@ -84,9 +93,11 @@ class _Asynchronous:
         result = self._check_name_unit_description(name, unit, description)
 
         if result["name"] is None:
+            # pylint: disable=broad-exception-raised
             raise Exception(_ERROR_MESSAGE.format(name))
 
         if result["unit"] is None:
+            # pylint: disable=broad-exception-raised
             raise Exception(_ERROR_MESSAGE.format(unit))
 
         name = result["name"]
@@ -103,11 +114,8 @@ class _Asynchronous:
         self._callbacks: List[CallbackT] = []
 
         if callbacks is not None:
-
             for callback in callbacks:
-
                 if isinstance(callback, Generator):
-
                     # advance generator to it's first yield
                     next(callback)
 
@@ -132,10 +140,12 @@ class _Asynchronous:
                 for api_measurement in callback(callback_options):
                     yield Measurement(
                         api_measurement.value,
+                        time_unix_nano=time_ns(),
                         instrument=self,
+                        context=api_measurement.context or get_current(),
                         attributes=api_measurement.attributes,
                     )
-            except Exception:  # pylint: disable=broad-except
+            except Exception:  # pylint: disable=broad-exception-caught
                 _logger.exception(
                     "Callback failed for instrument %s.", self.name
                 )
@@ -148,15 +158,25 @@ class Counter(_Synchronous, APICounter):
         return super().__new__(cls)
 
     def add(
-        self, amount: Union[int, float], attributes: Dict[str, str] = None
+        self,
+        amount: Union[int, float],
+        attributes: dict[str, str] | None = None,
+        context: Context | None = None,
     ):
         if amount < 0:
             _logger.warning(
                 "Add amount must be non-negative on Counter %s.", self.name
             )
             return
+        time_unix_nano = time_ns()
         self._measurement_consumer.consume_measurement(
-            Measurement(amount, self, attributes)
+            Measurement(
+                amount,
+                time_unix_nano,
+                self,
+                context or get_current(),
+                attributes,
+            )
         )
 
 
@@ -167,10 +187,20 @@ class UpDownCounter(_Synchronous, APIUpDownCounter):
         return super().__new__(cls)
 
     def add(
-        self, amount: Union[int, float], attributes: Dict[str, str] = None
+        self,
+        amount: Union[int, float],
+        attributes: dict[str, str] | None = None,
+        context: Context | None = None,
     ):
+        time_unix_nano = time_ns()
         self._measurement_consumer.consume_measurement(
-            Measurement(amount, self, attributes)
+            Measurement(
+                amount,
+                time_unix_nano,
+                self,
+                context or get_current(),
+                attributes,
+            )
         )
 
 
@@ -193,13 +223,36 @@ class ObservableUpDownCounter(_Asynchronous, APIObservableUpDownCounter):
 
 
 class Histogram(_Synchronous, APIHistogram):
+    def __init__(
+        self,
+        name: str,
+        instrumentation_scope: InstrumentationScope,
+        measurement_consumer: "opensafely._vendor.opentelemetry.sdk.metrics.MeasurementConsumer",
+        unit: str = "",
+        description: str = "",
+        explicit_bucket_boundaries_advisory: Sequence[float] | None = None,
+    ):
+        super().__init__(
+            name,
+            unit=unit,
+            description=description,
+            instrumentation_scope=instrumentation_scope,
+            measurement_consumer=measurement_consumer,
+        )
+        self._advisory = _MetricsHistogramAdvisory(
+            explicit_bucket_boundaries=explicit_bucket_boundaries_advisory
+        )
+
     def __new__(cls, *args, **kwargs):
         if cls is Histogram:
             raise TypeError("Histogram must be instantiated via a meter.")
         return super().__new__(cls)
 
     def record(
-        self, amount: Union[int, float], attributes: Dict[str, str] = None
+        self,
+        amount: Union[int, float],
+        attributes: dict[str, str] | None = None,
+        context: Context | None = None,
     ):
         if amount < 0:
             _logger.warning(
@@ -207,8 +260,39 @@ class Histogram(_Synchronous, APIHistogram):
                 self.name,
             )
             return
+        time_unix_nano = time_ns()
         self._measurement_consumer.consume_measurement(
-            Measurement(amount, self, attributes)
+            Measurement(
+                amount,
+                time_unix_nano,
+                self,
+                context or get_current(),
+                attributes,
+            )
+        )
+
+
+class Gauge(_Synchronous, APIGauge):
+    def __new__(cls, *args, **kwargs):
+        if cls is Gauge:
+            raise TypeError("Gauge must be instantiated via a meter.")
+        return super().__new__(cls)
+
+    def set(
+        self,
+        amount: Union[int, float],
+        attributes: dict[str, str] | None = None,
+        context: Context | None = None,
+    ):
+        time_unix_nano = time_ns()
+        self._measurement_consumer.consume_measurement(
+            Measurement(
+                amount,
+                time_unix_nano,
+                self,
+                context or get_current(),
+                attributes,
+            )
         )
 
 
@@ -239,6 +323,10 @@ class _ObservableUpDownCounter(ObservableUpDownCounter):
 
 
 class _Histogram(Histogram):
+    pass
+
+
+class _Gauge(Gauge):
     pass
 
 

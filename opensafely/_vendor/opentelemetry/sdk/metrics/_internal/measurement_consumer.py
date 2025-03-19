@@ -16,7 +16,8 @@
 
 from abc import ABC, abstractmethod
 from threading import Lock
-from typing import Iterable, List, Mapping
+from time import time_ns
+from typing import Iterable, List, Mapping, Optional
 
 # This kind of import is needed to avoid Sphinx errors.
 import opensafely._vendor.opentelemetry.sdk.metrics
@@ -29,7 +30,6 @@ from opensafely._vendor.opentelemetry.sdk.metrics._internal.metric_reader_storag
     MetricReaderStorage,
 )
 from opensafely._vendor.opentelemetry.sdk.metrics._internal.point import Metric
-from opensafely._vendor.opentelemetry.util._time import _time_ns
 
 
 class MeasurementConsumer(ABC):
@@ -51,7 +51,7 @@ class MeasurementConsumer(ABC):
         self,
         metric_reader: "opensafely._vendor.opentelemetry.sdk.metrics.MetricReader",
         timeout_millis: float = 10_000,
-    ) -> Iterable[Metric]:
+    ) -> Optional[Iterable[Metric]]:
         pass
 
 
@@ -78,8 +78,18 @@ class SynchronousMeasurementConsumer(MeasurementConsumer):
         ] = []
 
     def consume_measurement(self, measurement: Measurement) -> None:
+        should_sample_exemplar = (
+            self._sdk_config.exemplar_filter.should_sample(
+                measurement.value,
+                measurement.time_unix_nano,
+                measurement.attributes,
+                measurement.context,
+            )
+        )
         for reader_storage in self._reader_storages.values():
-            reader_storage.consume_measurement(measurement)
+            reader_storage.consume_measurement(
+                measurement, should_sample_exemplar
+            )
 
     def register_asynchronous_instrument(
         self,
@@ -94,33 +104,42 @@ class SynchronousMeasurementConsumer(MeasurementConsumer):
         self,
         metric_reader: "opensafely._vendor.opentelemetry.sdk.metrics.MetricReader",
         timeout_millis: float = 10_000,
-    ) -> Iterable[Metric]:
-
+    ) -> Optional[Iterable[Metric]]:
         with self._lock:
             metric_reader_storage = self._reader_storages[metric_reader]
             # for now, just use the defaults
             callback_options = CallbackOptions()
-            deadline_ns = _time_ns() + timeout_millis * 10**6
+            deadline_ns = time_ns() + (timeout_millis * 1e6)
 
-            default_timeout_millis = 10000 * 10**6
+            default_timeout_ns = 10000 * 1e6
 
             for async_instrument in self._async_instruments:
+                remaining_time = deadline_ns - time_ns()
 
-                remaining_time = deadline_ns - _time_ns()
-
-                if remaining_time < default_timeout_millis:
-
+                if remaining_time < default_timeout_ns:
                     callback_options = CallbackOptions(
-                        timeout_millis=remaining_time
+                        timeout_millis=remaining_time / 1e6
                     )
 
                 measurements = async_instrument.callback(callback_options)
-                if _time_ns() >= deadline_ns:
+                if time_ns() >= deadline_ns:
                     raise MetricsTimeoutError(
                         "Timed out while executing callback"
                     )
 
                 for measurement in measurements:
-                    metric_reader_storage.consume_measurement(measurement)
+                    should_sample_exemplar = (
+                        self._sdk_config.exemplar_filter.should_sample(
+                            measurement.value,
+                            measurement.time_unix_nano,
+                            measurement.attributes,
+                            measurement.context,
+                        )
+                    )
+                    metric_reader_storage.consume_measurement(
+                        measurement, should_sample_exemplar
+                    )
 
-        return self._reader_storages[metric_reader].collect()
+            result = self._reader_storages[metric_reader].collect()
+
+        return result

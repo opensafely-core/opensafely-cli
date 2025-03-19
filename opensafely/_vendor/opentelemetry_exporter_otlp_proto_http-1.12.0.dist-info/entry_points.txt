@@ -1,2 +1,0 @@
-[opentelemetry_traces_exporter]
-otlp_proto_http = opentelemetry.exporter.otlp.proto.http.trace_exporter:OTLPSpanExporter

@@ -12,8 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 from typing import Mapping, Optional, Sequence, Tuple, Union
+
+# This is the implementation of the "Any" type as specified by the specifications of OpenTelemetry data model for logs.
+# For more details, refer to the OTel specification:
+# https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/logs/data-model.md#type-any
+AnyValue = Union[
+    str,
+    bool,
+    int,
+    float,
+    bytes,
+    Sequence["AnyValue"],
+    Mapping[str, "AnyValue"],
+    None,
+]
 
 AttributeValue = Union[
     str,

@@ -1,1 +1,0 @@
-from chardet-3.0.4.dist-info import *

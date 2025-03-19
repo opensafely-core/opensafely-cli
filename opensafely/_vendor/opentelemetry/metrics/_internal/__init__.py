@@ -40,19 +40,22 @@ The following code shows how to obtain a meter using the global :class:`.MeterPr
 .. versionadded:: 1.10.0
 """
 
-
+import warnings
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from logging import getLogger
 from os import environ
 from threading import Lock
-from typing import List, Optional, Sequence, Set, Tuple, Union, cast
+from typing import Dict, List, Optional, Sequence, Union, cast
 
 from opensafely._vendor.opentelemetry.environment_variables import OTEL_PYTHON_METER_PROVIDER
 from opensafely._vendor.opentelemetry.metrics._internal.instrument import (
     CallbackT,
     Counter,
+    Gauge,
     Histogram,
     NoOpCounter,
+    NoOpGauge,
     NoOpHistogram,
     NoOpObservableCounter,
     NoOpObservableGauge,
@@ -62,7 +65,9 @@ from opensafely._vendor.opentelemetry.metrics._internal.instrument import (
     ObservableGauge,
     ObservableUpDownCounter,
     UpDownCounter,
+    _MetricsHistogramAdvisory,
     _ProxyCounter,
+    _ProxyGauge,
     _ProxyHistogram,
     _ProxyObservableCounter,
     _ProxyObservableGauge,
@@ -71,13 +76,18 @@ from opensafely._vendor.opentelemetry.metrics._internal.instrument import (
 )
 from opensafely._vendor.opentelemetry.util._once import Once
 from opensafely._vendor.opentelemetry.util._providers import _load_provider
+from opensafely._vendor.opentelemetry.util.types import (
+    Attributes,
+)
 
 _logger = getLogger(__name__)
 
 
+# pylint: disable=invalid-name
 _ProxyInstrumentT = Union[
     _ProxyCounter,
     _ProxyHistogram,
+    _ProxyGauge,
     _ProxyObservableCounter,
     _ProxyObservableGauge,
     _ProxyObservableUpDownCounter,
@@ -96,6 +106,7 @@ class MeterProvider(ABC):
         name: str,
         version: Optional[str] = None,
         schema_url: Optional[str] = None,
+        attributes: Optional[Attributes] = None,
     ) -> "Meter":
         """Returns a `Meter` for use by the given instrumentation library.
 
@@ -119,9 +130,10 @@ class MeterProvider(ABC):
 
             version: Optional. The version string of the
                 instrumenting library.  Usually this should be the same as
-                ``pkg_resources.get_distribution(instrumenting_library_name).version``.
+                ``importlib.metadata.version(instrumenting_library_name)``.
 
             schema_url: Optional. Specifies the Schema URL of the emitted telemetry.
+            attributes: Optional. Attributes that are associated with the emitted telemetry.
         """
 
 
@@ -133,9 +145,9 @@ class NoOpMeterProvider(MeterProvider):
         name: str,
         version: Optional[str] = None,
         schema_url: Optional[str] = None,
+        attributes: Optional[Attributes] = None,
     ) -> "Meter":
         """Returns a NoOpMeter."""
-        super().get_meter(name, version=version, schema_url=schema_url)
         return NoOpMeter(name, version=version, schema_url=schema_url)
 
 
@@ -150,6 +162,7 @@ class _ProxyMeterProvider(MeterProvider):
         name: str,
         version: Optional[str] = None,
         schema_url: Optional[str] = None,
+        attributes: Optional[Attributes] = None,
     ) -> "Meter":
         with self._lock:
             if self._real_meter_provider is not None:
@@ -166,6 +179,14 @@ class _ProxyMeterProvider(MeterProvider):
             self._real_meter_provider = meter_provider
             for meter in self._meters:
                 meter.on_set_meter_provider(meter_provider)
+
+
+@dataclass
+class _InstrumentRegistrationStatus:
+    instrument_id: str
+    already_registered: bool
+    conflict: bool
+    current_advisory: Optional[_MetricsHistogramAdvisory]
 
 
 class Meter(ABC):
@@ -185,7 +206,9 @@ class Meter(ABC):
         self._name = name
         self._version = version
         self._schema_url = schema_url
-        self._instrument_ids: Set[str] = set()
+        self._instrument_ids: Dict[
+            str, Optional[_MetricsHistogramAdvisory]
+        ] = {}
         self._instrument_ids_lock = Lock()
 
     @property
@@ -209,31 +232,68 @@ class Meter(ABC):
         """
         return self._schema_url
 
-    def _is_instrument_registered(
-        self, name: str, type_: type, unit: str, description: str
-    ) -> Tuple[bool, str]:
+    def _register_instrument(
+        self,
+        name: str,
+        type_: type,
+        unit: str,
+        description: str,
+        advisory: Optional[_MetricsHistogramAdvisory] = None,
+    ) -> _InstrumentRegistrationStatus:
         """
-        Check if an instrument with the same name, type, unit and description
-        has been registered already.
+        Register an instrument with the name, type, unit and description as
+        identifying keys and the advisory as value.
 
-        Returns a tuple. The first value is `True` if the instrument has been
-        registered already, `False` otherwise. The second value is the
-        instrument id.
+        Returns a tuple. The first value is the instrument id.
+        The second value is an `_InstrumentRegistrationStatus` where
+        `already_registered` is `True` if the instrument has been registered
+        already.
+        If `conflict` is set to True the `current_advisory` attribute contains
+        the registered instrument advisory.
         """
 
         instrument_id = ",".join(
             [name.strip().lower(), type_.__name__, unit, description]
         )
 
-        result = False
+        already_registered = False
+        conflict = False
+        current_advisory = None
 
         with self._instrument_ids_lock:
-            if instrument_id in self._instrument_ids:
-                result = True
+            # we are not using get because None is a valid value
+            already_registered = instrument_id in self._instrument_ids
+            if already_registered:
+                current_advisory = self._instrument_ids[instrument_id]
+                conflict = current_advisory != advisory
             else:
-                self._instrument_ids.add(instrument_id)
+                self._instrument_ids[instrument_id] = advisory
 
-        return (result, instrument_id)
+        return _InstrumentRegistrationStatus(
+            instrument_id=instrument_id,
+            already_registered=already_registered,
+            conflict=conflict,
+            current_advisory=current_advisory,
+        )
+
+    @staticmethod
+    def _log_instrument_registration_conflict(
+        name: str,
+        instrumentation_type: str,
+        unit: str,
+        description: str,
+        status: _InstrumentRegistrationStatus,
+    ) -> None:
+        _logger.warning(
+            "An instrument with name %s, type %s, unit %s and "
+            "description %s has been created already with a "
+            "different advisory value %s and will be used instead.",
+            name,
+            instrumentation_type,
+            unit,
+            description,
+            status.current_advisory,
+        )
 
     @abstractmethod
     def create_counter(
@@ -370,6 +430,8 @@ class Meter(ABC):
         name: str,
         unit: str = "",
         description: str = "",
+        *,
+        explicit_bucket_boundaries_advisory: Optional[Sequence[float]] = None,
     ) -> Histogram:
         """Creates a :class:`~opentelemetry.metrics.Histogram` instrument
 
@@ -379,6 +441,22 @@ class Meter(ABC):
                 example, ``By`` for bytes. UCUM units are recommended.
             description: A description for this instrument and what it measures.
         """
+
+    def create_gauge(  # type: ignore # pylint: disable=no-self-use
+        self,
+        name: str,
+        unit: str = "",
+        description: str = "",
+    ) -> Gauge:  # pyright: ignore[reportReturnType]
+        """Creates a ``Gauge`` instrument
+
+        Args:
+            name: The name of the instrument to be created
+            unit: The unit for observations this instrument reports. For
+                example, ``By`` for bytes. UCUM units are recommended.
+            description: A description for this instrument and what it measures.
+        """
+        warnings.warn("create_gauge() is not implemented and will be a no-op")
 
     @abstractmethod
     def create_observable_gauge(
@@ -501,13 +579,33 @@ class _ProxyMeter(Meter):
         name: str,
         unit: str = "",
         description: str = "",
+        *,
+        explicit_bucket_boundaries_advisory: Optional[Sequence[float]] = None,
     ) -> Histogram:
         with self._lock:
             if self._real_meter:
                 return self._real_meter.create_histogram(
-                    name, unit, description
+                    name,
+                    unit,
+                    description,
+                    explicit_bucket_boundaries_advisory=explicit_bucket_boundaries_advisory,
                 )
-            proxy = _ProxyHistogram(name, unit, description)
+            proxy = _ProxyHistogram(
+                name, unit, description, explicit_bucket_boundaries_advisory
+            )
+            self._instruments.append(proxy)
+            return proxy
+
+    def create_gauge(
+        self,
+        name: str,
+        unit: str = "",
+        description: str = "",
+    ) -> Gauge:
+        with self._lock:
+            if self._real_meter:
+                return self._real_meter.create_gauge(name, unit, description)
+            proxy = _ProxyGauge(name, unit, description)
             self._instruments.append(proxy)
             return proxy
 
@@ -564,19 +662,37 @@ class NoOpMeter(Meter):
         description: str = "",
     ) -> Counter:
         """Returns a no-op Counter."""
-        super().create_counter(name, unit=unit, description=description)
-        if self._is_instrument_registered(
+        status = self._register_instrument(
             name, NoOpCounter, unit, description
-        )[0]:
-            _logger.warning(
-                "An instrument with name %s, type %s, unit %s and "
-                "description %s has been created already.",
+        )
+        if status.conflict:
+            self._log_instrument_registration_conflict(
                 name,
                 Counter.__name__,
                 unit,
                 description,
+                status,
             )
+
         return NoOpCounter(name, unit=unit, description=description)
+
+    def create_gauge(
+        self,
+        name: str,
+        unit: str = "",
+        description: str = "",
+    ) -> Gauge:
+        """Returns a no-op Gauge."""
+        status = self._register_instrument(name, NoOpGauge, unit, description)
+        if status.conflict:
+            self._log_instrument_registration_conflict(
+                name,
+                Gauge.__name__,
+                unit,
+                description,
+                status,
+            )
+        return NoOpGauge(name, unit=unit, description=description)
 
     def create_up_down_counter(
         self,
@@ -585,19 +701,16 @@ class NoOpMeter(Meter):
         description: str = "",
     ) -> UpDownCounter:
         """Returns a no-op UpDownCounter."""
-        super().create_up_down_counter(
-            name, unit=unit, description=description
-        )
-        if self._is_instrument_registered(
+        status = self._register_instrument(
             name, NoOpUpDownCounter, unit, description
-        )[0]:
-            _logger.warning(
-                "An instrument with name %s, type %s, unit %s and "
-                "description %s has been created already.",
+        )
+        if status.conflict:
+            self._log_instrument_registration_conflict(
                 name,
                 UpDownCounter.__name__,
                 unit,
                 description,
+                status,
             )
         return NoOpUpDownCounter(name, unit=unit, description=description)
 
@@ -609,19 +722,16 @@ class NoOpMeter(Meter):
         description: str = "",
     ) -> ObservableCounter:
         """Returns a no-op ObservableCounter."""
-        super().create_observable_counter(
-            name, callbacks, unit=unit, description=description
-        )
-        if self._is_instrument_registered(
+        status = self._register_instrument(
             name, NoOpObservableCounter, unit, description
-        )[0]:
-            _logger.warning(
-                "An instrument with name %s, type %s, unit %s and "
-                "description %s has been created already.",
+        )
+        if status.conflict:
+            self._log_instrument_registration_conflict(
                 name,
                 ObservableCounter.__name__,
                 unit,
                 description,
+                status,
             )
         return NoOpObservableCounter(
             name,
@@ -635,21 +745,33 @@ class NoOpMeter(Meter):
         name: str,
         unit: str = "",
         description: str = "",
+        *,
+        explicit_bucket_boundaries_advisory: Optional[Sequence[float]] = None,
     ) -> Histogram:
         """Returns a no-op Histogram."""
-        super().create_histogram(name, unit=unit, description=description)
-        if self._is_instrument_registered(
-            name, NoOpHistogram, unit, description
-        )[0]:
-            _logger.warning(
-                "An instrument with name %s, type %s, unit %s and "
-                "description %s has been created already.",
+        status = self._register_instrument(
+            name,
+            NoOpHistogram,
+            unit,
+            description,
+            _MetricsHistogramAdvisory(
+                explicit_bucket_boundaries=explicit_bucket_boundaries_advisory
+            ),
+        )
+        if status.conflict:
+            self._log_instrument_registration_conflict(
                 name,
                 Histogram.__name__,
                 unit,
                 description,
+                status,
             )
-        return NoOpHistogram(name, unit=unit, description=description)
+        return NoOpHistogram(
+            name,
+            unit=unit,
+            description=description,
+            explicit_bucket_boundaries_advisory=explicit_bucket_boundaries_advisory,
+        )
 
     def create_observable_gauge(
         self,
@@ -659,19 +781,16 @@ class NoOpMeter(Meter):
         description: str = "",
     ) -> ObservableGauge:
         """Returns a no-op ObservableGauge."""
-        super().create_observable_gauge(
-            name, callbacks, unit=unit, description=description
-        )
-        if self._is_instrument_registered(
+        status = self._register_instrument(
             name, NoOpObservableGauge, unit, description
-        )[0]:
-            _logger.warning(
-                "An instrument with name %s, type %s, unit %s and "
-                "description %s has been created already.",
+        )
+        if status.conflict:
+            self._log_instrument_registration_conflict(
                 name,
                 ObservableGauge.__name__,
                 unit,
                 description,
+                status,
             )
         return NoOpObservableGauge(
             name,
@@ -688,19 +807,16 @@ class NoOpMeter(Meter):
         description: str = "",
     ) -> ObservableUpDownCounter:
         """Returns a no-op ObservableUpDownCounter."""
-        super().create_observable_up_down_counter(
-            name, callbacks, unit=unit, description=description
-        )
-        if self._is_instrument_registered(
+        status = self._register_instrument(
             name, NoOpObservableUpDownCounter, unit, description
-        )[0]:
-            _logger.warning(
-                "An instrument with name %s, type %s, unit %s and "
-                "description %s has been created already.",
+        )
+        if status.conflict:
+            self._log_instrument_registration_conflict(
                 name,
                 ObservableUpDownCounter.__name__,
                 unit,
                 description,
+                status,
             )
         return NoOpObservableUpDownCounter(
             name,
@@ -719,6 +835,8 @@ def get_meter(
     name: str,
     version: str = "",
     meter_provider: Optional[MeterProvider] = None,
+    schema_url: Optional[str] = None,
+    attributes: Optional[Attributes] = None,
 ) -> "Meter":
     """Returns a `Meter` for use by the given instrumentation library.
 
@@ -729,7 +847,7 @@ def get_meter(
     """
     if meter_provider is None:
         meter_provider = get_meter_provider()
-    return meter_provider.get_meter(name, version)
+    return meter_provider.get_meter(name, version, schema_url, attributes)
 
 
 def _set_meter_provider(meter_provider: MeterProvider, log: bool) -> None:
@@ -749,7 +867,7 @@ def _set_meter_provider(meter_provider: MeterProvider, log: bool) -> None:
 def set_meter_provider(meter_provider: MeterProvider) -> None:
     """Sets the current global :class:`~.MeterProvider` object.
 
-    This can only be done once, a warning will be logged if any furter attempt
+    This can only be done once, a warning will be logged if any further attempt
     is made.
     """
     _set_meter_provider(meter_provider, log=True)
@@ -759,7 +877,7 @@ def get_meter_provider() -> MeterProvider:
     """Gets the current global :class:`~.MeterProvider` object."""
 
     if _METER_PROVIDER is None:
-        if OTEL_PYTHON_METER_PROVIDER not in environ.keys():
+        if OTEL_PYTHON_METER_PROVIDER not in environ:
             return _PROXY_METER_PROVIDER
 
         meter_provider: MeterProvider = _load_provider(  # type: ignore

@@ -11,20 +11,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from contextvars import ContextVar
-from sys import version_info
+
+from __future__ import annotations
+
+from contextvars import ContextVar, Token
 
 from opensafely._vendor.opentelemetry.context.context import Context, _RuntimeContext
-
-if version_info < (3, 7):
-    import aiocontextvars  # type: ignore # pylint: disable=import-error
-
-    aiocontextvars  # pylint: disable=pointless-statement
 
 
 class ContextVarsRuntimeContext(_RuntimeContext):
     """An implementation of the RuntimeContext interface which wraps ContextVar under
-    the hood. This is the prefered implementation for usage with Python 3.5+
+    the hood. This is the preferred implementation for usage with Python 3.5+
     """
 
     _CONTEXT_KEY = "current_context"
@@ -34,7 +31,7 @@ class ContextVarsRuntimeContext(_RuntimeContext):
             self._CONTEXT_KEY, default=Context()
         )
 
-    def attach(self, context: Context) -> object:
+    def attach(self, context: Context) -> Token[Context]:
         """Sets the current `Context` object. Returns a
         token that can be used to reset to the previous `Context`.
 
@@ -47,13 +44,13 @@ class ContextVarsRuntimeContext(_RuntimeContext):
         """Returns the current `Context` object."""
         return self._current_context.get()
 
-    def detach(self, token: object) -> None:
+    def detach(self, token: Token[Context]) -> None:
         """Resets Context to a previous value
 
         Args:
             token: A reference to a previous Context.
         """
-        self._current_context.reset(token)  # type: ignore
+        self._current_context.reset(token)
 
 
 __all__ = ["ContextVarsRuntimeContext"]
