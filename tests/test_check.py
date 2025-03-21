@@ -412,8 +412,10 @@ def test_check_cohort_datasets(
     [
         ("bad_name", "bad_name", False),
         ("bad_name.", "bad_name", True),
+        ("bad_name()", "bad_name", True),
         ("module.bad_name.", "bad_name", True),
-        ("not_a_bad_name.", "bad_name", False),
+        ("module.bad_name()", "bad_name", True),
+        ("not_a_bad_name()", "bad_name", False),
         ("# bad_name.", "bad_name", False),
     ],
 )

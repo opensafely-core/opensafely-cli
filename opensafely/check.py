@@ -139,8 +139,8 @@ def check_ehrql_datasets(files_to_check, datasets_to_check):
         if (
             dataset_check := check_restricted_names(
                 restricted_names=dataset.ehrql_names,
-                # Check for the use of `table_name.`
-                regex_template=r"\b{name}\.",
+                # Check for the use of `name.` or `name(`
+                regex_template=r"\b{name}(\.|\()",
                 files_to_check=files_to_check,
             )
         )
