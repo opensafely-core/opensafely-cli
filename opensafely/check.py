@@ -18,7 +18,7 @@ DESCRIPTION = "Check the opensafely project for correctness"
 class RestrictedDataset:
     name: str
     cohort_extractor_function_names: List[str]
-    ehrql_table_names: List[str]
+    ehrql_names: List[str]
 
 
 RESTRICTED_DATASETS = [
@@ -27,48 +27,48 @@ RESTRICTED_DATASETS = [
         cohort_extractor_function_names=[
             "admitted_to_icu",
         ],
-        ehrql_table_names=[],
+        ehrql_names=[],
     ),
     RestrictedDataset(
         name="isaric",
         cohort_extractor_function_names=[
             "with_an_isaric_record",
         ],
-        ehrql_table_names=["isaric_new"],
+        ehrql_names=["isaric_new"],
     ),
     RestrictedDataset(
         name="ukrr",
         cohort_extractor_function_names=[
             "with_record_in_ukrr",
         ],
-        ehrql_table_names=["ukrr"],
+        ehrql_names=["ukrr"],
     ),
     RestrictedDataset(
         name="icnarc",
         cohort_extractor_function_names=[
             "admitted_to_icu",
         ],
-        ehrql_table_names=[],
+        ehrql_names=[],
     ),
     RestrictedDataset(
         name="open_prompt",
         cohort_extractor_function_names=[],
-        ehrql_table_names=["open_prompt"],
+        ehrql_names=["open_prompt"],
     ),
     RestrictedDataset(
         name="wl_clockstops",
         cohort_extractor_function_names=[],
-        ehrql_table_names=["wl_clockstops", "wl_clockstops_raw"],
+        ehrql_names=["wl_clockstops", "wl_clockstops_raw"],
     ),
     RestrictedDataset(
         name="wl_openpathways",
         cohort_extractor_function_names=[],
-        ehrql_table_names=["wl_openpathways", "wl_openpathways_raw"],
+        ehrql_names=["wl_openpathways", "wl_openpathways_raw"],
     ),
     RestrictedDataset(
         name="appointments",
         cohort_extractor_function_names=["with_gp_consultations"],
-        ehrql_table_names=["appointments"],
+        ehrql_names=["appointments"],
     ),
 ]
 
@@ -113,7 +113,7 @@ def main(continue_on_error=False):
         for dataset in datasets_to_check
         if (
             dataset_check := check_restricted_names(
-                restricted_names=dataset.ehrql_table_names,
+                restricted_names=dataset.ehrql_names,
                 # Check for the use of `table_name.`
                 regex_template=r"{name}\.",
                 files_to_check=files_to_check,

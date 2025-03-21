@@ -129,7 +129,7 @@ def write_study_def(path, include_restricted):
 def write_dataset_def(path, include_restricted):
     filename_part = "restricted" if include_restricted else "unrestricted"
     all_restricted_tables = flatten_list(
-        [dataset.ehrql_table_names for dataset in check.RESTRICTED_DATASETS]
+        [dataset.ehrql_names for dataset in check.RESTRICTED_DATASETS]
     )
 
     for a in [1, 2]:
@@ -202,7 +202,7 @@ def validate_fail(capsys, continue_on_error, permissions):
                     assert dataset.name in stderr, permissions
                     assert f"{function_name}_name" in stderr
 
-            for table_name in dataset.ehrql_table_names:
+            for table_name in dataset.ehrql_names:
                 # commented out tables are never in error output, even if restricted
                 assert f"#{table_name}_commented" not in stderr
                 if dataset.name in permissions:
