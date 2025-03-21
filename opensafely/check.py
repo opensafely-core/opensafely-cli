@@ -95,31 +95,8 @@ def main(continue_on_error=False):
         if dataset.name not in allowed_datasets
     ]
 
-    found_cohort_datasets = {
-        dataset.name: dataset_check
-        for dataset in datasets_to_check
-        if (
-            dataset_check := check_restricted_names(
-                restricted_names=dataset.cohort_extractor_function_names,
-                # Check for the use of `.function_name`.
-                regex_template=r"\.{name}\(",
-                files_to_check=files_to_check,
-            )
-        )
-    }
-
-    found_ehrql_datasets = {
-        dataset.name: dataset_check
-        for dataset in datasets_to_check
-        if (
-            dataset_check := check_restricted_names(
-                restricted_names=dataset.ehrql_names,
-                # Check for the use of `table_name.`
-                regex_template=r"{name}\.",
-                files_to_check=files_to_check,
-            )
-        )
-    }
+    found_cohort_datasets = check_cohort_datasets(files_to_check, datasets_to_check)
+    found_ehrql_datasets = check_ehrql_datasets(files_to_check, datasets_to_check)
 
     violations = []
 
@@ -138,6 +115,36 @@ def main(continue_on_error=False):
     else:
         if not continue_on_error:
             print("Success")
+
+
+def check_cohort_datasets(files_to_check, datasets_to_check):
+    return {
+        dataset.name: dataset_check
+        for dataset in datasets_to_check
+        if (
+            dataset_check := check_restricted_names(
+                restricted_names=dataset.cohort_extractor_function_names,
+                # Check for the use of `.function_name`.
+                regex_template=r"\.{name}\(",
+                files_to_check=files_to_check,
+            )
+        )
+    }
+
+
+def check_ehrql_datasets(files_to_check, datasets_to_check):
+    return {
+        dataset.name: dataset_check
+        for dataset in datasets_to_check
+        if (
+            dataset_check := check_restricted_names(
+                restricted_names=dataset.ehrql_names,
+                # Check for the use of `table_name.`
+                regex_template=r"{name}\.",
+                files_to_check=files_to_check,
+            )
+        )
+    }
 
 
 def format_cohort_violations(found_datasets):
