@@ -128,19 +128,13 @@ def write_study_def(path, include_restricted):
 
 def write_dataset_def(path, include_restricted):
     filename_part = "restricted" if include_restricted else "unrestricted"
-    all_restricted_tables = [
-        (
-            table_name,
-            (
-                "dataset.add_event_table()"
-                if table_name == "add_event_table"
-                else f"{table_name}.column"
-            ),
-        )
-        for table_name in flatten_list(
-            [dataset.ehrql_table_names for dataset in check.RESTRICTED_DATASETS]
-        )
-    ]
+    all_restricted_tables = flatten_list(
+        [dataset.ehrql_table_names for dataset in check.RESTRICTED_DATASETS]
+    )
+
+    all_restricted_functions = flatten_list(
+        [dataset.ehrql_function_names for dataset in check.RESTRICTED_DATASETS]
+    )
 
     for a in [1, 2]:
         # generate the filename; we make 2 versions to test that all dataset defs are checked
@@ -153,15 +147,16 @@ def write_dataset_def(path, include_restricted):
         # these will cause check fails depending on the test repo's permissions
         if include_restricted:
             restricted = [
-                f"{name}_column = {value}" for name, value in all_restricted_tables
-            ]
+                f"{name}_column = {name}.column" for name in all_restricted_tables
+            ] + [f"dataset.{name}()" for name in all_restricted_functions]
         else:
             restricted = []
         restricted_lines = "\n".join(restricted)
         # create a commented-out import for each restricted function
         # include these in all test dataset defs; always allowed
         restricted_commented_lines = "\n".join(
-            [f"#{name}_commented = {value}" for name, value in all_restricted_tables]
+            [f"#{name}_commented = {name}.column" for name in all_restricted_tables]
+            + [f"#dataset.{name}()" for name in all_restricted_functions]
         )
         # create an unrestricted table import;
         # include in all test dataset defs; this is always allowed
@@ -215,17 +210,22 @@ def validate_fail(capsys, continue_on_error, permissions):
             for table_name in dataset.ehrql_table_names:
                 # commented out tables are never in error output, even if restricted
                 assert f"#{table_name}_commented" not in stderr
-                table_value = (
-                    "dataset.add_event_table()"
-                    if table_name == "add_event_table"
-                    else f"{table_name}.column"
-                )
                 if dataset.name in permissions:
                     assert dataset.name not in stderr
-                    assert table_value not in stderr
+                    assert f"{table_name}.column" not in stderr
                 else:
                     assert dataset.name in stderr, permissions
-                    assert table_value in stderr
+                    assert f"{table_name}.column" in stderr
+
+            for function_name in dataset.ehrql_function_names:
+                # commented out function calls are never in error output, even if restricted
+                assert f"#dataset.{function_name}()" not in stderr
+                if dataset.name in permissions:
+                    assert dataset.name not in stderr
+                    assert f"dataset.{function_name}()" not in stderr
+                else:
+                    assert dataset.name in stderr, permissions
+                    assert f"dataset.{function_name}()" in stderr
 
         # unrestricted functions and tables are never in error output
         assert UNRESTRICTED_FUNCTION not in stderr

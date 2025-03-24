@@ -19,6 +19,7 @@ class RestrictedDataset:
     name: str
     cohort_extractor_function_names: List[str]
     ehrql_table_names: List[str]
+    ehrql_function_names: List[str]
 
 
 RESTRICTED_DATASETS = [
@@ -28,6 +29,7 @@ RESTRICTED_DATASETS = [
             "admitted_to_icu",
         ],
         ehrql_table_names=[],
+        ehrql_function_names=[],
     ),
     RestrictedDataset(
         name="isaric",
@@ -35,6 +37,7 @@ RESTRICTED_DATASETS = [
             "with_an_isaric_record",
         ],
         ehrql_table_names=["isaric_new"],
+        ehrql_function_names=[],
     ),
     RestrictedDataset(
         name="ukrr",
@@ -42,6 +45,7 @@ RESTRICTED_DATASETS = [
             "with_record_in_ukrr",
         ],
         ehrql_table_names=["ukrr"],
+        ehrql_function_names=[],
     ),
     RestrictedDataset(
         name="icnarc",
@@ -49,31 +53,37 @@ RESTRICTED_DATASETS = [
             "admitted_to_icu",
         ],
         ehrql_table_names=[],
+        ehrql_function_names=[],
     ),
     RestrictedDataset(
         name="open_prompt",
         cohort_extractor_function_names=[],
         ehrql_table_names=["open_prompt"],
+        ehrql_function_names=[],
     ),
     RestrictedDataset(
         name="wl_clockstops",
         cohort_extractor_function_names=[],
         ehrql_table_names=["wl_clockstops", "wl_clockstops_raw"],
+        ehrql_function_names=[],
     ),
     RestrictedDataset(
         name="wl_openpathways",
         cohort_extractor_function_names=[],
         ehrql_table_names=["wl_openpathways", "wl_openpathways_raw"],
+        ehrql_function_names=[],
     ),
     RestrictedDataset(
         name="appointments",
         cohort_extractor_function_names=["with_gp_consultations"],
         ehrql_table_names=["appointments"],
+        ehrql_function_names=[],
     ),
     RestrictedDataset(
         name="add_event_table",
         cohort_extractor_function_names=[],
-        ehrql_table_names=["add_event_table"],
+        ehrql_table_names=[],
+        ehrql_function_names=["add_event_table"],
     ),
 ]
 
@@ -120,7 +130,15 @@ def main(continue_on_error=False):
             dataset_check := check_restricted_names(
                 restricted_names=dataset.ehrql_table_names,
                 # Check for the use of `table_name.`
-                regex_template=r"{name}[\.\(]",
+                regex_template=r"{name}[\.]",
+                files_to_check=files_to_check,
+            )
+        )
+        or (
+            dataset_check := check_restricted_names(
+                restricted_names=dataset.ehrql_function_names,
+                # Check for the use of `function_name.`
+                regex_template=r"{name}[\(]",
                 files_to_check=files_to_check,
             )
         )
