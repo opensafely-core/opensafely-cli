@@ -70,6 +70,11 @@ RESTRICTED_DATASETS = [
         cohort_extractor_function_names=["with_gp_consultations"],
         ehrql_table_names=["appointments"],
     ),
+    RestrictedDataset(
+        name="add_event_table",
+        cohort_extractor_function_names=[],
+        ehrql_table_names=["add_event_table"],
+    ),
 ]
 
 PERMISSIONS_URL = "https://raw.githubusercontent.com/opensafely-core/opensafely-cli/main/repository_permissions.yaml"
@@ -115,7 +120,7 @@ def main(continue_on_error=False):
             dataset_check := check_restricted_names(
                 restricted_names=dataset.ehrql_table_names,
                 # Check for the use of `table_name.`
-                regex_template=r"{name}\.",
+                regex_template=r"{name}[\.\(]",
                 files_to_check=files_to_check,
             )
         )
