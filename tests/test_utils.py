@@ -172,9 +172,18 @@ def test_open_browser_error(monkeypatch, capsys):
 def test_get_free_port():
     # test basic usage, then use that port as the default port for later assertions
     free_port = utils.get_free_port()
-    # check passing a default
-    assert utils.get_free_port(free_port) == free_port
+    assert isinstance(free_port, int)
+    # use free_port as we know its free!
+    default_port = free_port
+
+    # check passing a default,
+    port = utils.get_free_port(default_port)
+    assert isinstance(default_port, int)
+    assert port == default_port
+
     # check the default being already bound
     with socket.socket() as sock:
-        sock.bind(("0.0.0.0", int(free_port)))
-        assert utils.get_free_port(free_port) != free_port
+        sock.bind(("0.0.0.0", default_port))
+        port = utils.get_free_port(default_port)
+        assert isinstance(default_port, int)
+        assert port != default_port
