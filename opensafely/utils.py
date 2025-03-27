@@ -182,27 +182,21 @@ def dockerctl(cmd, *args, check=True, capture_output=True, text=True, **kwargs):
     )
 
 
-def get_free_port(default=None):
+def get_free_port(default=0):
     """Get a port that is free on the users host machine"""
-    # try the default first
-    if default:
-        with socket.socket() as sock:
-            try:
-                sock.bind(("0.0.0.0", int(default)))
-            except OSError:
-                # the socket is busy
-                pass
-            else:
-                return default
-
-    # this is a race condition, as something else could consume the socket
+    # this has a race condition, as something else could consume the port
     # before docker binds to it, but the chance of that on a user's
     # personal machine is very small.
     with socket.socket() as sock:
-        sock.bind(("127.0.0.1", 0))
-        port = sock.getsockname()[1]
-
-    return str(port)
+        try:
+            # try the default first
+            sock.bind(("0.0.0.0", int(default)))
+        except OSError:
+            # the socket is busy, find a free random port
+            sock.bind(("0.0.0.0", 0))
+        # retrun the successful port
+        # we return a str to match the argparse argument type, if passed
+        return str(sock.getsockname()[1])
 
 
 def print_exception_from_thread(*exc_info):
