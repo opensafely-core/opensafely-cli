@@ -1,5 +1,6 @@
 import os
 import pathlib
+import socket
 from unittest import mock
 
 from opensafely import utils
@@ -166,3 +167,23 @@ def test_open_browser_error(monkeypatch, capsys):
     out, err = capsys.readouterr()
     assert out == ""
     assert "TEST ERROR" in err
+
+
+def test_get_free_port():
+    # test basic usage, then use that port as the default port for later assertions
+    free_port = utils.get_free_port()
+    assert isinstance(free_port, int)
+    # use free_port as we know its free!
+    default_port = free_port
+
+    # check passing a default,
+    port = utils.get_free_port(default_port)
+    assert isinstance(default_port, int)
+    assert port == default_port
+
+    # check the default being already bound
+    with socket.socket() as sock:
+        sock.bind(("0.0.0.0", default_port))
+        port = utils.get_free_port(default_port)
+        assert isinstance(default_port, int)
+        assert port != default_port

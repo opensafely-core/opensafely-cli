@@ -26,6 +26,7 @@ def add_base_args(parser):
         "--port",
         "-p",
         default=None,
+        type=int,
         help="Port to run on (random by default)",
     )
     parser.add_argument(
@@ -99,9 +100,6 @@ def main(tool, directory, name, port, no_browser, background, force):
                 utils.open_browser(url)
             return 0
 
-    if port is None:
-        port = str(utils.get_free_port())
-
     return func(version, directory, name, port, no_browser, background)
 
 
@@ -109,6 +107,10 @@ def launch_jupyter(version, directory, name, port, no_browser, background):
 
     if not version:
         version = "v2"
+
+    if port is None:
+        # 8888 is default jupyter port
+        port = utils.get_free_port(8888)
 
     token = secrets.token_urlsafe(8)
     url = f"http://localhost:{port}/?token={token}"
@@ -158,6 +160,11 @@ def launch_jupyter(version, directory, name, port, no_browser, background):
 def launch_rstudio(version, directory, name, port, no_browser, background):
     if not version:
         version = "v2"
+
+    if port is None:
+        # temporary hack to work around codespaces already running at 8787
+        default_rstudio_port = 8788 if "CODESPACES" in os.environ else 8787
+        port = utils.get_free_port(default_rstudio_port)
 
     url = f"http://localhost:{port}"
 
