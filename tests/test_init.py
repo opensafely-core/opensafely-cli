@@ -40,7 +40,7 @@ def test_warn_if_updates_needed_images_outdated(capsys, monkeypatch, tmp_path, r
     monkeypatch.setattr(opensafely, "VERSION_FILE", tmp_path / "timestamp")
     expect_local_images(
         run,
-        stdout="ghcr.io/opensafely-core/python:latest=sha256:oldsha",
+        stdout="ghcr.io/opensafely-core/python:v1=sha256:oldsha",
     )
 
     opensafely.warn_if_updates_needed(["opensafely"])
@@ -48,7 +48,7 @@ def test_warn_if_updates_needed_images_outdated(capsys, monkeypatch, tmp_path, r
     out, err = capsys.readouterr()
     assert out == ""
     assert err.splitlines() == [
-        "Warning: the OpenSAFELY docker images for python:latest actions are out of date - please update by running:",
+        "Warning: the OpenSAFELY docker images for python:v1 actions are out of date - please update by running:",
         "    opensafely pull",
         "",
     ]

@@ -4,18 +4,13 @@ expectations:
   population_size: 1000
 
 actions:
-  cohortextractor:
-    run: cohortextractor:latest generate_cohort --study-definition study_definition
+  ehrql:
+    run: ehrql:v1 generate-dataset --output output/a.arrow
     outputs:
       highly_sensitive:
-        cohort: output/a.csv
+        cohort: output/a.arrow
   python:
-    run: python:latest touch output/b.csv
+    run: python:v2 touch output/b.csv
     outputs:
       highly_sensitive:
         cohort: output/b.csv
-  jupyter:
-    run: jupyter:latest touch output/c.csv
-    outputs:
-      highly_sensitive:
-        cohort: output/c.csv
