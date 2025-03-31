@@ -12,16 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# pylint: disable=unused-import
 
-from opensafely._vendor.opentelemetry.sdk.metrics._internal import (  # noqa: F401
-    Meter,
-    MeterProvider,
+from opensafely._vendor.opentelemetry.sdk.metrics._internal import Meter, MeterProvider
+from opensafely._vendor.opentelemetry.sdk.metrics._internal.exceptions import MetricsTimeoutError
+from opensafely._vendor.opentelemetry.sdk.metrics._internal.exemplar import (
+    AlignedHistogramBucketExemplarReservoir,
+    AlwaysOffExemplarFilter,
+    AlwaysOnExemplarFilter,
+    Exemplar,
+    ExemplarFilter,
+    ExemplarReservoir,
+    SimpleFixedSizeExemplarReservoir,
+    TraceBasedExemplarFilter,
 )
-from opensafely._vendor.opentelemetry.sdk.metrics._internal.exceptions import (  # noqa: F401
-    MetricsTimeoutError,
-)
-from opensafely._vendor.opentelemetry.sdk.metrics._internal.instrument import (  # noqa: F401
+from opensafely._vendor.opentelemetry.sdk.metrics._internal.instrument import (
     Counter,
     Histogram,
     ObservableCounter,
@@ -29,9 +33,25 @@ from opensafely._vendor.opentelemetry.sdk.metrics._internal.instrument import ( 
     ObservableUpDownCounter,
     UpDownCounter,
 )
+from opensafely._vendor.opentelemetry.sdk.metrics._internal.instrument import Gauge as _Gauge
 
-__all__ = []
-for key, value in globals().copy().items():
-    if not key.startswith("_"):
-        value.__module__ = __name__
-        __all__.append(key)
+__all__ = [
+    "AlignedHistogramBucketExemplarReservoir",
+    "AlwaysOnExemplarFilter",
+    "AlwaysOffExemplarFilter",
+    "Exemplar",
+    "ExemplarFilter",
+    "ExemplarReservoir",
+    "Meter",
+    "MeterProvider",
+    "MetricsTimeoutError",
+    "Counter",
+    "Histogram",
+    "_Gauge",
+    "ObservableCounter",
+    "ObservableGauge",
+    "ObservableUpDownCounter",
+    "SimpleFixedSizeExemplarReservoir",
+    "UpDownCounter",
+    "TraceBasedExemplarFilter",
+]

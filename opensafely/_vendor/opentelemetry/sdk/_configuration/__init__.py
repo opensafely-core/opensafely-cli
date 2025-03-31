@@ -17,14 +17,18 @@
 OpenTelemetry SDK Configurator for Easy Instrumentation with Distros
 """
 
+from __future__ import annotations
+
 import logging
 import os
 from abc import ABC, abstractmethod
 from os import environ
-from typing import Dict, Optional, Sequence, Tuple, Type
+from typing import Callable, Sequence, Type, Union
 
-from pkg_resources import iter_entry_points
+from opensafely._vendor.typing_extensions import Literal
 
+from opensafely._vendor.opentelemetry._events import set_event_logger_provider
+from opensafely._vendor.opentelemetry._logs import set_logger_provider
 from opensafely._vendor.opentelemetry.environment_variables import (
     OTEL_LOGS_EXPORTER,
     OTEL_METRICS_EXPORTER,
@@ -32,67 +36,171 @@ from opensafely._vendor.opentelemetry.environment_variables import (
     OTEL_TRACES_EXPORTER,
 )
 from opensafely._vendor.opentelemetry.metrics import set_meter_provider
-from opensafely._vendor.opentelemetry.sdk._logs import (
-    LogEmitterProvider,
-    LoggingHandler,
-    set_log_emitter_provider,
-)
-from opensafely._vendor.opentelemetry.sdk._logs.export import BatchLogProcessor, LogExporter
+from opensafely._vendor.opentelemetry.sdk._events import EventLoggerProvider
+from opensafely._vendor.opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
+from opensafely._vendor.opentelemetry.sdk._logs.export import BatchLogRecordProcessor, LogExporter
 from opensafely._vendor.opentelemetry.sdk.environment_variables import (
     _OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED,
+    OTEL_EXPORTER_OTLP_LOGS_PROTOCOL,
+    OTEL_EXPORTER_OTLP_METRICS_PROTOCOL,
+    OTEL_EXPORTER_OTLP_PROTOCOL,
+    OTEL_EXPORTER_OTLP_TRACES_PROTOCOL,
+    OTEL_TRACES_SAMPLER,
+    OTEL_TRACES_SAMPLER_ARG,
 )
 from opensafely._vendor.opentelemetry.sdk.metrics import MeterProvider
 from opensafely._vendor.opentelemetry.sdk.metrics.export import (
     MetricExporter,
+    MetricReader,
     PeriodicExportingMetricReader,
 )
-from opensafely._vendor.opentelemetry.sdk.resources import Resource
+from opensafely._vendor.opentelemetry.sdk.resources import Attributes, Resource
 from opensafely._vendor.opentelemetry.sdk.trace import TracerProvider
 from opensafely._vendor.opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
 from opensafely._vendor.opentelemetry.sdk.trace.id_generator import IdGenerator
+from opensafely._vendor.opentelemetry.sdk.trace.sampling import Sampler
 from opensafely._vendor.opentelemetry.semconv.resource import ResourceAttributes
 from opensafely._vendor.opentelemetry.trace import set_tracer_provider
+from opensafely._vendor.opentelemetry.util._importlib_metadata import entry_points
 
 _EXPORTER_OTLP = "otlp"
 _EXPORTER_OTLP_PROTO_GRPC = "otlp_proto_grpc"
+_EXPORTER_OTLP_PROTO_HTTP = "otlp_proto_http"
+
+_EXPORTER_BY_OTLP_PROTOCOL = {
+    "grpc": _EXPORTER_OTLP_PROTO_GRPC,
+    "http/protobuf": _EXPORTER_OTLP_PROTO_HTTP,
+}
+
+_EXPORTER_ENV_BY_SIGNAL_TYPE = {
+    "traces": OTEL_TRACES_EXPORTER,
+    "metrics": OTEL_METRICS_EXPORTER,
+    "logs": OTEL_LOGS_EXPORTER,
+}
+
+_PROTOCOL_ENV_BY_SIGNAL_TYPE = {
+    "traces": OTEL_EXPORTER_OTLP_TRACES_PROTOCOL,
+    "metrics": OTEL_EXPORTER_OTLP_METRICS_PROTOCOL,
+    "logs": OTEL_EXPORTER_OTLP_LOGS_PROTOCOL,
+}
 
 _RANDOM_ID_GENERATOR = "random"
 _DEFAULT_ID_GENERATOR = _RANDOM_ID_GENERATOR
+
+_OTEL_SAMPLER_ENTRY_POINT_GROUP = "opentelemetry_traces_sampler"
+
+_logger = logging.getLogger(__name__)
+
+
+def _import_config_components(
+    selected_components: list[str], entry_point_name: str
+) -> Sequence[tuple[str, object]]:
+    component_implementations = []
+
+    for selected_component in selected_components:
+        try:
+            component_implementations.append(
+                (
+                    selected_component,
+                    next(
+                        iter(
+                            entry_points(
+                                group=entry_point_name, name=selected_component
+                            )
+                        )
+                    ).load(),
+                )
+            )
+        except KeyError:
+            raise RuntimeError(
+                f"Requested entry point '{entry_point_name}' not found"
+            )
+
+        except StopIteration:
+            raise RuntimeError(
+                f"Requested component '{selected_component}' not found in "
+                f"entry point '{entry_point_name}'"
+            )
+
+    return component_implementations
+
+
+def _get_sampler() -> str | None:
+    return environ.get(OTEL_TRACES_SAMPLER, None)
 
 
 def _get_id_generator() -> str:
     return environ.get(OTEL_PYTHON_ID_GENERATOR, _DEFAULT_ID_GENERATOR)
 
 
-def _get_exporter_names(names: str) -> Sequence[str]:
-    exporters = set()
+def _get_exporter_entry_point(
+    exporter_name: str, signal_type: Literal["traces", "metrics", "logs"]
+):
+    if exporter_name not in (
+        _EXPORTER_OTLP,
+        _EXPORTER_OTLP_PROTO_GRPC,
+        _EXPORTER_OTLP_PROTO_HTTP,
+    ):
+        return exporter_name
 
-    if names and names.lower().strip() != "none":
-        exporters.update({_exporter.strip() for _exporter in names.split(",")})
+    # Checking env vars for OTLP protocol (grpc/http).
+    otlp_protocol = environ.get(
+        _PROTOCOL_ENV_BY_SIGNAL_TYPE[signal_type]
+    ) or environ.get(OTEL_EXPORTER_OTLP_PROTOCOL)
 
-    if _EXPORTER_OTLP in exporters:
-        exporters.remove(_EXPORTER_OTLP)
-        exporters.add(_EXPORTER_OTLP_PROTO_GRPC)
+    if not otlp_protocol:
+        if exporter_name == _EXPORTER_OTLP:
+            return _EXPORTER_OTLP_PROTO_GRPC
+        return exporter_name
 
-    return list(exporters)
+    otlp_protocol = otlp_protocol.strip()
+
+    if exporter_name == _EXPORTER_OTLP:
+        if otlp_protocol not in _EXPORTER_BY_OTLP_PROTOCOL:
+            # Invalid value was set by the env var
+            raise RuntimeError(
+                f"Unsupported OTLP protocol '{otlp_protocol}' is configured"
+            )
+
+        return _EXPORTER_BY_OTLP_PROTOCOL[otlp_protocol]
+
+    # grpc/http already specified by exporter_name, only add a warning in case
+    # of a conflict.
+    exporter_name_by_env = _EXPORTER_BY_OTLP_PROTOCOL.get(otlp_protocol)
+    if exporter_name_by_env and exporter_name != exporter_name_by_env:
+        _logger.warning(
+            "Conflicting values for %s OTLP exporter protocol, using '%s'",
+            signal_type,
+            exporter_name,
+        )
+
+    return exporter_name
+
+
+def _get_exporter_names(
+    signal_type: Literal["traces", "metrics", "logs"],
+) -> Sequence[str]:
+    names = environ.get(_EXPORTER_ENV_BY_SIGNAL_TYPE.get(signal_type, ""))
+
+    if not names or names.lower().strip() == "none":
+        return []
+
+    return [
+        _get_exporter_entry_point(_exporter.strip(), signal_type)
+        for _exporter in names.split(",")
+    ]
 
 
 def _init_tracing(
-    exporters: Dict[str, Type[SpanExporter]],
-    id_generator: IdGenerator,
-    auto_instrumentation_version: Optional[str] = None,
+    exporters: dict[str, Type[SpanExporter]],
+    id_generator: IdGenerator | None = None,
+    sampler: Sampler | None = None,
+    resource: Resource | None = None,
 ):
-    # if env var OTEL_RESOURCE_ATTRIBUTES is given, it will read the service_name
-    # from the env variable else defaults to "unknown_service"
-    auto_resource = {}
-    # populate version if using auto-instrumentation
-    if auto_instrumentation_version:
-        auto_resource[
-            ResourceAttributes.TELEMETRY_AUTO_VERSION
-        ] = auto_instrumentation_version
     provider = TracerProvider(
-        id_generator=id_generator(),
-        resource=Resource.create(auto_resource),
+        id_generator=id_generator,
+        sampler=sampler,
+        resource=resource,
     )
     set_tracer_provider(provider)
 
@@ -104,93 +212,70 @@ def _init_tracing(
 
 
 def _init_metrics(
-    exporters: Dict[str, Type[MetricExporter]],
-    auto_instrumentation_version: Optional[str] = None,
+    exporters_or_readers: dict[
+        str, Union[Type[MetricExporter], Type[MetricReader]]
+    ],
+    resource: Resource | None = None,
 ):
-    # if env var OTEL_RESOURCE_ATTRIBUTES is given, it will read the service_name
-    # from the env variable else defaults to "unknown_service"
-    auto_resource = {}
-    # populate version if using auto-instrumentation
-    if auto_instrumentation_version:
-        auto_resource[
-            ResourceAttributes.TELEMETRY_AUTO_VERSION
-        ] = auto_instrumentation_version
-
     metric_readers = []
 
-    for _, exporter_class in exporters.items():
+    for _, exporter_or_reader_class in exporters_or_readers.items():
         exporter_args = {}
-        metric_readers.append(
-            PeriodicExportingMetricReader(exporter_class(**exporter_args))
-        )
 
-    provider = MeterProvider(
-        resource=Resource.create(auto_resource), metric_readers=metric_readers
-    )
+        if issubclass(exporter_or_reader_class, MetricReader):
+            metric_readers.append(exporter_or_reader_class(**exporter_args))
+        else:
+            metric_readers.append(
+                PeriodicExportingMetricReader(
+                    exporter_or_reader_class(**exporter_args)
+                )
+            )
+
+    provider = MeterProvider(resource=resource, metric_readers=metric_readers)
     set_meter_provider(provider)
 
 
 def _init_logging(
-    exporters: Dict[str, Type[LogExporter]],
-    auto_instrumentation_version: Optional[str] = None,
+    exporters: dict[str, Type[LogExporter]],
+    resource: Resource | None = None,
+    setup_logging_handler: bool = True,
 ):
-    # if env var OTEL_RESOURCE_ATTRIBUTES is given, it will read the service_name
-    # from the env variable else defaults to "unknown_service"
-    auto_resource = {}
-    # populate version if using auto-instrumentation
-    if auto_instrumentation_version:
-        auto_resource[
-            ResourceAttributes.TELEMETRY_AUTO_VERSION
-        ] = auto_instrumentation_version
-    provider = LogEmitterProvider(resource=Resource.create(auto_resource))
-    set_log_emitter_provider(provider)
+    provider = LoggerProvider(resource=resource)
+    set_logger_provider(provider)
 
     for _, exporter_class in exporters.items():
         exporter_args = {}
-        provider.add_log_processor(
-            BatchLogProcessor(exporter_class(**exporter_args))
+        provider.add_log_record_processor(
+            BatchLogRecordProcessor(exporter_class(**exporter_args))
         )
 
-    log_emitter = provider.get_log_emitter(__name__)
-    handler = LoggingHandler(level=logging.NOTSET, log_emitter=log_emitter)
+    event_logger_provider = EventLoggerProvider(logger_provider=provider)
+    set_event_logger_provider(event_logger_provider)
 
-    logging.getLogger().addHandler(handler)
-
-
-def _import_config_components(
-    selected_components, entry_point_name
-) -> Sequence[Tuple[str, object]]:
-    component_entry_points = {
-        ep.name: ep for ep in iter_entry_points(entry_point_name)
-    }
-    component_impls = []
-    for selected_component in selected_components:
-        entry_point = component_entry_points.get(selected_component, None)
-        if not entry_point:
-            raise RuntimeError(
-                f"Requested component '{selected_component}' not found in entry points for '{entry_point_name}'"
-            )
-
-        component_impl = entry_point.load()
-        component_impls.append((selected_component, component_impl))
-
-    return component_impls
+    if setup_logging_handler:
+        handler = LoggingHandler(
+            level=logging.NOTSET, logger_provider=provider
+        )
+        logging.getLogger().addHandler(handler)
 
 
 def _import_exporters(
     trace_exporter_names: Sequence[str],
     metric_exporter_names: Sequence[str],
     log_exporter_names: Sequence[str],
-) -> Tuple[
-    Dict[str, Type[SpanExporter]],
-    Dict[str, Type[MetricExporter]],
-    Dict[str, Type[LogExporter]],
+) -> tuple[
+    dict[str, Type[SpanExporter]],
+    dict[str, Union[Type[MetricExporter], Type[MetricReader]]],
+    dict[str, Type[LogExporter]],
 ]:
     trace_exporters = {}
     metric_exporters = {}
     log_exporters = {}
 
-    for (exporter_name, exporter_impl,) in _import_config_components(
+    for (
+        exporter_name,
+        exporter_impl,
+    ) in _import_config_components(
         trace_exporter_names, "opentelemetry_traces_exporter"
     ):
         if issubclass(exporter_impl, SpanExporter):
@@ -198,15 +283,23 @@ def _import_exporters(
         else:
             raise RuntimeError(f"{exporter_name} is not a trace exporter")
 
-    for (exporter_name, exporter_impl,) in _import_config_components(
+    for (
+        exporter_name,
+        exporter_impl,
+    ) in _import_config_components(
         metric_exporter_names, "opentelemetry_metrics_exporter"
     ):
-        if issubclass(exporter_impl, MetricExporter):
+        # The metric exporter components may be push MetricExporter or pull exporters which
+        # subclass MetricReader directly
+        if issubclass(exporter_impl, (MetricExporter, MetricReader)):
             metric_exporters[exporter_name] = exporter_impl
         else:
             raise RuntimeError(f"{exporter_name} is not a metric exporter")
 
-    for (exporter_name, exporter_impl,) in _import_config_components(
+    for (
+        exporter_name,
+        exporter_impl,
+    ) in _import_config_components(
         log_exporter_names, "opentelemetry_logs_exporter"
     ):
         if issubclass(exporter_impl, LogExporter):
@@ -217,33 +310,112 @@ def _import_exporters(
     return trace_exporters, metric_exporters, log_exporters
 
 
+def _import_sampler_factory(sampler_name: str) -> Callable[[str], Sampler]:
+    _, sampler_impl = _import_config_components(
+        [sampler_name.strip()], _OTEL_SAMPLER_ENTRY_POINT_GROUP
+    )[0]
+    return sampler_impl
+
+
+def _import_sampler(sampler_name: str) -> Sampler | None:
+    if not sampler_name:
+        return None
+    try:
+        sampler_factory = _import_sampler_factory(sampler_name)
+        arg = None
+        if sampler_name in ("traceidratio", "parentbased_traceidratio"):
+            try:
+                rate = float(os.getenv(OTEL_TRACES_SAMPLER_ARG))
+            except (ValueError, TypeError):
+                _logger.warning(
+                    "Could not convert TRACES_SAMPLER_ARG to float. Using default value 1.0."
+                )
+                rate = 1.0
+            arg = rate
+        else:
+            arg = os.getenv(OTEL_TRACES_SAMPLER_ARG)
+
+        sampler = sampler_factory(arg)
+        if not isinstance(sampler, Sampler):
+            message = f"Sampler factory, {sampler_factory}, produced output, {sampler}, which is not a Sampler."
+            _logger.warning(message)
+            raise ValueError(message)
+        return sampler
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        _logger.warning(
+            "Using default sampler. Failed to initialize sampler, %s: %s",
+            sampler_name,
+            exc,
+        )
+        return None
+
+
 def _import_id_generator(id_generator_name: str) -> IdGenerator:
-    # pylint: disable=unbalanced-tuple-unpacking
-    [(id_generator_name, id_generator_impl)] = _import_config_components(
+    id_generator_name, id_generator_impl = _import_config_components(
         [id_generator_name.strip()], "opentelemetry_id_generator"
-    )
+    )[0]
 
     if issubclass(id_generator_impl, IdGenerator):
-        return id_generator_impl
+        return id_generator_impl()
 
     raise RuntimeError(f"{id_generator_name} is not an IdGenerator")
 
 
-def _initialize_components(auto_instrumentation_version):
-    trace_exporters, metric_exporters, log_exporters = _import_exporters(
-        _get_exporter_names(environ.get(OTEL_TRACES_EXPORTER)),
-        _get_exporter_names(environ.get(OTEL_METRICS_EXPORTER)),
-        _get_exporter_names(environ.get(OTEL_LOGS_EXPORTER)),
+def _initialize_components(
+    auto_instrumentation_version: str | None = None,
+    trace_exporter_names: list[str] | None = None,
+    metric_exporter_names: list[str] | None = None,
+    log_exporter_names: list[str] | None = None,
+    sampler: Sampler | None = None,
+    resource_attributes: Attributes | None = None,
+    id_generator: IdGenerator | None = None,
+    setup_logging_handler: bool | None = None,
+):
+    if trace_exporter_names is None:
+        trace_exporter_names = []
+    if metric_exporter_names is None:
+        metric_exporter_names = []
+    if log_exporter_names is None:
+        log_exporter_names = []
+    span_exporters, metric_exporters, log_exporters = _import_exporters(
+        trace_exporter_names + _get_exporter_names("traces"),
+        metric_exporter_names + _get_exporter_names("metrics"),
+        log_exporter_names + _get_exporter_names("logs"),
     )
-    id_generator_name = _get_id_generator()
-    id_generator = _import_id_generator(id_generator_name)
-    _init_tracing(trace_exporters, id_generator, auto_instrumentation_version)
-    _init_metrics(metric_exporters, auto_instrumentation_version)
-    logging_enabled = os.getenv(
-        _OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED, "false"
+    if sampler is None:
+        sampler_name = _get_sampler()
+        sampler = _import_sampler(sampler_name)
+    if id_generator is None:
+        id_generator_name = _get_id_generator()
+        id_generator = _import_id_generator(id_generator_name)
+    if resource_attributes is None:
+        resource_attributes = {}
+    # populate version if using auto-instrumentation
+    if auto_instrumentation_version:
+        resource_attributes[ResourceAttributes.TELEMETRY_AUTO_VERSION] = (
+            auto_instrumentation_version
+        )
+    # if env var OTEL_RESOURCE_ATTRIBUTES is given, it will read the service_name
+    # from the env variable else defaults to "unknown_service"
+    resource = Resource.create(resource_attributes)
+
+    _init_tracing(
+        exporters=span_exporters,
+        id_generator=id_generator,
+        sampler=sampler,
+        resource=resource,
     )
-    if logging_enabled.strip().lower() == "true":
-        _init_logging(log_exporters, auto_instrumentation_version)
+    _init_metrics(metric_exporters, resource)
+    if setup_logging_handler is None:
+        setup_logging_handler = (
+            os.getenv(
+                _OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED, "false"
+            )
+            .strip()
+            .lower()
+            == "true"
+        )
+    _init_logging(log_exporters, resource, setup_logging_handler)
 
 
 class _BaseConfigurator(ABC):
@@ -258,7 +430,6 @@ class _BaseConfigurator(ABC):
     _is_instrumented = False
 
     def __new__(cls, *args, **kwargs):
-
         if cls._instance is None:
             cls._instance = object.__new__(cls, *args, **kwargs)
 
@@ -274,7 +445,7 @@ class _BaseConfigurator(ABC):
 
 
 class _OTelSDKConfigurator(_BaseConfigurator):
-    """A basic Configurator by OTel Python for initalizing OTel SDK components
+    """A basic Configurator by OTel Python for initializing OTel SDK components
 
     Initializes several crucial OTel SDK components (i.e. TracerProvider,
     MeterProvider, Processors...) according to a default implementation. Other
@@ -282,8 +453,8 @@ class _OTelSDKConfigurator(_BaseConfigurator):
 
     NOTE: This class should not be instantiated nor should it become an entry
     point on the `opentelemetry-sdk` package. Instead, distros should subclass
-    this Configurator and enchance it as needed.
+    this Configurator and enhance it as needed.
     """
 
     def _configure(self, **kwargs):
-        _initialize_components(kwargs.get("auto_instrumentation_version"))
+        _initialize_components(**kwargs)

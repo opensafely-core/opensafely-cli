@@ -64,19 +64,19 @@ To use a sampler, pass it into the tracer provider constructor. For example:
         ...
 
 The tracer sampler can also be configured via environment variables ``OTEL_TRACES_SAMPLER`` and ``OTEL_TRACES_SAMPLER_ARG`` (only if applicable).
-The list of known values for ``OTEL_TRACES_SAMPLER`` are:
+The list of built-in values for ``OTEL_TRACES_SAMPLER`` are:
 
     * always_on - Sampler that always samples spans, regardless of the parent span's sampling decision.
     * always_off - Sampler that never samples spans, regardless of the parent span's sampling decision.
-    * traceidratio - Sampler that samples probabalistically based on rate.
+    * traceidratio - Sampler that samples probabilistically based on rate.
     * parentbased_always_on - (default) Sampler that respects its parent span's sampling decision, but otherwise always samples.
     * parentbased_always_off - Sampler that respects its parent span's sampling decision, but otherwise never samples.
-    * parentbased_traceidratio - Sampler that respects its parent span's sampling decision, but otherwise samples probabalistically based on rate.
+    * parentbased_traceidratio - Sampler that respects its parent span's sampling decision, but otherwise samples probabilistically based on rate.
 
-Sampling probability can be set with ``OTEL_TRACES_SAMPLER_ARG`` if the sampler is traceidratio or parentbased_traceidratio, when not provided rate will be set to 1.0 (maximum rate possible).
+Sampling probability can be set with ``OTEL_TRACES_SAMPLER_ARG`` if the sampler is traceidratio or parentbased_traceidratio. Rate must be in the range [0.0,1.0]. When not provided rate will be set to
+1.0 (maximum rate possible).
 
-
-Prev example but with environment vairables. Please make sure to set the env ``OTEL_TRACES_SAMPLER=traceidratio`` and ``OTEL_TRACES_SAMPLER_ARG=0.001``.
+Prev example but with environment variables. Please make sure to set the env ``OTEL_TRACES_SAMPLER=traceidratio`` and ``OTEL_TRACES_SAMPLER_ARG=0.001``.
 
 .. code:: python
 
@@ -97,7 +97,41 @@ Prev example but with environment vairables. Please make sure to set the env ``O
     # created spans will now be sampled by the TraceIdRatioBased sampler with rate 1/1000.
     with trace.get_tracer(__name__).start_as_current_span("Test Span"):
         ...
+
+When utilizing a configurator, you can configure a custom sampler. In order to create a configurable custom sampler, create an entry point for the custom sampler
+factory method or function under the entry point group, ``opentelemetry_traces_sampler``. The custom sampler factory method must be of type ``Callable[[str], Sampler]``, taking a single string argument and
+returning a Sampler object. The single input will come from the string value of the ``OTEL_TRACES_SAMPLER_ARG`` environment variable. If ``OTEL_TRACES_SAMPLER_ARG`` is not configured, the input will
+be an empty string. For example:
+
+.. code:: python
+
+    setup(
+        ...
+        entry_points={
+            ...
+            "opentelemetry_traces_sampler": [
+                "custom_sampler_name = path.to.sampler.factory.method:CustomSamplerFactory.get_sampler"
+            ]
+        }
+    )
+    # ...
+    class CustomRatioSampler(Sampler):
+        def __init__(rate):
+            # ...
+    # ...
+    class CustomSamplerFactory:
+        @staticmethod
+        def get_sampler(sampler_argument):
+            try:
+                rate = float(sampler_argument)
+                return CustomSampler(rate)
+            except ValueError: # In case argument is empty string.
+                return CustomSampler(0.5)
+
+In order to configure you application with a custom sampler's entry point, set the ``OTEL_TRACES_SAMPLER`` environment variable to the key name of the entry point. For example, to configured the
+above sampler, set ``OTEL_TRACES_SAMPLER=custom_sampler_name`` and ``OTEL_TRACES_SAMPLER_ARG=0.5``.
 """
+
 import abc
 import enum
 import os
@@ -151,7 +185,7 @@ class SamplingResult:
         self,
         decision: Decision,
         attributes: "Attributes" = None,
-        trace_state: "TraceState" = None,
+        trace_state: Optional["TraceState"] = None,
     ) -> None:
         self.decision = decision
         if attributes is None:
@@ -168,10 +202,10 @@ class Sampler(abc.ABC):
         parent_context: Optional["Context"],
         trace_id: int,
         name: str,
-        kind: SpanKind = None,
+        kind: Optional[SpanKind] = None,
         attributes: Attributes = None,
-        links: Sequence["Link"] = None,
-        trace_state: "TraceState" = None,
+        links: Optional[Sequence["Link"]] = None,
+        trace_state: Optional["TraceState"] = None,
     ) -> "SamplingResult":
         pass
 
@@ -183,7 +217,7 @@ class Sampler(abc.ABC):
 class StaticSampler(Sampler):
     """Sampler that always returns the same decision."""
 
-    def __init__(self, decision: "Decision"):
+    def __init__(self, decision: "Decision") -> None:
         self._decision = decision
 
     def should_sample(
@@ -191,10 +225,10 @@ class StaticSampler(Sampler):
         parent_context: Optional["Context"],
         trace_id: int,
         name: str,
-        kind: SpanKind = None,
+        kind: Optional[SpanKind] = None,
         attributes: Attributes = None,
-        links: Sequence["Link"] = None,
-        trace_state: "TraceState" = None,
+        links: Optional[Sequence["Link"]] = None,
+        trace_state: Optional["TraceState"] = None,
     ) -> "SamplingResult":
         if self._decision is Decision.DROP:
             attributes = None
@@ -252,10 +286,10 @@ class TraceIdRatioBased(Sampler):
         parent_context: Optional["Context"],
         trace_id: int,
         name: str,
-        kind: SpanKind = None,
+        kind: Optional[SpanKind] = None,
         attributes: Attributes = None,
-        links: Sequence["Link"] = None,
-        trace_state: "TraceState" = None,
+        links: Optional[Sequence["Link"]] = None,
+        trace_state: Optional["TraceState"] = None,
     ) -> "SamplingResult":
         decision = Decision.DROP
         if trace_id & self.TRACE_ID_LIMIT < self.bound:
@@ -307,10 +341,10 @@ class ParentBased(Sampler):
         parent_context: Optional["Context"],
         trace_id: int,
         name: str,
-        kind: SpanKind = None,
+        kind: Optional[SpanKind] = None,
         attributes: Attributes = None,
-        links: Sequence["Link"] = None,
-        trace_state: "TraceState" = None,
+        links: Optional[Sequence["Link"]] = None,
+        trace_state: Optional["TraceState"] = None,
     ) -> "SamplingResult":
         parent_span_context = get_current_span(
             parent_context
@@ -353,12 +387,32 @@ DEFAULT_ON = ParentBased(ALWAYS_ON)
 class ParentBasedTraceIdRatio(ParentBased):
     """
     Sampler that respects its parent span's sampling decision, but otherwise
-    samples probabalistically based on `rate`.
+    samples probabilistically based on `rate`.
     """
 
     def __init__(self, rate: float):
         root = TraceIdRatioBased(rate=rate)
         super().__init__(root=root)
+
+
+class _AlwaysOff(StaticSampler):
+    def __init__(self, _):
+        super().__init__(Decision.DROP)
+
+
+class _AlwaysOn(StaticSampler):
+    def __init__(self, _):
+        super().__init__(Decision.RECORD_AND_SAMPLE)
+
+
+class _ParentBasedAlwaysOff(ParentBased):
+    def __init__(self, _):
+        super().__init__(ALWAYS_OFF)
+
+
+class _ParentBasedAlwaysOn(ParentBased):
+    def __init__(self, _):
+        super().__init__(ALWAYS_ON)
 
 
 _KNOWN_SAMPLERS = {
@@ -382,7 +436,7 @@ def _get_from_env_or_default() -> Sampler:
     if trace_sampler in ("traceidratio", "parentbased_traceidratio"):
         try:
             rate = float(os.getenv(OTEL_TRACES_SAMPLER_ARG))
-        except ValueError:
+        except (ValueError, TypeError):
             _logger.warning("Could not convert TRACES_SAMPLER_ARG to float.")
             rate = 1.0
         return _KNOWN_SAMPLERS[trace_sampler](rate)
@@ -390,7 +444,9 @@ def _get_from_env_or_default() -> Sampler:
     return _KNOWN_SAMPLERS[trace_sampler]
 
 
-def _get_parent_trace_state(parent_context) -> Optional["TraceState"]:
+def _get_parent_trace_state(
+    parent_context: Optional[Context],
+) -> Optional["TraceState"]:
     parent_span_context = get_current_span(parent_context).get_span_context()
     if parent_span_context is None or not parent_span_context.is_valid:
         return None

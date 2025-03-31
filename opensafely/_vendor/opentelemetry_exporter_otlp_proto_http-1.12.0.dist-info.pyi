@@ -1,1 +1,0 @@
-from opentelemetry_exporter_otlp_proto_http-1.12.0.dist-info import *

@@ -15,7 +15,8 @@
 
 from logging import getLogger
 from threading import Lock
-from typing import Dict, Iterable
+from time import time_ns
+from typing import Dict, List, Optional, Sequence
 
 from opensafely._vendor.opentelemetry.metrics import Instrument
 from opensafely._vendor.opentelemetry.sdk.metrics._internal.aggregation import (
@@ -28,7 +29,6 @@ from opensafely._vendor.opentelemetry.sdk.metrics._internal.export import Aggreg
 from opensafely._vendor.opentelemetry.sdk.metrics._internal.measurement import Measurement
 from opensafely._vendor.opentelemetry.sdk.metrics._internal.point import DataPointT
 from opensafely._vendor.opentelemetry.sdk.metrics._internal.view import View
-from opensafely._vendor.opentelemetry.util._time import _time_ns
 
 _logger = getLogger(__name__)
 
@@ -40,7 +40,6 @@ class _ViewInstrumentMatch:
         instrument: Instrument,
         instrument_class_aggregation: Dict[type, Aggregation],
     ):
-        self._start_time_unix_nano = _time_ns()
         self._view = view
         self._instrument = instrument
         self._attributes_aggregation: Dict[frozenset, _Aggregation] = {}
@@ -52,12 +51,20 @@ class _ViewInstrumentMatch:
         )
         if not isinstance(self._view._aggregation, DefaultAggregation):
             self._aggregation = self._view._aggregation._create_aggregation(
-                self._instrument, None, 0
+                self._instrument,
+                None,
+                self._view._exemplar_reservoir_factory,
+                0,
             )
         else:
             self._aggregation = self._instrument_class_aggregation[
                 self._instrument.__class__
-            ]._create_aggregation(self._instrument, None, 0)
+            ]._create_aggregation(
+                self._instrument,
+                None,
+                self._view._exemplar_reservoir_factory,
+                0,
+            )
 
     def conflicts(self, other: "_ViewInstrumentMatch") -> bool:
         # pylint: disable=protected-access
@@ -74,17 +81,17 @@ class _ViewInstrumentMatch:
                 result
                 and self._aggregation._instrument_is_monotonic
                 == other._aggregation._instrument_is_monotonic
-                and self._aggregation._instrument_temporality
-                == other._aggregation._instrument_temporality
+                and self._aggregation._instrument_aggregation_temporality
+                == other._aggregation._instrument_aggregation_temporality
             )
 
         return result
 
     # pylint: disable=protected-access
-    def consume_measurement(self, measurement: Measurement) -> None:
-
+    def consume_measurement(
+        self, measurement: Measurement, should_sample_exemplar: bool = True
+    ) -> None:
         if self._view._attribute_keys is not None:
-
             attributes = {}
 
             for key, value in (measurement.attributes or {}).items():
@@ -107,7 +114,8 @@ class _ViewInstrumentMatch:
                             self._view._aggregation._create_aggregation(
                                 self._instrument,
                                 attributes,
-                                self._start_time_unix_nano,
+                                self._view._exemplar_reservoir_factory,
+                                time_ns(),
                             )
                         )
                     else:
@@ -116,22 +124,30 @@ class _ViewInstrumentMatch:
                         ]._create_aggregation(
                             self._instrument,
                             attributes,
-                            self._start_time_unix_nano,
+                            self._view._exemplar_reservoir_factory,
+                            time_ns(),
                         )
                     self._attributes_aggregation[aggr_key] = aggregation
 
-        self._attributes_aggregation[aggr_key].aggregate(measurement)
+        self._attributes_aggregation[aggr_key].aggregate(
+            measurement, should_sample_exemplar
+        )
 
     def collect(
         self,
-        aggregation_temporality: AggregationTemporality,
+        collection_aggregation_temporality: AggregationTemporality,
         collection_start_nanos: int,
-    ) -> Iterable[DataPointT]:
-
+    ) -> Optional[Sequence[DataPointT]]:
+        data_points: List[DataPointT] = []
         with self._lock:
             for aggregation in self._attributes_aggregation.values():
                 data_point = aggregation.collect(
-                    aggregation_temporality, collection_start_nanos
+                    collection_aggregation_temporality, collection_start_nanos
                 )
                 if data_point is not None:
-                    yield data_point
+                    data_points.append(data_point)
+
+        # Returning here None instead of an empty list because the caller
+        # does not consume a sequence and to be consistent with the rest of
+        # collect methods that also return None.
+        return data_points or None

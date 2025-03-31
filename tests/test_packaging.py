@@ -56,12 +56,20 @@ def test_packaging(package_type, tmp_path, older_version_file):
 
     # This always triggers an upgrade because the development version is always
     # considered lower than any other version
-    result = subprocess_run(
-        [tmp_path / BIN_DIR / "opensafely", "upgrade"],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
+    try:
+        result = subprocess_run(
+            [tmp_path / BIN_DIR / "opensafely", "upgrade"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except subprocess.CalledProcessError as exc:
+        print(f"Call to {' '.join(exc.cmd)} failed:")
+        if exc.stdout:
+            print(exc.stdout)
+        print(exc.stderr)
+        raise
+
     assert "Attempting uninstall: opensafely" in result.stdout
     assert "Successfully installed opensafely" in result.stdout
 
