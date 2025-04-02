@@ -15,21 +15,14 @@ The tool makes the process relatively painless. There are a few
 workarounds (crude string subsitutions) we need to apply which are all
 configured in [pyproject.toml](./pyproject.toml).
 
-To update the vendored version of job-runner:
+## Updating Job Runner
 
-1. Install the developer tooling (you'll need Python 3.8 for this):
-   ```
-   pip install -r requirements.dev.txt
-   ```
+Historically, this repo consumed [`job-runner`](https://github.com/opensafely-core/job-runner)
+as a Python package (vendored like all other dependencies) which was used to provide the
+`opensafely run` command.
 
-2. Run the update script. It will default to latest tag, but you can pass
-   a specific job-runner tag.
-   ```
-   ./scripts/update.sh [version_tag]
-   ```
-
-3. Commit the results
-
+However this has now changed. See the notes in this issue for more details:
+https://github.com/opensafely-core/opensafely-cli/issues/330
 
 ## Tests
 
