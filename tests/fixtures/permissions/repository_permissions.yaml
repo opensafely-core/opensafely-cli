@@ -16,5 +16,7 @@ opensafely/dummy_wl_openpathways:
   allow: ['wl_openpathways']
 opensafely/dummy_appointments:
   allow: ['appointments']
+opensafely/dummy_event_level_data:
+  allow: ['add_event_table']
 opensafely/dummy_all:
-  allow: ['icnarc', 'ons', 'isaric', 'ukrr', 'open_prompt', 'wl_clockstops', 'wl_openpathways', 'appointments']
+  allow: ['icnarc', 'ons', 'isaric', 'ukrr', 'open_prompt', 'wl_clockstops', 'wl_openpathways', 'appointments', 'add_event_table']
