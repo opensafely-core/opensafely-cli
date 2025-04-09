@@ -42,7 +42,7 @@ opensafely/post-covid-cvd:
   allow: ['appointments']
 opensafely/post-covid-cvd-methods:
   allow: ['appointments']
-opensafely/post-covid-covid-respiratory:
+opensafely/post-covid-respiratory:
   allow: ['appointments']
 opensafely/winter-pressures:
   allow: ['appointments']
