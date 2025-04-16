@@ -132,6 +132,10 @@ def write_dataset_def(path, include_restricted):
         [dataset.ehrql_table_names for dataset in check.RESTRICTED_DATASETS]
     )
 
+    all_restricted_functions = flatten_list(
+        [dataset.ehrql_function_names for dataset in check.RESTRICTED_DATASETS]
+    )
+
     for a in [1, 2]:
         # generate the filename; we make 2 versions to test that all dataset defs are checked
         filepath = path / f"dataset_definition_{filename_part}_{a}.py"
@@ -144,7 +148,7 @@ def write_dataset_def(path, include_restricted):
         if include_restricted:
             restricted = [
                 f"{name}_column = {name}.column" for name in all_restricted_tables
-            ]
+            ] + [f"dataset.{name}()" for name in all_restricted_functions]
         else:
             restricted = []
         restricted_lines = "\n".join(restricted)
@@ -152,6 +156,7 @@ def write_dataset_def(path, include_restricted):
         # include these in all test dataset defs; always allowed
         restricted_commented_lines = "\n".join(
             [f"#{name}_commented = {name}.column" for name in all_restricted_tables]
+            + [f"#dataset.{name}()" for name in all_restricted_functions]
         )
         # create an unrestricted table import;
         # include in all test dataset defs; this is always allowed
@@ -211,6 +216,16 @@ def validate_fail(capsys, continue_on_error, permissions):
                 else:
                     assert dataset.name in stderr, permissions
                     assert f"{table_name}.column" in stderr
+
+            for function_name in dataset.ehrql_function_names:
+                # commented out function calls are never in error output, even if restricted
+                assert f"#dataset.{function_name}()" not in stderr
+                if dataset.name in permissions:
+                    assert dataset.name not in stderr
+                    assert f"dataset.{function_name}()" not in stderr
+                else:
+                    assert dataset.name in stderr, permissions
+                    assert f"dataset.{function_name}()" in stderr
 
         # unrestricted functions and tables are never in error output
         assert UNRESTRICTED_FUNCTION not in stderr
