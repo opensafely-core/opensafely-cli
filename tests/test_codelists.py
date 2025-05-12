@@ -19,11 +19,12 @@ mocker._original_send = requests.Session.send
 
 @pytest.fixture
 def mock_check(requests_mock):
-    def _mock(response, request_headers=None):
+    def _mock(response):
         mocked = requests_mock.post(
             "https://www.opencodelists.org/api/v1/check/",
             json=response,
-            request_headers=request_headers,
+            # require that the POST request has the correct headers (e.g. User-Agent)
+            request_headers=codelists.request_headers(),
         )
         return mocked
 
@@ -49,12 +50,16 @@ def test_codelists_update(tmp_path, requests_mock):
         "https://www.opencodelists.org/"
         "codelist/project123/codelist456/version2/download.csv",
         text="foo",
+        # require that the GET request has the correct headers (e.g. User-Agent)
+        request_headers=codelists.request_headers(),
         headers={"content-type": "text/csv"},
     )
     requests_mock.get(
         "https://www.opencodelists.org/"
         "codelist/user/user123/codelist098/version1/download.csv",
         text="bar",
+        # require that the GET request has the correct headers (e.g. User-Agent)
+        request_headers=codelists.request_headers(),
         headers={"content-type": "text/csv"},
     )
     codelists.update()
@@ -439,37 +444,6 @@ def test_codelists_add_with_valid_non_codelist_url(
         )
     stdout, _ = capsys.readouterr()
     assert "No codelist found at URL" in stdout
-
-
-def test_codelists_update_user_agent(requests_mock, tmp_path):
-    codelist_dir = tmp_path / "codelists"
-    codelist_dir.mkdir()
-    (codelist_dir / "project123-codelist456.csv").touch()
-    (codelist_dir / "codelists.txt").write_text(
-        "project123/codelist456/version2\n  \nuser/user123/codelist098/version1\n"
-    )
-    os.chdir(tmp_path)
-    requests_mock.get(
-        "https://www.opencodelists.org/"
-        "codelist/project123/codelist456/version2/download.csv",
-        text="foo",
-        headers={"content-type": "text/csv"},
-        request_headers=codelists.request_headers(),
-    )
-    requests_mock.get(
-        "https://www.opencodelists.org/"
-        "codelist/user/user123/codelist098/version1/download.csv",
-        text="bar",
-        headers={"content-type": "text/csv"},
-        request_headers=codelists.request_headers(),
-    )
-    assert codelists.update()
-
-
-def test_codelists_check_user_agent(mock_check, codelists_path):
-    mock_check(response={"status": "ok"}, request_headers=codelists.request_headers())
-    os.chdir(codelists_path)
-    assert codelists.check()
 
 
 def test_user_agent_value(set_current_version):
