@@ -12,6 +12,7 @@ from opensafely._vendor import requests
 
 OPENCODELISTS_BASE_URL = "https://www.opencodelists.org"
 DESCRIPTION = f"Commands for interacting with {OPENCODELISTS_BASE_URL}"
+HEADERS = {"User-Agent": "OpenSAFELY CLI"}
 
 CODELISTS_DIR = "codelists"
 CODELISTS_FILE = "codelists.txt"
@@ -149,7 +150,7 @@ def write_manifest(codelists_dir, downloaded_codelists, append):
 
 def fetch_codelist(codelist):
     try:
-        response = requests.get(codelist.download_url)
+        response = requests.get(codelist.download_url, headers=HEADERS)
         response.raise_for_status()
         content_type = response.headers["content-type"]
         if content_type != "text/csv":
@@ -207,7 +208,7 @@ def check_upstream(codelists_dir=None):
         "manifest": manifest_file.read_text(),
     }
     url = f"{OPENCODELISTS_BASE_URL}/api/v1/check/"
-    response = requests.post(url, post_data).json()
+    response = requests.post(url, post_data, headers=HEADERS).json()
     status = response["status"]
 
     if status == "error":
