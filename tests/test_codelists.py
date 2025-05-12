@@ -454,23 +454,26 @@ def test_codelists_update_user_agent(requests_mock, tmp_path):
         "codelist/project123/codelist456/version2/download.csv",
         text="foo",
         headers={"content-type": "text/csv"},
-        request_headers=codelists.HEADERS,
+        request_headers=codelists.request_headers(),
     )
     requests_mock.get(
         "https://www.opencodelists.org/"
         "codelist/user/user123/codelist098/version1/download.csv",
         text="bar",
         headers={"content-type": "text/csv"},
-        request_headers=codelists.HEADERS,
+        request_headers=codelists.request_headers(),
     )
     assert codelists.update()
 
 
 def test_codelists_check_user_agent(mock_check, codelists_path):
-    mock_check(response={"status": "ok"}, request_headers=codelists.HEADERS)
+    mock_check(response={"status": "ok"}, request_headers=codelists.request_headers())
     os.chdir(codelists_path)
     assert codelists.check()
 
 
-def test_user_agent_value():
-    assert codelists.HEADERS["User-Agent"] == "OpenSAFELY CLI"
+def test_user_agent_value(set_current_version):
+    version = "v.1.0.0"
+    set_current_version(version)
+    headers = codelists.request_headers()
+    assert headers["User-Agent"] == f"OpenSAFELY-CLI/{version.lstrip('v')}"
