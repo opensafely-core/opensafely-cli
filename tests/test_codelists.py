@@ -23,6 +23,8 @@ def mock_check(requests_mock):
         mocked = requests_mock.post(
             "https://www.opencodelists.org/api/v1/check/",
             json=response,
+            # require that the POST request has the correct headers (e.g. User-Agent)
+            request_headers=codelists.request_headers(),
         )
         return mocked
 
@@ -48,12 +50,16 @@ def test_codelists_update(tmp_path, requests_mock):
         "https://www.opencodelists.org/"
         "codelist/project123/codelist456/version2/download.csv",
         text="foo",
+        # require that the GET request has the correct headers (e.g. User-Agent)
+        request_headers=codelists.request_headers(),
         headers={"content-type": "text/csv"},
     )
     requests_mock.get(
         "https://www.opencodelists.org/"
         "codelist/user/user123/codelist098/version1/download.csv",
         text="bar",
+        # require that the GET request has the correct headers (e.g. User-Agent)
+        request_headers=codelists.request_headers(),
         headers={"content-type": "text/csv"},
     )
     codelists.update()
@@ -438,3 +444,10 @@ def test_codelists_add_with_valid_non_codelist_url(
         )
     stdout, _ = capsys.readouterr()
     assert "No codelist found at URL" in stdout
+
+
+def test_user_agent_value(set_current_version):
+    version = "v.1.0.0"
+    set_current_version(version)
+    headers = codelists.request_headers()
+    assert headers["User-Agent"] == f"OpenSAFELY-CLI/{version.lstrip('v')}"

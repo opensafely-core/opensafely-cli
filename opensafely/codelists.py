@@ -7,6 +7,7 @@ import sys
 import tempfile
 from pathlib import Path
 
+import opensafely
 from opensafely._vendor import requests
 
 
@@ -16,6 +17,10 @@ DESCRIPTION = f"Commands for interacting with {OPENCODELISTS_BASE_URL}"
 CODELISTS_DIR = "codelists"
 CODELISTS_FILE = "codelists.txt"
 MANIFEST_FILE = "codelists.json"
+
+
+def request_headers():
+    return {"User-Agent": f"OpenSAFELY-CLI/{opensafely.__version__.lstrip('v')}"}
 
 
 def add_arguments(parser):
@@ -149,7 +154,7 @@ def write_manifest(codelists_dir, downloaded_codelists, append):
 
 def fetch_codelist(codelist):
     try:
-        response = requests.get(codelist.download_url)
+        response = requests.get(codelist.download_url, headers=request_headers())
         response.raise_for_status()
         content_type = response.headers["content-type"]
         if content_type != "text/csv":
@@ -207,7 +212,7 @@ def check_upstream(codelists_dir=None):
         "manifest": manifest_file.read_text(),
     }
     url = f"{OPENCODELISTS_BASE_URL}/api/v1/check/"
-    response = requests.post(url, post_data).json()
+    response = requests.post(url, post_data, headers=request_headers()).json()
     status = response["status"]
 
     if status == "error":
