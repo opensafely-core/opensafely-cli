@@ -129,7 +129,7 @@ def write_study_def(path, include_restricted):
 def write_dataset_def(path, include_restricted):
     filename_part = "restricted" if include_restricted else "unrestricted"
     all_restricted_tables = flatten_list(
-        [dataset.ehrql_table_names for dataset in check.RESTRICTED_DATASETS]
+        [dataset.ehrql_names for dataset in check.RESTRICTED_DATASETS]
     )
 
     for a in [1, 2]:
@@ -202,7 +202,7 @@ def validate_fail(capsys, continue_on_error, permissions):
                     assert dataset.name in stderr, permissions
                     assert f"{function_name}_name" in stderr
 
-            for table_name in dataset.ehrql_table_names:
+            for table_name in dataset.ehrql_names:
                 # commented out tables are never in error output, even if restricted
                 assert f"#{table_name}_commented" not in stderr
                 if dataset.name in permissions:
@@ -370,3 +370,75 @@ def test_repository_permissions_yaml(get_permissions):
     for k, v in permissions.items():
         assert len(v.keys()) == 1, f"multiple keys specified for {k}"
         assert "allow" in v.keys(), f"allow key not present for {k}"
+
+
+@pytest.mark.parametrize(
+    "target_string,restricted_name,expected_match",
+    [
+        ("bad_name", "bad_name", False),
+        ("bad_name.", "bad_name", False),
+        ("bad_name()", "bad_name", False),
+        ("patients.bad_name()", "bad_name", True),
+        ("patients.not_a_bad_name()", "bad_name", False),
+        ("# patients.bad_name()", "bad_name", False),
+    ],
+)
+def test_check_cohort_datasets(
+    tmp_path, target_string, restricted_name, expected_match
+):
+    contents = textwrap.dedent(
+        f"""\
+        from cohortextractor import patients
+        {target_string}
+        patients.age_as_of("2020-01-01")
+        """
+    )
+    test_file = tmp_path / "test.py"
+    test_file.write_text(contents)
+    restricted_dataset = check.RestrictedDataset(
+        name="test",
+        cohort_extractor_function_names=[restricted_name],
+        ehrql_names=[],
+    )
+    results = check.check_cohort_datasets([test_file], [restricted_dataset])
+    if expected_match:
+        assert restricted_dataset.name in results
+    else:
+        assert results == {}
+
+
+@pytest.mark.parametrize(
+    "target_string,restricted_name,expected_match",
+    [
+        ("bad_name", "bad_name", False),
+        ("bad_name.", "bad_name", True),
+        ("bad_name()", "bad_name", True),
+        ("module.bad_name.", "bad_name", True),
+        ("module.bad_name()", "bad_name", True),
+        ("not_a_bad_name()", "bad_name", False),
+        ("# bad_name.", "bad_name", False),
+    ],
+)
+def test_check_ehrql_datasets(tmp_path, target_string, restricted_name, expected_match):
+    contents = "from erhql import create_dataset\ndataset = create_dataset()\n# foo"
+    contents = textwrap.dedent(
+        f"""\
+        from ehrql import create_dataset
+        from ehrql.tables.core import patients
+        dataset = create_dataset()
+        {target_string}
+        dataset.age = patients.age_on("2020-01-01")
+        """
+    )
+    test_file = tmp_path / "test.py"
+    test_file.write_text(contents)
+    restricted_dataset = check.RestrictedDataset(
+        name="test",
+        cohort_extractor_function_names=[],
+        ehrql_names=[restricted_name],
+    )
+    results = check.check_ehrql_datasets([test_file], [restricted_dataset])
+    if expected_match:
+        assert restricted_dataset.name in results
+    else:
+        assert results == {}
