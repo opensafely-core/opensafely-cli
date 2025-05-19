@@ -451,3 +451,9 @@ def test_user_agent_value(set_current_version):
     set_current_version(version)
     headers = codelists.request_headers()
     assert headers["User-Agent"] == f"OpenSAFELY-CLI/{version.lstrip('v')}"
+
+
+def test_user_agent_value_CI(monkeypatch):
+    monkeypatch.setenv("GITHUB_WORKFLOW", "True")
+    headers = codelists.request_headers()
+    assert "(GitHub CI)" in headers["User-Agent"]

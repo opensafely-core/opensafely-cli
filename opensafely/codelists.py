@@ -20,7 +20,10 @@ MANIFEST_FILE = "codelists.json"
 
 
 def request_headers():
-    return {"User-Agent": f"OpenSAFELY-CLI/{opensafely.__version__.lstrip('v')}"}
+    environment = " (GitHub CI)" if os.environ.get("GITHUB_WORKFLOW") else ""
+    return {
+        "User-Agent": f"OpenSAFELY-CLI/{opensafely.__version__.lstrip('v')}{environment}"
+    }
 
 
 def add_arguments(parser):
