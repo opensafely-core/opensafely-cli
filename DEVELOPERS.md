@@ -41,7 +41,8 @@ known as "software engineering".
 
 New versions are tagged, and the PyPI package built and published, automatically
 via GitHub actions on merges to `main`.  Note that the version will be bumped
-according to information parsed from the commits using semantic-release conventions (e.g. `fix:`, `feat:`).  If no semantic commit is found since the last tag, a new version
+according to information parsed from the commits using semantic-release conventions (e.g. `fix:`, `feat:`).
+If no semantic commit is found since the last tag, a new version
 will not be released.
 
 ## Local Builds
