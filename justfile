@@ -44,11 +44,9 @@ _compile src dst *args: virtualenv
     {{ COMPILE }} --output-file={{ dst }} {{ src }} {{ args }}
 
 
-# This project currently has no production dependencies, as it vendors them. See DEVELOPERS.md.
-#
-# update requirements.prod.txt if requirements.prod.in has changed
-#requirements-prod *args:
-#    {{ just_executable() }} _compile requirements.prod.in requirements.prod.txt {{ args }}
+# update *vendored* production dependencies. See DEVELOPERS.md.
+requirements-prod *args:
+    {{ just_executable() }} _compile requirements.prod.in requirements.prod.txt {{ args }}
 
 
 # update requirements.dev.txt if requirements.dev.in has changed

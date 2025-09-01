@@ -3,7 +3,7 @@ extend-exclude = 'opensafely/_vendor/*'
 
 [tool.vendoring]
 destination = "opensafely/_vendor/"
-requirements = "vendor.txt"
+requirements = "requirements.prod.txt"
 namespace = "opensafely._vendor"
 
 # We don't use any patches, but this directory has to be defined (though it
