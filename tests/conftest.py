@@ -13,11 +13,11 @@ opensafely_module_dir = Path(__file__).parent
 pkg_resources.working_set.add_entry(f"{opensafely_module_dir}/_vendor")
 
 import pytest  # noqa: E402
+from opensafely._vendor import requests  # noqa: E402
 from requests_mock import mocker  # noqa: E402
 
 import opensafely  # noqa: E402
 from opensafely import utils  # noqa: E402
-from opensafely._vendor import requests  # noqa: E402
 
 
 # Because we're using a vendored version of requests we need to monkeypatch the
