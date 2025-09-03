@@ -1,6 +1,6 @@
 import pytest
 
-from jobrunner.lib import docker, docker_stats
+from opensafely.jobrunner.lib import docker, docker_stats
 
 
 @pytest.mark.needs_docker

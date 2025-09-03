@@ -2,9 +2,9 @@ import logging
 import time
 from datetime import datetime
 
-from jobrunner.cli import local_run
-from jobrunner.lib import log_utils
-from jobrunner.models import Job, JobRequest
+from opensafely.jobrunner.cli import local_run
+from opensafely.jobrunner.lib import log_utils
+from opensafely.jobrunner.models import Job, JobRequest
 
 
 FROZEN_TIMESTAMP = 1608568119.1467905

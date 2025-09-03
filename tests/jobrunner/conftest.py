@@ -8,15 +8,17 @@ from pathlib import Path
 from unittest import mock
 
 import pytest
-from opentelemetry.sdk.trace.export import SimpleSpanProcessor
-from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+from opensafely._vendor.opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opensafely._vendor.opentelemetry.sdk.trace.export.in_memory_span_exporter import (
+    InMemorySpanExporter,
+)
 
-import jobrunner.executors.local
-from jobrunner import config, record_stats, tracing
-from jobrunner.executors import volumes
-from jobrunner.job_executor import Study
-from jobrunner.lib import database
-from jobrunner.lib.subprocess_utils import subprocess_run
+import opensafely.jobrunner
+from opensafely.jobrunner import config, record_stats, tracing
+from opensafely.jobrunner.executors import volumes
+from opensafely.jobrunner.job_executor import Study
+from opensafely.jobrunner.lib import database
+from opensafely.jobrunner.lib.subprocess_utils import subprocess_run
 
 
 # set up test tracing
@@ -37,7 +39,7 @@ def pytest_configure(config):
 def clear_state():
     yield
     # local docker API maintains results cache as a module global, so clear it.
-    jobrunner.executors.local.RESULTS.clear()
+    opensafely.jobrunner.executors.local.RESULTS.clear()
     database.CONNECTION_CACHE.__dict__.clear()
     # clear any exported spans
     test_exporter.clear()
@@ -53,8 +55,10 @@ def get_trace(tracer=None):
 
 @pytest.fixture
 def tmp_work_dir(request, monkeypatch, tmp_path):
-    monkeypatch.setattr("jobrunner.config.WORKDIR", tmp_path)
-    monkeypatch.setattr("jobrunner.config.DATABASE_FILE", tmp_path / "db.sqlite")
+    monkeypatch.setattr("opensafely.jobrunner.config.WORKDIR", tmp_path)
+    monkeypatch.setattr(
+        "opensafely.jobrunner.config.DATABASE_FILE", tmp_path / "db.sqlite"
+    )
     config_vars = [
         "TMP_DIR",
         "GIT_REPO_DIR",
@@ -68,7 +72,7 @@ def tmp_work_dir(request, monkeypatch, tmp_path):
     ]
     for config_var in config_vars:
         monkeypatch.setattr(
-            f"jobrunner.config.{config_var}", tmp_path / config_var.lower()
+            f"opensafely.jobrunner.config.{config_var}", tmp_path / config_var.lower()
         )
 
     # ensure db initialise
@@ -111,7 +115,7 @@ def tmp_work_dir(request, monkeypatch, tmp_path):
         )
         host_volume_path = pytest_host_tmp / tmp_path.relative_to(basetemp)
         monkeypatch.setattr(
-            "jobrunner.config.DOCKER_HOST_VOLUME_DIR",
+            "opensafely.jobrunner.config.DOCKER_HOST_VOLUME_DIR",
             host_volume_path / "high_privacy_volume_dir".lower(),
         )
 
@@ -121,9 +125,11 @@ def tmp_work_dir(request, monkeypatch, tmp_path):
 @pytest.fixture
 def docker_cleanup(monkeypatch):
     label_for_tests = "jobrunner-pytest"
-    monkeypatch.setattr("jobrunner.lib.docker.LABEL", label_for_tests)
-    monkeypatch.setattr("jobrunner.executors.local.LABEL", label_for_tests)
-    monkeypatch.setattr("jobrunner.cli.local_run.DEBUG_LABEL", label_for_tests)
+    monkeypatch.setattr("opensafely.jobrunner.lib.docker.LABEL", label_for_tests)
+    monkeypatch.setattr("opensafely.jobrunner.executors.local.LABEL", label_for_tests)
+    monkeypatch.setattr(
+        "opensafely.jobrunner.cli.local_run.DEBUG_LABEL", label_for_tests
+    )
     yield
     delete_docker_entities("container", label_for_tests)
     delete_docker_entities("volume", label_for_tests)

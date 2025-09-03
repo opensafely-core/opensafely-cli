@@ -4,9 +4,9 @@ from pathlib import Path
 from unittest import mock
 
 import pytest
-from opentelemetry import trace
+from opensafely._vendor.opentelemetry import trace
 
-from jobrunner.create_or_update_jobs import (
+from opensafely.jobrunner.create_or_update_jobs import (
     JobRequestError,
     NothingToDoError,
     StaleCodelistError,
@@ -15,15 +15,15 @@ from jobrunner.create_or_update_jobs import (
     create_or_update_jobs,
     validate_job_request,
 )
-from jobrunner.lib.database import find_one, update_where
-from jobrunner.models import Job, JobRequest, State, StatusCode
-from tests.factories import job_request_factory_raw
+from opensafely.jobrunner.lib.database import find_one, update_where
+from opensafely.jobrunner.models import Job, JobRequest, State, StatusCode
 from tests.jobrunner.conftest import get_trace
+from tests.jobrunner.factories import job_request_factory_raw
 
 
 @pytest.fixture(autouse=True)
 def disable_github_org_checking(monkeypatch):
-    monkeypatch.setattr("jobrunner.config.ALLOWED_GITHUB_ORGS", None)
+    monkeypatch.setattr("opensafely.jobrunner.config.ALLOWED_GITHUB_ORGS", None)
 
 
 # Basic smoketest to test the full execution path
@@ -238,7 +238,7 @@ def test_cancelled_jobs_are_flagged(tmp_work_dir):
     ],
 )
 def test_validate_job_request(params, exc_msg, monkeypatch):
-    monkeypatch.setattr("jobrunner.config.USING_DUMMY_DATA_BACKEND", False)
+    monkeypatch.setattr("opensafely.jobrunner.config.USING_DUMMY_DATA_BACKEND", False)
     repo_url = str(Path(__file__).parent.resolve() / "fixtures/git-repo")
     kwargs = dict(
         id="123",
@@ -301,7 +301,7 @@ def test_create_jobs_already_requested(db, tmp_work_dir):
 
 
 def create_jobs_with_project_file(job_request, project_file):
-    with mock.patch("jobrunner.create_or_update_jobs.get_project_file") as f:
+    with mock.patch("opensafely.jobrunner.create_or_update_jobs.get_project_file") as f:
         f.return_value = project_file
         return create_jobs(job_request)
 

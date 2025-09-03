@@ -2,10 +2,10 @@ import sqlite3
 import subprocess
 import time
 
-from jobrunner import config, record_stats
-from jobrunner.models import State, StatusCode
-from tests.factories import job_factory, metrics_factory
+from opensafely.jobrunner import config, record_stats
+from opensafely.jobrunner.models import State, StatusCode
 from tests.jobrunner.conftest import get_trace
+from tests.jobrunner.factories import job_factory, metrics_factory
 
 
 def test_get_connection_readonly():

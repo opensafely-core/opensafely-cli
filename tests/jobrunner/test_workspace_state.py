@@ -1,6 +1,6 @@
-from jobrunner.models import State
-from jobrunner.queries import calculate_workspace_state
-from tests.factories import job_factory
+from opensafely.jobrunner.models import State
+from opensafely.jobrunner.queries import calculate_workspace_state
+from tests.jobrunner.factories import job_factory
 
 
 def test_gets_one_job(db):

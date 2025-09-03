@@ -6,8 +6,8 @@ import time
 
 import pytest
 
-from jobrunner import config, queries, service
-from jobrunner.lib import database
+from opensafely.jobrunner import config, queries, service
+from opensafely.jobrunner.lib import database
 
 
 @pytest.mark.skipif(
@@ -21,7 +21,7 @@ def test_service_main(tmp_path):
     database.ensure_db(db)
 
     p = subprocess.Popen(
-        [sys.executable, "-m", "jobrunner.service"],
+        [sys.executable, "-m", "opensafely.jobrunner.service"],
         # For the purposes of this test we don't care if we can actually talk
         # to the job-server endpoint, so to avoid spamming the real job-server
         # we just point it to a "reserved for future use" IP4 block which hangs

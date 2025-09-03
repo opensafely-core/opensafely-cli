@@ -5,7 +5,7 @@ import pytest
 from hypothesis import assume, settings
 from hypothesis.stateful import Bundle, RuleBasedStateMachine, invariant, rule
 
-from jobrunner.lib.lru_dict import LRUDict
+from opensafely.jobrunner.lib.lru_dict import LRUDict
 
 
 @settings(max_examples=500)

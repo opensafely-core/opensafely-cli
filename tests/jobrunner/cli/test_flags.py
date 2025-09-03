@@ -2,10 +2,10 @@ import time
 
 import pytest
 
-from jobrunner import queries
-from jobrunner.cli import flags
-from jobrunner.lib import database
-from jobrunner.models import timestamp_to_isoformat
+from opensafely.jobrunner import queries
+from opensafely.jobrunner.cli import flags
+from opensafely.jobrunner.lib import database
+from opensafely.jobrunner.models import timestamp_to_isoformat
 
 
 # use a fixed time for these tests

@@ -2,9 +2,14 @@ import time
 
 import pytest
 
-from jobrunner.executors.logging import LoggingExecutor
-from jobrunner.job_executor import ExecutorState, JobDefinition, JobStatus, Study
-from tests.fakes import RecordingExecutor
+from opensafely.jobrunner.executors.logging import LoggingExecutor
+from opensafely.jobrunner.job_executor import (
+    ExecutorState,
+    JobDefinition,
+    JobStatus,
+    Study,
+)
+from tests.jobrunner.fakes import RecordingExecutor
 
 
 methods = ["get_status", "prepare", "execute", "finalize", "terminate", "cleanup"]

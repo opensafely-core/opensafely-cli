@@ -3,7 +3,7 @@ import sqlite3
 
 import pytest
 
-from jobrunner.lib.database import (
+from opensafely.jobrunner.lib.database import (
     CONNECTION_CACHE,
     MigrationNeeded,
     count_where,
@@ -21,7 +21,7 @@ from jobrunner.lib.database import (
     update,
     upsert,
 )
-from jobrunner.models import Job, State
+from opensafely.jobrunner.models import Job, State
 
 
 def test_get_connection():

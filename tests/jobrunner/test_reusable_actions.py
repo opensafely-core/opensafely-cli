@@ -2,14 +2,14 @@ from unittest import mock
 
 import pytest
 
-from jobrunner import reusable_actions
-from jobrunner.lib import git
-from jobrunner.lib.yaml_utils import YAMLError
-from jobrunner.reusable_actions import ReusableAction
+from opensafely.jobrunner import reusable_actions
+from opensafely.jobrunner.lib import git
+from opensafely.jobrunner.lib.yaml_utils import YAMLError
+from opensafely.jobrunner.reusable_actions import ReusableAction
 
 
 @mock.patch.multiple(
-    "jobrunner.lib.git",
+    "opensafely.jobrunner.lib.git",
     get_sha_from_remote_ref=mock.DEFAULT,
     read_file_from_repo=mock.DEFAULT,
 )
@@ -23,7 +23,7 @@ class TestHandleReusableAction:
         kwargs["read_file_from_repo"].assert_not_called()
 
     @mock.patch(
-        "jobrunner.reusable_actions.parse_yaml",
+        "opensafely.jobrunner.reusable_actions.parse_yaml",
         return_value={"run": "python:latest python reusable_action/main.py"},
     )
     def test_when_a_reusable_action_with_options(self, *args, **kwargs):
@@ -37,7 +37,7 @@ class TestHandleReusableAction:
         )
 
     @mock.patch(
-        "jobrunner.reusable_actions.parse_yaml",
+        "opensafely.jobrunner.reusable_actions.parse_yaml",
         return_value={"run": "python:latest python reusable_action/main.py"},
     )
     def test_when_a_reusable_action_with_arguments(self, *args, **kwargs):
@@ -51,7 +51,7 @@ class TestHandleReusableAction:
         )
 
     @mock.patch(
-        "jobrunner.reusable_actions.parse_yaml",
+        "opensafely.jobrunner.reusable_actions.parse_yaml",
         return_value={"run": "python:latest python reusable_action/main.py"},
     )
     def test_when_a_reusable_action_with_options_and_arguments(self, *args, **kwargs):
@@ -82,7 +82,7 @@ class TestHandleReusableAction:
             reusable_actions.handle_reusable_action("reusable-action:latest")
 
     @mock.patch(
-        "jobrunner.reusable_actions.validate_branch_and_commit",
+        "opensafely.jobrunner.reusable_actions.validate_branch_and_commit",
         side_effect=reusable_actions.GithubValidationError,
     )
     def test_with_bad_commit(self, *args, **kwargs):
@@ -95,14 +95,14 @@ class TestHandleReusableAction:
             reusable_actions.handle_reusable_action("reusable-action:latest")
 
     @mock.patch(
-        "jobrunner.reusable_actions.parse_yaml",
+        "opensafely.jobrunner.reusable_actions.parse_yaml",
         side_effect=YAMLError,
     )
     def test_with_bad_yaml(self, *args, **kwargs):
         with pytest.raises(reusable_actions.ReusableActionError):
             reusable_actions.handle_reusable_action("reusable-action:latest")
 
-    @mock.patch("jobrunner.reusable_actions.parse_yaml", return_value={})
+    @mock.patch("opensafely.jobrunner.reusable_actions.parse_yaml", return_value={})
     def test_with_bad_action_config(self, *args, **kwargs):
         with pytest.raises(reusable_actions.ReusableActionError):
             reusable_actions.handle_reusable_action("reusable-action:latest")

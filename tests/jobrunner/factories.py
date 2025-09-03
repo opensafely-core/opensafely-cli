@@ -4,12 +4,18 @@ import time
 from collections import defaultdict
 from copy import deepcopy
 
-from jobrunner import config, record_stats, tracing
-from jobrunner.job_executor import ExecutorState, JobResults, JobStatus
-from jobrunner.lib import docker
-from jobrunner.lib.database import insert
-from jobrunner.lib.subprocess_utils import subprocess_run
-from jobrunner.models import Job, JobRequest, SavedJobRequest, State, StatusCode
+from opensafely.jobrunner import config, record_stats, tracing
+from opensafely.jobrunner.job_executor import ExecutorState, JobResults, JobStatus
+from opensafely.jobrunner.lib import docker
+from opensafely.jobrunner.lib.database import insert
+from opensafely.jobrunner.lib.subprocess_utils import subprocess_run
+from opensafely.jobrunner.models import (
+    Job,
+    JobRequest,
+    SavedJobRequest,
+    State,
+    StatusCode,
+)
 from tests.jobrunner.conftest import test_exporter
 
 

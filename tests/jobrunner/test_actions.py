@@ -3,9 +3,9 @@ import shlex
 import sys
 
 import pytest
-from pipeline.models import Pipeline
+from opensafely._vendor.pipeline.models import Pipeline
 
-from jobrunner.actions import UnknownActionError, get_action_specification
+from opensafely.jobrunner.actions import UnknownActionError, get_action_specification
 
 
 @pytest.mark.skipif(

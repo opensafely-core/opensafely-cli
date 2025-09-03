@@ -2,12 +2,12 @@ from unittest import mock
 
 import pytest
 
-from jobrunner.cli import prepare_for_reboot
-from jobrunner.executors import local, volumes
-from jobrunner.lib import database, docker
-from jobrunner.models import Job, State, StatusCode
-from tests.factories import job_factory
+from opensafely.jobrunner.cli import prepare_for_reboot
+from opensafely.jobrunner.executors import local, volumes
+from opensafely.jobrunner.lib import database, docker
+from opensafely.jobrunner.models import Job, State, StatusCode
 from tests.jobrunner.conftest import get_trace
+from tests.jobrunner.factories import job_factory
 
 
 @pytest.mark.needs_docker

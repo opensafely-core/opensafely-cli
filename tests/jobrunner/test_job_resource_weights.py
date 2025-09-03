@@ -1,8 +1,8 @@
 import textwrap
 
-from jobrunner.config import parse_job_resource_weights
-from jobrunner.models import Job
-from jobrunner.run import get_job_resource_weight
+from opensafely.jobrunner.config import parse_job_resource_weights
+from opensafely.jobrunner.models import Job
+from opensafely.jobrunner.run import get_job_resource_weight
 
 
 def test_job_resource_weights(tmp_path):

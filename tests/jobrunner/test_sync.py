@@ -2,10 +2,10 @@ import json
 
 from responses import matchers
 
-from jobrunner import config, queries, sync
-from jobrunner.lib.database import find_where
-from jobrunner.models import Job, JobRequest
-from tests.factories import job_factory, metrics_factory
+from opensafely.jobrunner import config, queries, sync
+from opensafely.jobrunner.lib.database import find_where
+from opensafely.jobrunner.models import Job, JobRequest
+from tests.jobrunner.factories import job_factory, metrics_factory
 
 
 def test_job_request_from_remote_format():
@@ -157,7 +157,7 @@ def test_session_request_flags(db, responses):
 
 def test_sync_empty_response(db, monkeypatch, requests_mock):
     monkeypatch.setattr(
-        "jobrunner.config.JOB_SERVER_ENDPOINT", "http://testserver/api/v2/"
+        "opensafely.jobrunner.config.JOB_SERVER_ENDPOINT", "http://testserver/api/v2/"
     )
     requests_mock.get(
         "http://testserver/api/v2/job-requests/?backend=expectations",

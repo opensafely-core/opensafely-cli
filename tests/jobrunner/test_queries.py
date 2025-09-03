@@ -1,7 +1,7 @@
 import time
 
-from jobrunner.lib.database import get_connection
-from jobrunner.queries import get_flag_value, set_flag
+from opensafely.jobrunner.lib.database import get_connection
+from opensafely.jobrunner.queries import get_flag_value, set_flag
 
 
 def test_get_flag_no_table_does_not_error(tmp_work_dir):

@@ -2,7 +2,7 @@ import pathlib
 
 import pytest
 
-from jobrunner.lib import path_utils
+from opensafely.jobrunner.lib import path_utils
 
 
 @pytest.mark.parametrize(

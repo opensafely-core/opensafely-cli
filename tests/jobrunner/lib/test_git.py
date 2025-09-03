@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from jobrunner.lib.git import (
+from opensafely.jobrunner.lib.git import (
     GitRepoNotReachableError,
     GitUnknownRefError,
     checkout_commit,

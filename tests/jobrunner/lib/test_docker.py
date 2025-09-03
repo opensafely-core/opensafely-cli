@@ -2,7 +2,7 @@ import subprocess
 
 import pytest
 
-from jobrunner.lib import docker
+from opensafely.jobrunner.lib import docker
 
 
 @pytest.mark.slow_test

@@ -1,6 +1,6 @@
 import pytest
 
-from jobrunner import lib
+from opensafely.jobrunner import lib
 
 
 def test_atomic_writer_success(tmp_path):

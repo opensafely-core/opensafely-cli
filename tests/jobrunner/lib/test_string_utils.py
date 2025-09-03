@@ -1,6 +1,10 @@
 import pytest
 
-from jobrunner.lib.string_utils import project_name_from_url, slugify, tabulate
+from opensafely.jobrunner.lib.string_utils import (
+    project_name_from_url,
+    slugify,
+    tabulate,
+)
 
 
 @pytest.mark.parametrize(

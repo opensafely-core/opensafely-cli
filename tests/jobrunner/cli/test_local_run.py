@@ -7,14 +7,14 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
-from pipeline import load_pipeline
+from opensafely._vendor.pipeline import load_pipeline
 
-from jobrunner import config
-from jobrunner.actions import get_action_specification
-from jobrunner.cli import local_run
-from jobrunner.lib import database, docker
-from jobrunner.lib.subprocess_utils import subprocess_run
-from jobrunner.models import Job, SavedJobRequest, State
+from opensafely.jobrunner import config
+from opensafely.jobrunner.actions import get_action_specification
+from opensafely.jobrunner.cli import local_run
+from opensafely.jobrunner.lib import database, docker
+from opensafely.jobrunner.lib.subprocess_utils import subprocess_run
+from opensafely.jobrunner.models import Job, SavedJobRequest, State
 
 
 FIXTURE_DIR = Path(__file__).parents[1].resolve() / "fixtures"
@@ -102,7 +102,9 @@ def test_local_run_success(extraction_tool, tmp_path, docker_cleanup):
 def test_local_run_stata(tmp_path, monkeypatch, docker_cleanup):
     project_dir = tmp_path / "project"
     shutil.copytree(str(FIXTURE_DIR / "stata_project"), project_dir)
-    monkeypatch.setattr("jobrunner.config.STATA_LICENSE", os.environ["STATA_LICENSE"])
+    monkeypatch.setattr(
+        "opensafely.jobrunner.config.STATA_LICENSE", os.environ["STATA_LICENSE"]
+    )
     local_run.main(project_dir=project_dir, actions=["stata"])
     env_file = project_dir / "output/env.txt"
     assert "Bennett Institute" in env_file.read_text()
@@ -194,7 +196,9 @@ def test_get_stata_license_cache_recent(systmpdir, monkeypatch, tmp_path):
     def fail(*a, **kwargs):
         assert False, "should not have been called"
 
-    monkeypatch.setattr("jobrunner.lib.subprocess_utils.subprocess_run", fail)
+    monkeypatch.setattr(
+        "opensafely.jobrunner.lib.subprocess_utils.subprocess_run", fail
+    )
     cache = tmp_path / "opensafely-stata.lic"
     cache.write_text("cached-license")
     assert local_run.get_stata_license() == "cached-license"

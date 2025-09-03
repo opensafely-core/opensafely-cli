@@ -1,14 +1,14 @@
 import time
 
 import pytest
-from opentelemetry import trace
+from opensafely._vendor.opentelemetry import trace
 
-from jobrunner import config, run
-from jobrunner.job_executor import ExecutorState, JobStatus, Privacy
-from jobrunner.models import State, StatusCode
-from tests.factories import StubExecutorAPI, job_factory
-from tests.fakes import RecordingExecutor
+from opensafely.jobrunner import config, run
+from opensafely.jobrunner.job_executor import ExecutorState, JobStatus, Privacy
+from opensafely.jobrunner.models import State, StatusCode
 from tests.jobrunner.conftest import get_trace
+from tests.jobrunner.factories import StubExecutorAPI, job_factory
+from tests.jobrunner.fakes import RecordingExecutor
 
 
 def test_handle_job_full_execution_async(db, freezer):

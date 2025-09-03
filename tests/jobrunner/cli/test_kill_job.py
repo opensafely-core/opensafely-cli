@@ -2,11 +2,11 @@ from unittest import mock
 
 import pytest
 
-from jobrunner.cli import kill_job
-from jobrunner.executors import local, volumes
-from jobrunner.lib import database
-from jobrunner.models import Job, State, StatusCode
-from tests.factories import job_factory
+from opensafely.jobrunner.cli import kill_job
+from opensafely.jobrunner.executors import local, volumes
+from opensafely.jobrunner.lib import database
+from opensafely.jobrunner.models import Job, State, StatusCode
+from tests.jobrunner.factories import job_factory
 
 
 def test_get_jobs_no_jobs(db):

@@ -5,11 +5,11 @@ import sys
 
 import pytest
 
-from jobrunner.config import _is_valid_backend_name, database_urls_from_env
+from opensafely.jobrunner.config import _is_valid_backend_name, database_urls_from_env
 
 
 script = """
-from jobrunner import config
+from opensafely.jobrunner import config
 cfg = {k: str(v) for k, v in vars(config).items() if k.isupper()}
 print(repr(cfg))
 """

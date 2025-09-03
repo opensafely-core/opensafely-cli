@@ -4,12 +4,17 @@ import time
 
 import pytest
 
-from jobrunner import config, models, record_stats
-from jobrunner.executors import local, volumes
-from jobrunner.job_executor import ExecutorState, JobDefinition, Privacy, Study
-from jobrunner.lib import datestr_to_ns_timestamp, docker
-from tests.factories import ensure_docker_images_present, job_factory
+from opensafely.jobrunner import config, models, record_stats
+from opensafely.jobrunner.executors import local, volumes
+from opensafely.jobrunner.job_executor import (
+    ExecutorState,
+    JobDefinition,
+    Privacy,
+    Study,
+)
+from opensafely.jobrunner.lib import datestr_to_ns_timestamp, docker
 from tests.jobrunner.conftest import SUPPORTED_VOLUME_APIS
+from tests.jobrunner.factories import ensure_docker_images_present, job_factory
 
 
 # this is parametized fixture, and test using it will run multiple times, once

@@ -9,11 +9,11 @@ import logging
 
 import pytest
 
-import jobrunner.run
-import jobrunner.sync
-from jobrunner.executors import get_executor_api
-from tests.factories import ensure_docker_images_present
+import opensafely.jobrunner
+import opensafely.jobrunner.sync
+from opensafely.jobrunner.executors import get_executor_api
 from tests.jobrunner.conftest import SUPPORTED_VOLUME_APIS, get_trace
+from tests.jobrunner.factories import ensure_docker_images_present
 
 
 log = logging.getLogger(__name__)
@@ -24,7 +24,9 @@ log = logging.getLogger(__name__)
 @pytest.fixture(params=SUPPORTED_VOLUME_APIS)
 def volume_api(request, monkeypatch):
     monkeypatch.setattr(
-        jobrunner.executors.local.volumes, "DEFAULT_VOLUME_API", request.param
+        opensafely.jobrunner.executors.local.volumes,
+        "DEFAULT_VOLUME_API",
+        request.param,
     )
     return request.param
 
@@ -49,10 +51,10 @@ def test_integration_with_cohortextractor(
     api = get_executor_api()
 
     monkeypatch.setattr(
-        "jobrunner.config.JOB_SERVER_ENDPOINT", "http://testserver/api/v2/"
+        "opensafely.jobrunner.config.JOB_SERVER_ENDPOINT", "http://testserver/api/v2/"
     )
     # Disable repo URL checking so we can run using a local test repo
-    monkeypatch.setattr("jobrunner.config.ALLOWED_GITHUB_ORGS", None)
+    monkeypatch.setattr("opensafely.jobrunner.config.ALLOWED_GITHUB_ORGS", None)
 
     ensure_docker_images_present(image, "python")
 
@@ -87,14 +89,14 @@ def test_integration_with_cohortextractor(
     requests_mock.post("http://testserver/api/v2/jobs/", json={})
 
     # Run sync to grab the JobRequest from the mocked job-server
-    jobrunner.sync.sync()
+    opensafely.jobrunner.sync.sync()
     # Check that expected number of pending jobs are created
     jobs = get_posted_jobs(requests_mock)
     assert [job["status"] for job in jobs.values()] == ["pending"] * 7
 
     # Execute one tick of the run loop and then sync
-    jobrunner.run.handle_jobs(api)
-    jobrunner.sync.sync()
+    opensafely.jobrunner.run.handle_jobs(api)
+    opensafely.jobrunner.sync.sync()
     # We should now have one running job and all others waiting on dependencies
     jobs = get_posted_jobs(requests_mock)
     assert jobs[generate_action]["status"] == "running"
@@ -136,12 +138,14 @@ def test_integration_with_cohortextractor(
             "results": [job_request_1, job_request_2],
         },
     )
-    jobrunner.sync.sync()
+    opensafely.jobrunner.sync.sync()
 
     # Run the main loop until there are no jobs left and then sync
 
-    jobrunner.run.main(exit_callback=lambda active_jobs: len(active_jobs) == 0)
-    jobrunner.sync.sync()
+    opensafely.jobrunner.run.main(
+        exit_callback=lambda active_jobs: len(active_jobs) == 0
+    )
+    opensafely.jobrunner.sync.sync()
 
     # All jobs should now have succeeded apart from the cancelled one
     jobs = get_posted_jobs(requests_mock)
@@ -226,10 +230,10 @@ def test_integration_with_ehrql(
     api = get_executor_api()
 
     monkeypatch.setattr(
-        "jobrunner.config.JOB_SERVER_ENDPOINT", "http://testserver/api/v2/"
+        "opensafely.jobrunner.config.JOB_SERVER_ENDPOINT", "http://testserver/api/v2/"
     )
     # Disable repo URL checking so we can run using a local test repo
-    monkeypatch.setattr("jobrunner.config.ALLOWED_GITHUB_ORGS", None)
+    monkeypatch.setattr("opensafely.jobrunner.config.ALLOWED_GITHUB_ORGS", None)
 
     ensure_docker_images_present("ehrql:v1", "python")
 
@@ -263,15 +267,15 @@ def test_integration_with_ehrql(
     requests_mock.post("http://testserver/api/v2/jobs/", json={})
 
     # Run sync to grab the JobRequest from the mocked job-server
-    jobrunner.sync.sync()
+    opensafely.jobrunner.sync.sync()
     # Check that expected number of pending jobs are created
     jobs = get_posted_jobs(requests_mock)
     assert [job["status"] for job in jobs.values()] == ["pending"] * 3, list(
         jobs.values()
     )[0]["status_message"]
     # Execute one tick of the run loop and then sync
-    jobrunner.run.handle_jobs(api)
-    jobrunner.sync.sync()
+    opensafely.jobrunner.run.handle_jobs(api)
+    opensafely.jobrunner.sync.sync()
     # We should now have one running job and all others waiting on dependencies
     jobs = get_posted_jobs(requests_mock)
     assert jobs["generate_dataset"]["status"] == "running"
@@ -309,11 +313,13 @@ def test_integration_with_ehrql(
             "results": [job_request_1, job_request_2],
         },
     )
-    jobrunner.sync.sync()
+    opensafely.jobrunner.sync.sync()
 
     # Run the main loop until there are no jobs left and then sync
-    jobrunner.run.main(exit_callback=lambda active_jobs: len(active_jobs) == 0)
-    jobrunner.sync.sync()
+    opensafely.jobrunner.run.main(
+        exit_callback=lambda active_jobs: len(active_jobs) == 0
+    )
+    opensafely.jobrunner.sync.sync()
 
     # All jobs should now have succeeded apart from the cancelled one
     jobs = get_posted_jobs(requests_mock)
