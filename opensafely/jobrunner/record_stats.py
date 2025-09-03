@@ -12,11 +12,12 @@ import time
 from collections import defaultdict
 from pathlib import Path
 
-from jobrunner import config, models, tracing
-from jobrunner.lib import database
-from jobrunner.lib.docker_stats import get_job_stats
-from jobrunner.lib.log_utils import configure_logging
-from opentelemetry import trace
+from opensafely._vendor.opentelemetry import trace
+
+from opensafely.jobrunner import config, models, tracing
+from opensafely.jobrunner.lib import database
+from opensafely.jobrunner.lib.docker_stats import get_job_stats
+from opensafely.jobrunner.lib.log_utils import configure_logging
 
 
 log = logging.getLogger(__name__)

@@ -17,8 +17,8 @@ import shlex
 from enum import Enum
 from functools import total_ordering
 
-from jobrunner.lib.database import databaseclass, migration
-from jobrunner.lib.string_utils import slugify
+from opensafely.jobrunner.lib.database import databaseclass, migration
+from opensafely.jobrunner.lib.string_utils import slugify
 
 
 # this is the overall high level state the job-runner uses to decide how to

@@ -6,9 +6,9 @@ import argparse
 import sqlite3
 import sys
 
-from jobrunner.lib.database import create_table, get_connection
-from jobrunner.models import Flag
-from jobrunner.queries import get_current_flags, get_flag, set_flag
+from opensafely.jobrunner.lib.database import create_table, get_connection
+from opensafely.jobrunner.models import Flag
+from opensafely.jobrunner.queries import get_current_flags, get_flag, set_flag
 
 
 def parse_cli_flag(raw):

@@ -1,14 +1,14 @@
 import logging
 from typing import Callable, List
 
-from jobrunner.job_executor import (
+from opensafely.jobrunner.job_executor import (
     ExecutorAPI,
     JobDefinition,
     JobResults,
     JobStatus,
     Privacy,
 )
-from jobrunner.lib.lru_dict import LRUDict
+from opensafely.jobrunner.lib.lru_dict import LRUDict
 
 
 LOGGER_NAME = "executor"

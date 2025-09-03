@@ -3,10 +3,11 @@ import json
 import shlex
 from typing import Dict, List
 
-from jobrunner.lib.path_utils import ensure_unix_path
-from pipeline.exceptions import ProjectValidationError
-from pipeline.models import Action
-from pipeline.outputs import get_output_dirs
+from opensafely._vendor.pipeline.exceptions import ProjectValidationError
+from opensafely._vendor.pipeline.models import Action
+from opensafely._vendor.pipeline.outputs import get_output_dirs
+
+from opensafely.jobrunner.lib.path_utils import ensure_unix_path
 
 
 class UnknownActionError(ProjectValidationError):

@@ -7,8 +7,9 @@ import sys
 import tempfile
 from pathlib import Path
 
-import opensafely
 from opensafely._vendor import requests
+
+import opensafely
 
 
 OPENCODELISTS_BASE_URL = "https://www.opencodelists.org"

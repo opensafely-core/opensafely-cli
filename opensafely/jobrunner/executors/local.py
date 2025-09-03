@@ -9,9 +9,11 @@ import time
 import urllib.parse
 from pathlib import Path
 
-from jobrunner import config, record_stats
-from jobrunner.executors import volumes
-from jobrunner.job_executor import (
+from opensafely._vendor.pipeline.legacy import get_all_output_patterns_from_project_file
+
+from opensafely.jobrunner import config, record_stats
+from opensafely.jobrunner.executors import volumes
+from opensafely.jobrunner.job_executor import (
     ExecutorAPI,
     ExecutorRetry,
     ExecutorState,
@@ -20,11 +22,10 @@ from jobrunner.job_executor import (
     JobStatus,
     Privacy,
 )
-from jobrunner.lib import datestr_to_ns_timestamp, docker, file_digest
-from jobrunner.lib.git import checkout_commit
-from jobrunner.lib.path_utils import list_dir_with_ignore_patterns
-from jobrunner.lib.string_utils import tabulate
-from pipeline.legacy import get_all_output_patterns_from_project_file
+from opensafely.jobrunner.lib import datestr_to_ns_timestamp, docker, file_digest
+from opensafely.jobrunner.lib.git import checkout_commit
+from opensafely.jobrunner.lib.path_utils import list_dir_with_ignore_patterns
+from opensafely.jobrunner.lib.string_utils import tabulate
 
 
 # Directory inside working directory where manifest and logs are created

@@ -8,9 +8,9 @@ import os
 import re
 import subprocess
 
-from jobrunner import config
-from jobrunner.lib import atomic_writer, datestr_to_ns_timestamp
-from jobrunner.lib.subprocess_utils import subprocess_run
+from opensafely.jobrunner import config
+from opensafely.jobrunner.lib import atomic_writer, datestr_to_ns_timestamp
+from opensafely.jobrunner.lib.subprocess_utils import subprocess_run
 
 
 logger = logging.getLogger(__name__)

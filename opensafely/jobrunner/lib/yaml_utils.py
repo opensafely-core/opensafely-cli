@@ -1,4 +1,4 @@
-from ruyaml import YAML, error
+from opensafely._vendor.ruyaml import YAML, error
 
 
 class YAMLError(Exception):

@@ -2,16 +2,24 @@ import logging
 import os
 from datetime import datetime
 
-from jobrunner import config
-from jobrunner.lib import database, warn_assertions
-from jobrunner.models import Job, SavedJobRequest, State, StatusCode
-from opentelemetry import trace
-from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-from opentelemetry.sdk.resources import Resource
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
-from opentelemetry.trace import propagation
-from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
+from opensafely._vendor.opentelemetry import trace
+from opensafely._vendor.opentelemetry.exporter.otlp.proto.http.trace_exporter import (
+    OTLPSpanExporter,
+)
+from opensafely._vendor.opentelemetry.sdk.resources import Resource
+from opensafely._vendor.opentelemetry.sdk.trace import TracerProvider
+from opensafely._vendor.opentelemetry.sdk.trace.export import (
+    BatchSpanProcessor,
+    ConsoleSpanExporter,
+)
+from opensafely._vendor.opentelemetry.trace import propagation
+from opensafely._vendor.opentelemetry.trace.propagation.tracecontext import (
+    TraceContextTextMapPropagator,
+)
+
+from opensafely.jobrunner import config
+from opensafely.jobrunner.lib import database, warn_assertions
+from opensafely.jobrunner.models import Job, SavedJobRequest, State, StatusCode
 
 
 logger = logging.getLogger(__name__)
@@ -335,7 +343,7 @@ if __name__ == "__main__":
     # local testing utility for tracing
     import time
 
-    from jobrunner.run import set_code
+    from opensafely.jobrunner.run import set_code
 
     setup_default_tracing()
 

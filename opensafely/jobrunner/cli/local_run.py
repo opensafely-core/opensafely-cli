@@ -35,28 +35,33 @@ import textwrap
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from jobrunner import config, executors, tracing
-from jobrunner.actions import UnknownActionError
-from jobrunner.create_or_update_jobs import (
+from opensafely._vendor.pipeline import (
+    RUN_ALL_COMMAND,
+    ProjectValidationError,
+    load_pipeline,
+)
+
+from opensafely.jobrunner import config, executors, tracing
+from opensafely.jobrunner.actions import UnknownActionError
+from opensafely.jobrunner.create_or_update_jobs import (
     JobRequestError,
     NothingToDoError,
     assert_new_jobs_created,
     get_new_jobs_to_run,
     insert_into_database,
 )
-from jobrunner.executors.local import METADATA_DIR
-from jobrunner.lib import database, docker
-from jobrunner.lib.log_utils import configure_logging
-from jobrunner.lib.string_utils import tabulate
-from jobrunner.lib.subprocess_utils import subprocess_run
-from jobrunner.models import Job, JobRequest, State, StatusCode, random_id
-from jobrunner.queries import calculate_workspace_state
-from jobrunner.reusable_actions import (
+from opensafely.jobrunner.executors.local import METADATA_DIR
+from opensafely.jobrunner.lib import database, docker
+from opensafely.jobrunner.lib.log_utils import configure_logging
+from opensafely.jobrunner.lib.string_utils import tabulate
+from opensafely.jobrunner.lib.subprocess_utils import subprocess_run
+from opensafely.jobrunner.models import Job, JobRequest, State, StatusCode, random_id
+from opensafely.jobrunner.queries import calculate_workspace_state
+from opensafely.jobrunner.reusable_actions import (
     ReusableActionError,
     resolve_reusable_action_references,
 )
-from jobrunner.run import main as run_main
-from pipeline import RUN_ALL_COMMAND, ProjectValidationError, load_pipeline
+from opensafely.jobrunner.run import main as run_main
 
 
 # First paragraph of docstring

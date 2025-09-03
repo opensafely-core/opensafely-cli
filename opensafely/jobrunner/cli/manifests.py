@@ -4,9 +4,9 @@ Ops utility for backfilling manifest.json files from db
 
 import argparse
 
-from jobrunner.executors import local
-from jobrunner.lib import database
-from jobrunner.models import Job
+from opensafely.jobrunner.executors import local
+from opensafely.jobrunner.lib import database
+from opensafely.jobrunner.models import Job
 
 
 def main():

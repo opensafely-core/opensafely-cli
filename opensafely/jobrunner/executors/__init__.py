@@ -1,7 +1,7 @@
 import importlib
 
-from jobrunner import config
-from jobrunner.executors.logging import LoggingExecutor
+from opensafely.jobrunner import config
+from opensafely.jobrunner.executors.logging import LoggingExecutor
 
 
 def get_executor_api():

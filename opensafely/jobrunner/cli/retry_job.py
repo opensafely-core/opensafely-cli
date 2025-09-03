@@ -17,10 +17,10 @@ updates on it.
 import argparse
 import time
 
-from jobrunner.executors.local import container_name, docker
-from jobrunner.lib.database import find_where, update
-from jobrunner.models import Job, State, StatusCode
-from jobrunner.sync import api_post, job_to_remote_format
+from opensafely.jobrunner.executors.local import container_name, docker
+from opensafely.jobrunner.lib.database import find_where, update
+from opensafely.jobrunner.models import Job, State, StatusCode
+from opensafely.jobrunner.sync import api_post, job_to_remote_format
 
 
 def main(partial_job_id):

@@ -11,22 +11,36 @@ import logging
 import re
 import time
 
-from jobrunner import config, tracing
-from jobrunner.actions import get_action_specification
-from jobrunner.lib.database import exists_where, insert, transaction, update_where
-from jobrunner.lib.git import GitError, GitFileNotFoundError, read_file_from_repo
-from jobrunner.lib.github_validators import (
+from opensafely._vendor.pipeline import (
+    RUN_ALL_COMMAND,
+    ProjectValidationError,
+    load_pipeline,
+)
+
+from opensafely.jobrunner import config, tracing
+from opensafely.jobrunner.actions import get_action_specification
+from opensafely.jobrunner.lib.database import (
+    exists_where,
+    insert,
+    transaction,
+    update_where,
+)
+from opensafely.jobrunner.lib.git import (
+    GitError,
+    GitFileNotFoundError,
+    read_file_from_repo,
+)
+from opensafely.jobrunner.lib.github_validators import (
     GithubValidationError,
     validate_branch_and_commit,
     validate_repo_url,
 )
-from jobrunner.models import Job, SavedJobRequest, State, StatusCode
-from jobrunner.queries import calculate_workspace_state
-from jobrunner.reusable_actions import (
+from opensafely.jobrunner.models import Job, SavedJobRequest, State, StatusCode
+from opensafely.jobrunner.queries import calculate_workspace_state
+from opensafely.jobrunner.reusable_actions import (
     ReusableActionError,
     resolve_reusable_action_references,
 )
-from pipeline import RUN_ALL_COMMAND, ProjectValidationError, load_pipeline
 
 
 log = logging.getLogger(__name__)

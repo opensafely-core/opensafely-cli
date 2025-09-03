@@ -2,15 +2,16 @@ import dataclasses
 import shlex
 import textwrap
 
-from jobrunner import config
-from jobrunner.lib import git
-from jobrunner.lib.github_validators import (
+from opensafely._vendor.pipeline.models import is_database_action
+
+from opensafely.jobrunner import config
+from opensafely.jobrunner.lib import git
+from opensafely.jobrunner.lib.github_validators import (
     GithubValidationError,
     validate_branch_and_commit,
     validate_repo_url,
 )
-from jobrunner.lib.yaml_utils import YAMLError, parse_yaml
-from pipeline.models import is_database_action
+from opensafely.jobrunner.lib.yaml_utils import YAMLError, parse_yaml
 
 
 class ReusableActionError(Exception):

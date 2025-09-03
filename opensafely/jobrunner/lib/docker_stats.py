@@ -1,6 +1,6 @@
 import json
 
-from jobrunner.lib.subprocess_utils import subprocess_run
+from opensafely.jobrunner.lib.subprocess_utils import subprocess_run
 
 
 DEFAULT_TIMEOUT = 10

@@ -8,8 +8,8 @@ import time
 from collections import defaultdict
 from pathlib import Path
 
-from jobrunner import config
-from jobrunner.lib import atomic_writer, docker
+from opensafely.jobrunner import config
+from opensafely.jobrunner.lib import atomic_writer, docker
 
 
 logger = logging.getLogger(__name__)

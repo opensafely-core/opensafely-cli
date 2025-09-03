@@ -11,12 +11,12 @@ import textwrap
 from pathlib import Path
 from urllib.parse import urlparse
 
-from jobrunner.create_or_update_jobs import create_or_update_jobs
-from jobrunner.lib.database import find_where
-from jobrunner.lib.git import get_sha_from_remote_ref
-from jobrunner.lib.log_utils import configure_logging
-from jobrunner.models import Job, random_id
-from jobrunner.sync import job_request_from_remote_format
+from opensafely.jobrunner.create_or_update_jobs import create_or_update_jobs
+from opensafely.jobrunner.lib.database import find_where
+from opensafely.jobrunner.lib.git import get_sha_from_remote_ref
+from opensafely.jobrunner.lib.log_utils import configure_logging
+from opensafely.jobrunner.models import Job, random_id
+from opensafely.jobrunner.sync import job_request_from_remote_format
 
 
 def main(

@@ -8,12 +8,13 @@ import logging
 import sys
 import time
 
-import requests
-from jobrunner import config, queries, record_stats
-from jobrunner.create_or_update_jobs import create_or_update_jobs
-from jobrunner.lib.database import find_where, select_values
-from jobrunner.lib.log_utils import configure_logging, set_log_context
-from jobrunner.models import Job, JobRequest, State
+import opensafely._vendor.requests as requests
+
+from opensafely.jobrunner import config, queries, record_stats
+from opensafely.jobrunner.create_or_update_jobs import create_or_update_jobs
+from opensafely.jobrunner.lib.database import find_where, select_values
+from opensafely.jobrunner.lib.log_utils import configure_logging, set_log_context
+from opensafely.jobrunner.models import Job, JobRequest, State
 
 
 session = requests.Session()
@@ -95,11 +96,12 @@ def api_request(method, path, *args, headers=None, **kwargs):
     response = session.request(method, url, *args, headers=headers, **kwargs)
 
     log.debug(
-        "{} {} {} post_data=[} {}",
+        "{} {} {} post_data={} {}",
         method.upper(),
         response.status_code,
         url,
         kwargs.get("json", '""'),
+        response.text,
     )
 
     try:

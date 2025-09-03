@@ -4,8 +4,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-import opensafely
 from opensafely._vendor import requests
+
+import opensafely
 
 
 DESCRIPTION = "Upgrade the opensafely cli tool."

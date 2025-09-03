@@ -3,8 +3,8 @@ import time
 from itertools import groupby
 from operator import attrgetter
 
-from jobrunner.lib.database import find_all, find_one, find_where, upsert
-from jobrunner.models import Flag, Job
+from opensafely.jobrunner.lib.database import find_all, find_one, find_where, upsert
+from opensafely.jobrunner.models import Flag, Job
 
 
 def calculate_workspace_state(workspace):

@@ -6,8 +6,8 @@ import argparse
 import sys
 from pathlib import Path
 
-from jobrunner import config
-from jobrunner.lib import database, log_utils
+from opensafely.jobrunner import config
+from opensafely.jobrunner.lib import database, log_utils
 
 
 def run(argv):

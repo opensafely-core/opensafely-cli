@@ -6,11 +6,11 @@ import logging
 import threading
 import time
 
-from jobrunner import config, record_stats, run, sync, tracing
-from jobrunner.lib.database import ensure_valid_db
-from jobrunner.lib.docker import docker
-from jobrunner.lib.log_utils import configure_logging
-from jobrunner.queries import get_flag_value, set_flag
+from opensafely.jobrunner import config, record_stats, run, sync, tracing
+from opensafely.jobrunner.lib.database import ensure_valid_db
+from opensafely.jobrunner.lib.docker import docker
+from opensafely.jobrunner.lib.log_utils import configure_logging
+from opensafely.jobrunner.queries import get_flag_value, set_flag
 
 
 log = logging.getLogger(__name__)

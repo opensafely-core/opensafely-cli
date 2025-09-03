@@ -6,7 +6,7 @@ import sys
 from multiprocessing import cpu_count
 from pathlib import Path
 
-import pipeline
+import opensafely._vendor.pipeline as pipeline
 
 
 class ConfigException(Exception):
@@ -231,13 +231,15 @@ DEFAULT_JOB_CPU_COUNT = float(os.environ.get("DEFAULT_JOB_CPU_COUNT", 2))
 DEFAULT_JOB_MEMORY_LIMIT = os.environ.get("DEFAULT_JOB_MEMORY_LIMIT", "4G")
 
 
-EXECUTOR = os.environ.get("EXECUTOR", "jobrunner.executors.local:LocalDockerAPI")
+EXECUTOR = os.environ.get(
+    "EXECUTOR", "opensafely.jobrunner.executors.local:LocalDockerAPI"
+)
 
 # LocalDockerAPI executor specific configuration
 # Note: the local backend also reuses the main GIT_REPO_DIR config
 
 LOCAL_VOLUME_API = os.environ.get(
-    "LOCAL_VOLUME_API", "jobrunner.executors.volumes:DockerVolumeAPI"
+    "LOCAL_VOLUME_API", "opensafely.jobrunner.executors.volumes:DockerVolumeAPI"
 )
 
 HIGH_PRIVACY_STORAGE_BASE = Path(
