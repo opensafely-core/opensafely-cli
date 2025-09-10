@@ -41,7 +41,7 @@ from opensafely._vendor.pipeline import (
     load_pipeline,
 )
 
-from opensafely.jobrunner import config, executors, tracing
+from opensafely.jobrunner import config, tracing
 from opensafely.jobrunner.actions import UnknownActionError
 from opensafely.jobrunner.create_or_update_jobs import (
     JobRequestError,
@@ -535,10 +535,6 @@ def filter_log_messages(record):
     # We sometimes log caught exceptions for debugging purposes in production,
     # but we don't want to show these to the user when running locally
     if getattr(record, "exc_info", None):
-        return False
-
-    # Executor state logging is pretty verbose and unlikely to be useful for local running
-    if record.name == executors.logging.LOGGER_NAME:
         return False
 
     return True

@@ -17,7 +17,6 @@ ruff
 #flake8-builtins
 #flake8-implicit-str-concat
 #flake8-no-pep420
-hypothesis
 #isort
 pytest-cov
 pytest-freezer
