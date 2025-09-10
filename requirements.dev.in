@@ -20,4 +20,3 @@ ruff
 #isort
 pytest-cov
 pytest-freezer
-pytest-responses
