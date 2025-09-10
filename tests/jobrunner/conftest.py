@@ -14,7 +14,7 @@ from opensafely._vendor.opentelemetry.sdk.trace.export.in_memory_span_exporter i
 )
 
 import opensafely.jobrunner
-from opensafely.jobrunner import config, record_stats, tracing
+from opensafely.jobrunner import config, tracing
 from opensafely.jobrunner.executors import volumes
 from opensafely.jobrunner.job_executor import Study
 from opensafely.jobrunner.lib import database
@@ -212,7 +212,6 @@ def metrics_db(monkeypatch, tmp_path, request):
     db_path = tmp_path / "metrics.db"
     monkeypatch.setattr(config, "METRICS_FILE", db_path)
     yield
-    record_stats.CONNECTION_CACHE.__dict__.clear()
 
 
 @dataclass

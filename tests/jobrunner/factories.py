@@ -4,7 +4,7 @@ import time
 from collections import defaultdict
 from copy import deepcopy
 
-from opensafely.jobrunner import config, record_stats, tracing
+from opensafely.jobrunner import config, tracing
 from opensafely.jobrunner.job_executor import ExecutorState, JobResults, JobStatus
 from opensafely.jobrunner.lib import docker
 from opensafely.jobrunner.lib.database import insert
@@ -113,15 +113,6 @@ def job_results_factory(timestamp_ns=None, **kwargs):
     values = deepcopy(JOB_RESULTS_DEFAULTS)
     values.update(kwargs)
     return JobResults(timestamp_ns=timestamp_ns, **values)
-
-
-def metrics_factory(job=None, metrics=None):
-    if job is None:
-        job = job_factory()
-    if metrics is None:
-        metrics = {}
-
-    record_stats.write_job_metrics(job.id, metrics)
 
 
 class StubExecutorAPI:

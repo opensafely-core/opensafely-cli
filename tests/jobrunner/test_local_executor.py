@@ -4,7 +4,7 @@ import time
 
 import pytest
 
-from opensafely.jobrunner import config, models, record_stats
+from opensafely.jobrunner import config
 from opensafely.jobrunner.executors import local, volumes
 from opensafely.jobrunner.job_executor import (
     ExecutorState,
@@ -14,7 +14,7 @@ from opensafely.jobrunner.job_executor import (
 )
 from opensafely.jobrunner.lib import datestr_to_ns_timestamp, docker
 from tests.jobrunner.conftest import SUPPORTED_VOLUME_APIS
-from tests.jobrunner.factories import ensure_docker_images_present, job_factory
+from tests.jobrunner.factories import ensure_docker_images_present
 
 
 # this is parametized fixture, and test using it will run multiple times, once
@@ -240,47 +240,6 @@ def test_execute_success(docker_cleanup, job_definition, tmp_work_dir, db, volum
     assert container_data["State"]["ExitCode"] == 0
     assert container_data["HostConfig"]["NanoCpus"] == int(1.5 * 1e9)
     assert container_data["HostConfig"]["Memory"] == 2**30  # 1G
-
-
-@pytest.mark.needs_docker
-def test_execute_metrics(docker_cleanup, job_definition, tmp_work_dir, db):
-    job_definition.args = ["sleep", "10"]
-    last_run = time.time_ns()
-
-    api = local.LocalDockerAPI()
-
-    status = api.prepare(job_definition)
-    assert status.state == ExecutorState.PREPARED
-
-    # we need scheduler job state to be able to collect stats
-    job = job_factory(
-        id=job_definition.id,
-        state=models.State.RUNNING,
-        status_code=models.StatusCode.EXECUTING,
-        started_at=int(last_run / 1e9),
-    )
-
-    status = api.execute(job_definition)
-    assert status.state == ExecutorState.EXECUTING
-
-    # simulate stats thread collecting stats
-    record_stats.record_tick_trace(last_run, [job])
-
-    docker.kill(local.container_name(job_definition))
-
-    status = wait_for_state(api, job_definition, ExecutorState.EXECUTED)
-
-    assert list(status.metrics.keys()) == [
-        "cpu_sample",
-        "cpu_cumsum",
-        "cpu_mean",
-        "cpu_peak",
-        "mem_mb_sample",
-        "mem_mb_cumsum",
-        "mem_mb_mean",
-        "mem_mb_peak",
-        "container_id",
-    ]
 
 
 @pytest.mark.skipif(
