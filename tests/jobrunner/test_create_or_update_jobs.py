@@ -17,8 +17,7 @@ from opensafely.jobrunner.create_or_update_jobs import (
 )
 from opensafely.jobrunner.lib.database import find_one, update_where
 from opensafely.jobrunner.models import Job, JobRequest, State, StatusCode
-from tests.jobrunner.conftest import get_trace
-from tests.jobrunner.factories import job_request_factory_raw
+from tests.jobrunner.factories import get_trace, job_request_factory_raw
 
 
 @pytest.fixture(autouse=True)

@@ -9,9 +9,6 @@ from unittest import mock
 
 import pytest
 from opensafely._vendor.opentelemetry.sdk.trace.export import SimpleSpanProcessor
-from opensafely._vendor.opentelemetry.sdk.trace.export.in_memory_span_exporter import (
-    InMemorySpanExporter,
-)
 
 import opensafely.jobrunner
 from opensafely.jobrunner import config, tracing
@@ -19,13 +16,14 @@ from opensafely.jobrunner.executors import volumes
 from opensafely.jobrunner.job_executor import Study
 from opensafely.jobrunner.lib import database
 from opensafely.jobrunner.lib.subprocess_utils import subprocess_run
+from tests.jobrunner.factories import TEST_EXPORTER
 
 
-# set up test tracing
-provider = tracing.get_provider()
-tracing.trace.set_tracer_provider(provider)
-test_exporter = InMemorySpanExporter()
-tracing.add_exporter(provider, test_exporter, processor=SimpleSpanProcessor)
+@pytest.fixture(scope="session", autouse=True)
+def setup_tracing():
+    provider = tracing.get_provider()
+    tracing.trace.set_tracer_provider(provider)
+    tracing.add_exporter(provider, TEST_EXPORTER, processor=SimpleSpanProcessor)
 
 
 def pytest_configure(config):
@@ -42,15 +40,7 @@ def clear_state():
     opensafely.jobrunner.executors.local.RESULTS.clear()
     database.CONNECTION_CACHE.__dict__.clear()
     # clear any exported spans
-    test_exporter.clear()
-
-
-def get_trace(tracer=None):
-    spans = test_exporter.get_finished_spans()
-    if tracer is None:
-        return spans
-    else:
-        return [s for s in spans if s.instrumentation_scope.name == tracer]
+    TEST_EXPORTER.clear()
 
 
 @pytest.fixture

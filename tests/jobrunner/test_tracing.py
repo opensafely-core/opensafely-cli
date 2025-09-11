@@ -6,8 +6,8 @@ from opensafely._vendor.opentelemetry.exporter.otlp.proto.http import trace_expo
 from opensafely._vendor.opentelemetry.sdk.trace.export import ConsoleSpanExporter
 
 from opensafely.jobrunner import config, models, tracing
-from tests.jobrunner.conftest import get_trace
 from tests.jobrunner.factories import (
+    get_trace,
     job_factory,
     job_request_factory,
     job_results_factory,

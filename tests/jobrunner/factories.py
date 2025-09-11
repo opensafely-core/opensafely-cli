@@ -4,6 +4,10 @@ import time
 from collections import defaultdict
 from copy import deepcopy
 
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
+    InMemorySpanExporter,
+)
+
 from opensafely.jobrunner import config, tracing
 from opensafely.jobrunner.job_executor import ExecutorState, JobResults, JobStatus
 from opensafely.jobrunner.lib import docker
@@ -16,7 +20,18 @@ from opensafely.jobrunner.models import (
     State,
     StatusCode,
 )
-from tests.jobrunner.conftest import test_exporter
+
+
+# global singleton for capturing test telemetry
+TEST_EXPORTER = InMemorySpanExporter()
+
+
+def get_trace(tracer=None):
+    spans = TEST_EXPORTER.get_finished_spans()
+    if tracer is None:
+        return spans
+    else:
+        return [s for s in spans if s.instrumentation_scope.name == tracer]
 
 
 JOB_REQUEST_DEFAULTS = {
@@ -103,7 +118,7 @@ def job_factory(job_request=None, **kwargs):
     insert(job)
 
     # ensure tests just have the span they generate
-    test_exporter.clear()
+    TEST_EXPORTER.clear()
     return job
 
 
