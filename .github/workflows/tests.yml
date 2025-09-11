@@ -21,8 +21,16 @@ jobs:
       uses: astral-sh/setup-uv@bd01e18f51369d5a26f1651c3cb451d3417e3bba # v6.3.1
       with:
         version: "0.4.20"
-    - name: Install dependencies
+    - uses: extractions/setup-just@e33e0265a09d6d736e2ee1e0eb685ef1de4669ff # v3
+    - name: Run tests on ${{ matrix.os }}
+      if: ${{ matrix.os == 'ubuntu-22.04' }}
       run: |
-        python -m pip install -r requirements.dev.txt
-    - name: Run tests
-      run: python -m pytest
+        echo "$PYTHON_VERSION"
+        just test -vvv
+
+    - name: Run tests on windows
+      if: ${{ matrix.os == 'windows-2022' }}
+      run: |
+        # windows powershell: set to executable w/o version, as it doesn't have one on windows
+        $Env:PYTHON_VERSION = "python"
+        just test-no-docker -vvv
