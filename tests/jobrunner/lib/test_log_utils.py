@@ -1,5 +1,4 @@
 import logging
-import time
 from datetime import datetime
 
 from opensafely.jobrunner.cli import local_run
@@ -81,8 +80,8 @@ def test_formatting_filter_with_context():
     assert record.tags == "workspace=workspace action=action id=id req=request"
 
 
-def test_jobrunner_formatter_default(monkeypatch):
-    monkeypatch.setattr(time, "time", lambda: FROZEN_TIMESTAMP)
+def test_jobrunner_formatter_default(freezer):
+    freezer.move_to("2020-12-21 16:28:39.1469")
     record = logging.makeLogRecord(
         {
             "msg": "message",
@@ -99,8 +98,7 @@ def test_jobrunner_formatter_default(monkeypatch):
     )
 
 
-def test_jobrunner_formatter_local_run(monkeypatch):
-    monkeypatch.setattr(time, "time", lambda: FROZEN_TIMESTAMP)
+def test_jobrunner_formatter_local_run(freezer):
     record = logging.makeLogRecord(
         {
             "msg": "message",
