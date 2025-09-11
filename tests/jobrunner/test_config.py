@@ -2,6 +2,7 @@ import ast
 import os
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -15,6 +16,15 @@ print(repr(cfg))
 """
 
 
+def find_project_root():
+    """Find the project root by looking for pyproject.yaml."""
+    current = Path(__file__).resolve()
+    for parent in current.parents:
+        if (parent / "pyproject.toml").exists():
+            return parent
+    raise FileNotFoundError("Could not find pyproject.yaml in any parent directory")
+
+
 def import_cfg(env, raises=None):
     # Required for Python to start correctly on Windows, otherwise we get:
     #
@@ -24,6 +34,9 @@ def import_cfg(env, raises=None):
     # See https://stackoverflow.com/a/64706392
     if "SYSTEMROOT" in os.environ:
         env["SYSTEMROOT"] = os.environ["SYSTEMROOT"]
+
+    # ensure opensafely is importable
+    env["PYTHONPATH"] = str(find_project_root())
 
     try:
         ps = subprocess.run(
