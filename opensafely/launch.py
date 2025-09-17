@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 from opensafely import utils
-from opensafely._vendor.jobrunner.cli.local_run import docker_preflight_check
+from opensafely.jobrunner.cli.local_run import docker_preflight_check
 from opensafely.pull import REGISTRY
 
 

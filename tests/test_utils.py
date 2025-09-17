@@ -43,6 +43,8 @@ def test_git_bash_tty_wrapper_not_mingw(monkeypatch):
     monkeypatch.setattr(utils.shutil, "which", lambda x: "/path/winpty")
     monkeypatch.setattr(utils.sys.stdin, "isatty", lambda: False)
     monkeypatch.setattr(utils.sys.stdout, "isatty", lambda: False)
+    if "MSYSTEM" in os.environ:
+        monkeypatch.delitem(os.environ, "MSYSTEM")
     assert utils.git_bash_tty_wrapper() is None
 
 

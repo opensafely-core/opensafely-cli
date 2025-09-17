@@ -15,14 +15,22 @@ The tool makes the process relatively painless. There are a few
 workarounds (crude string subsitutions) we need to apply which are all
 configured in [pyproject.toml](./pyproject.toml).
 
-## Updating Job Runner
+## opensafely run
 
 Historically, this repo consumed [`job-runner`](https://github.com/opensafely-core/job-runner)
 as a Python package (vendored like all other dependencies) which was used to provide the
 `opensafely run` command.
 
-However this has now changed. See the notes in this issue for more details:
-https://github.com/opensafely-core/opensafely-cli/issues/330
+However this has now changed, and a forked version of job-runner repo is now
+part of this project as the `opensafely.jobrunner` package. It contains all the
+code that handles the `opensafely run` command, which is quite a bit of
+complexity (about 70% of the opensafely-cli production code, excluding vendored
+dependencies).
+
+The `opensafely.jobrunner` package (and associated tests at tests/jobrunner)
+are currently maintained by the RAP team, rather than REX. Some things, like
+dependencies, affect the whole system, so may need some cross team reviews.
+
 
 ## Tests
 

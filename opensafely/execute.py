@@ -2,7 +2,7 @@ import argparse
 import os
 
 from opensafely import utils
-from opensafely._vendor.jobrunner.cli.local_run import (
+from opensafely.jobrunner.cli.local_run import (
     STATA_ERROR_MESSGE,
     config,
     docker_preflight_check,

@@ -11,7 +11,8 @@ import time
 import webbrowser
 
 from opensafely._vendor import requests
-from opensafely._vendor.jobrunner import config
+
+from opensafely.jobrunner import config
 
 
 # all docker containers we run will be tagged with this label

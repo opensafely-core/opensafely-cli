@@ -28,11 +28,11 @@ from opensafely import (  # noqa: E402
     unzip,
     upgrade,
 )
-from opensafely._vendor.jobrunner.cli import local_run  # noqa: E402
+from opensafely.jobrunner.cli import local_run  # noqa: E402
 
 
 # quieten unneeded loggers
-logging.getLogger("opensafely._vendor.jobrunner.tracing").setLevel(logging.ERROR)
+logging.getLogger("opensafely.jobrunner.tracing").setLevel(logging.ERROR)
 
 
 __version__ = Path(__file__).parent.joinpath("VERSION").read_text().strip()

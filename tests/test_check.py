@@ -7,13 +7,13 @@ from enum import Enum
 from pathlib import Path
 
 import pytest
-from requests_mock import mocker
-
-from opensafely import check
 from opensafely._vendor import requests
 from opensafely._vendor.requests.exceptions import RequestException
 from opensafely._vendor.ruyaml import YAML
 from opensafely._vendor.ruyaml.comments import CommentedMap
+from requests_mock import mocker
+
+from opensafely import check
 
 
 # Because we're using a vendored version of requests we need to monkeypatch the

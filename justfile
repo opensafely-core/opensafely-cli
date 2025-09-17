@@ -11,8 +11,8 @@ export COMPILE := BIN + "/pip-compile --allow-unsafe"
 
 
 # list available commands
-default:
-    @{{ just_executable() }} --list
+_default:
+    @just --list
 
 
 # clean up temporary files
@@ -44,16 +44,14 @@ _compile src dst *args: virtualenv
     {{ COMPILE }} --output-file={{ dst }} {{ src }} {{ args }}
 
 
-# This project currently has no production dependencies, as it vendors them. See DEVELOPERS.md.
-#
-# update requirements.prod.txt if requirements.prod.in has changed
-#requirements-prod *args:
-#    {{ just_executable() }} _compile requirements.prod.in requirements.prod.txt {{ args }}
+# update *vendored* production dependencies. See DEVELOPERS.md.
+requirements-prod *args:
+    just _compile requirements.prod.in requirements.prod.txt {{ args }}
 
 
 # update requirements.dev.txt if requirements.dev.in has changed
 requirements-dev *args: virtualenv
-    {{ just_executable() }} _compile requirements.dev.in requirements.dev.txt {{ args }}
+    just _compile requirements.dev.in requirements.dev.txt {{ args }}
 
 
 # ensure prod requirements installed and up to date
@@ -104,6 +102,10 @@ upgrade env package="": virtualenv
 test *args: devenv
     $BIN/coverage run --module pytest {{ args }}
     $BIN/coverage report || $BIN/coverage html
+
+# run tests that don't need docker, without coverage.
+test-no-docker *args: devenv
+    $BIN/python -m pytest -m "not needs_docker" {{ args }}
 
 
 black *args=".": devenv

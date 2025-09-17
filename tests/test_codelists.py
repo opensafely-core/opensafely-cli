@@ -5,10 +5,10 @@ from pathlib import Path
 from urllib.parse import parse_qs
 
 import pytest
+from opensafely._vendor import requests
 from requests_mock import mocker
 
 from opensafely import codelists
-from opensafely._vendor import requests
 
 
 # Because we're using a vendored version of requests we need to monkeypatch the
