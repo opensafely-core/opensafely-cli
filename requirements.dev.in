@@ -10,6 +10,7 @@ wheel
 pre-commit
 coverage
 ruff
+opentelemetry-exporter-otlp-proto-http
 
 
 #
