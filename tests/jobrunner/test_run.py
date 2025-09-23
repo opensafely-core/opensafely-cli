@@ -1,11 +1,11 @@
 import time
 
 import pytest
-from opensafely._vendor.opentelemetry import trace
 
 from opensafely.jobrunner import config, run
 from opensafely.jobrunner.job_executor import ExecutorState, JobStatus, Privacy
 from opensafely.jobrunner.models import State, StatusCode
+from opensafely.jobrunner.tracing import trace
 from tests.jobrunner.factories import StubExecutorAPI, get_trace, job_factory
 from tests.jobrunner.fakes import RecordingExecutor
 

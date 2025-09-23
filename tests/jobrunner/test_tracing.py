@@ -1,11 +1,11 @@
 import os
 import time
 
-from opensafely._vendor.opentelemetry import trace
-from opensafely._vendor.opentelemetry.exporter.otlp.proto.http import trace_exporter
-from opensafely._vendor.opentelemetry.sdk.trace.export import ConsoleSpanExporter
+from opentelemetry.exporter.otlp.proto.http import trace_exporter
+from opentelemetry.sdk.trace.export import ConsoleSpanExporter
 
 from opensafely.jobrunner import config, models, tracing
+from opensafely.jobrunner.tracing import trace
 from tests.jobrunner.factories import (
     get_trace,
     job_factory,

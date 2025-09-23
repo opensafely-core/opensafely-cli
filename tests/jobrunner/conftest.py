@@ -8,7 +8,7 @@ from pathlib import Path
 from unittest import mock
 
 import pytest
-from opensafely._vendor.opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 
 import opensafely.jobrunner
 from opensafely.jobrunner import config, tracing

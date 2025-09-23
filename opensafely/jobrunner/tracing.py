@@ -2,20 +2,28 @@ import logging
 import os
 from datetime import datetime
 
-from opensafely._vendor.opentelemetry import trace
-from opensafely._vendor.opentelemetry.exporter.otlp.proto.http.trace_exporter import (
-    OTLPSpanExporter,
-)
-from opensafely._vendor.opentelemetry.sdk.resources import Resource
-from opensafely._vendor.opentelemetry.sdk.trace import TracerProvider
-from opensafely._vendor.opentelemetry.sdk.trace.export import (
-    BatchSpanProcessor,
-    ConsoleSpanExporter,
-)
-from opensafely._vendor.opentelemetry.trace import propagation
-from opensafely._vendor.opentelemetry.trace.propagation.tracecontext import (
-    TraceContextTextMapPropagator,
-)
+
+# we attempt to import the full otel machinery, which is present in dev, and if
+# you install the opensafely[tracing] extra
+try:
+    from opentelemetry import trace
+    from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
+        OTLPSpanExporter,
+    )
+    from opentelemetry.sdk.resources import Resource
+    from opentelemetry.sdk.trace import TracerProvider, export
+    from opentelemetry.trace import propagation
+    from opentelemetry.trace.propagation.tracecontext import (
+        TraceContextTextMapPropagator,
+    )
+
+    TRACING_AVAILABLE = True
+except ImportError:
+    # if we cannot import it, we fallback to the vendored opentelemtry-api,
+    # which provides a no-op tracing api.
+    from opensafely._vendor.opentelemetry import trace
+
+    TRACING_AVAILABLE = False
 
 from opensafely.jobrunner import config, models
 from opensafely.jobrunner.lib import database, warn_assertions
@@ -25,6 +33,8 @@ logger = logging.getLogger(__name__)
 
 
 def get_provider():
+    assert TRACING_AVAILABLE, "tracing packages not installed"
+
     # https://github.com/open-telemetry/semantic-conventions/tree/main/docs/resource#service
     resource = Resource.create(
         attributes={
@@ -36,7 +46,7 @@ def get_provider():
     return TracerProvider(resource=resource)
 
 
-def add_exporter(provider, exporter, processor=BatchSpanProcessor):
+def add_exporter(provider, exporter, processor=None):
     """Utility method to add an exporter.
 
     We use the BatchSpanProcessor by default, which is the default for
@@ -45,6 +55,9 @@ def add_exporter(provider, exporter, processor=BatchSpanProcessor):
     In testing, we insteads use SimpleSpanProcessor, which is synchronous and
     easy to inspect the output of within a test.
     """
+    assert TRACING_AVAILABLE, "tracing packages not installed"
+    if processor is None:
+        processor = export.BatchSpanProcessor
     # Note: BatchSpanProcessor is configured via env vars:
     # https://opentelemetry-python.readthedocs.io/en/latest/sdk/trace.export.html#opentelemetry.sdk.trace.export.BatchSpanProcessor
     provider.add_span_processor(processor(exporter))
@@ -52,6 +65,9 @@ def add_exporter(provider, exporter, processor=BatchSpanProcessor):
 
 def setup_default_tracing(set_global=True):
     """Inspect environment variables and set up exporters accordingly."""
+
+    if not TRACING_AVAILABLE:
+        return
 
     provider = get_provider()
 
@@ -68,7 +84,7 @@ def setup_default_tracing(set_global=True):
         add_exporter(provider, OTLPSpanExporter())
 
     if "OTEL_EXPORTER_CONSOLE" in os.environ:
-        add_exporter(provider, ConsoleSpanExporter())
+        add_exporter(provider, export.ConsoleSpanExporter())
 
     if set_global:
         trace.set_tracer_provider(provider)
