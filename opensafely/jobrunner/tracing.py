@@ -38,8 +38,7 @@ def get_provider():
     # https://github.com/open-telemetry/semantic-conventions/tree/main/docs/resource#service
     resource = Resource.create(
         attributes={
-            "service.name": os.environ.get("OTEL_SERVICE_NAME", "jobrunner"),
-            "service.namespace": os.environ.get("BACKEND", "unknown"),
+            "service.name": os.environ.get("OTEL_SERVICE_NAME", "opensafely-run"),
             "service.version": config.VERSION,
         }
     )

@@ -35,7 +35,7 @@ def test_setup_default_tracing_otlp_defaults(monkeypatch):
     monkeypatch.setattr(os, "environ", env)
     monkeypatch.setattr(trace_exporter, "environ", env)
     provider = tracing.setup_default_tracing(set_global=False)
-    assert provider.resource.attributes["service.name"] == "jobrunner"
+    assert provider.resource.attributes["service.name"] == "opensafely-run"
 
     exporter = provider._active_span_processor._span_processors[0].span_exporter
     assert isinstance(exporter, trace_exporter.OTLPSpanExporter)
@@ -167,10 +167,7 @@ def test_tracing_resource_config():
         pass
 
     span = get_trace("test")[0]
-    assert span.resource.attributes["service.name"] == "jobrunner"
-    assert span.resource.attributes["service.namespace"] == os.environ.get(
-        "BACKEND", "unknown"
-    )
+    assert span.resource.attributes["service.name"] == "opensafely-run"
     assert span.resource.attributes["service.version"] == config.VERSION
 
 
