@@ -7,7 +7,6 @@ from pathlib import Path, PurePath
 import pytest
 
 import opensafely
-from opensafely.jobrunner.cli.local_run import docker_preflight_check
 
 
 BIN_DIR = "bin" if os.name != "nt" else "Scripts"
@@ -95,14 +94,14 @@ def test_installing_with_uv(tmp_path, older_version_file, project_dir):
     # Basic smoketest
     subprocess_run([bin_path / "opensafely", "--debug", "--version"], check=True)
 
-    if docker_preflight_check():
+    if sys.platform == "linux":
         # run an actual job to test the install
         subprocess_run(
             [bin_path / "opensafely", "--debug", "run", "python"],
             check=True,
             cwd=project_dir,
         )
-    else:  # no docker, e.g. windows/mac CI
+    else:  # e.g. windows/mac CI
         # Basic smoketest that doesn't need docker
         subprocess_run([bin_path / "opensafely", "run", "--help"], check=True)
 
@@ -136,7 +135,7 @@ def test_installing_otel_with_uv(tmp_path, older_version_file, project_dir):
     # check we are installed
     subprocess_run([bin_path / "opensafely", "--version"], check=True)
 
-    if docker_preflight_check():
+    if sys.platform == "linux":
         # run an actual job to test the install
         env = os.environ.copy()
         env["OTEL_EXPORTER_CONSOLE"] = "true"
@@ -150,7 +149,7 @@ def test_installing_otel_with_uv(tmp_path, older_version_file, project_dir):
         )
         # we should be seeing otel traces
         assert '"trace_id":' in ps.stdout
-    else:  # no docker, e.g. windows/mac CI
+    else:  # e.g. windows/mac CI
         # Basic smoketest that doesn't need docker
         subprocess_run([bin_path / "opensafely", "run", "--help"], check=True)
 
