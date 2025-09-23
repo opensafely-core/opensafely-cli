@@ -60,7 +60,7 @@ from ..util.timeout import Timeout
 from . import _appengine_environ
 
 try:
-    from opensafely._vendor.google.appengine.api import urlfetch
+    from google.appengine.api import urlfetch
 except ImportError:
     urlfetch = None
 
