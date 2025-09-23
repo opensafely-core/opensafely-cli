@@ -7,6 +7,7 @@ from pathlib import Path, PurePath
 import pytest
 
 import opensafely
+from opensafely.jobrunner.cli.local_run import docker_preflight_check
 
 
 BIN_DIR = "bin" if os.name != "nt" else "Scripts"
@@ -29,8 +30,15 @@ def older_version_file():
         version_file_path.write_bytes(orig_contents)
 
 
+@pytest.fixture
+def project_dir(tmp_path):
+    project_dir = tmp_path / "project"
+    shutil.copytree(project_fixture_path, project_dir)
+    return project_dir
+
+
 @pytest.mark.parametrize("package_type", ["sdist", "bdist_wheel"])
-def test_packaging(package_type, tmp_path, older_version_file):
+def test_packaging(package_type, tmp_path, older_version_file, project_dir):
     package_path = build_package(package_type)
     # Install it in a temporary virtualenv
     subprocess_run([sys.executable, "-m", "venv", tmp_path], check=True)
@@ -51,7 +59,7 @@ def test_packaging(package_type, tmp_path, older_version_file):
         subprocess_run(
             [tmp_path / BIN_DIR / "opensafely", "run", "python"],
             check=True,
-            cwd=str(project_fixture_path),
+            cwd=project_dir,
         )
 
     # This always triggers an upgrade because the development version is always
@@ -66,7 +74,7 @@ def test_packaging(package_type, tmp_path, older_version_file):
     assert "Successfully installed opensafely" in result.stdout
 
 
-def test_installing_with_uv(tmp_path, older_version_file):
+def test_installing_with_uv(tmp_path, older_version_file, project_dir):
     uv_bin = shutil.which("uv")
     if uv_bin is None:
         pytest.skip("Skipping as `uv` not installed")
@@ -85,14 +93,66 @@ def test_installing_with_uv(tmp_path, older_version_file):
         check=True,
     )
     # Basic smoketest
-    subprocess_run([bin_path / "opensafely", "run", "--help"], check=True)
-    subprocess_run([bin_path / "opensafely", "--version"], check=True)
+    subprocess_run([bin_path / "opensafely", "--debug", "--version"], check=True)
+
+    if docker_preflight_check():
+        # run an actual job to test the install
+        subprocess_run(
+            [bin_path / "opensafely", "--debug", "run", "python"],
+            check=True,
+            cwd=project_dir,
+        )
+    else:  # no docker, e.g. windows/mac CI
+        # Basic smoketest that doesn't need docker
+        subprocess_run([bin_path / "opensafely", "run", "--help"], check=True)
+
     # The `upgrade` command should prompt the user to use `uv upgrade` instead
     result = subprocess_run(
         [bin_path / "opensafely", "upgrade"], capture_output=True, text=True
     )
     assert result.returncode != 0
     assert "uv tool upgrade opensafely" in result.stdout
+
+
+def test_installing_otel_with_uv(tmp_path, older_version_file, project_dir):
+    uv_bin = shutil.which("uv")
+    if uv_bin is None:
+        pytest.skip("Skipping as `uv` not installed")
+
+    package_path = build_package("bdist_wheel")
+    install_target = str(package_path) + "[tracing]"
+    bin_path = tmp_path / "bin"
+    uv_env = dict(
+        os.environ,
+        UV_TOOL_BIN_DIR=bin_path,
+        UV_TOOL_DIR=tmp_path / "tools",
+    )
+    python_version = f"python{sys.version_info[0]}.{sys.version_info[1]}"
+    subprocess_run(
+        [uv_bin, "tool", "install", "--python", python_version, install_target],
+        env=uv_env,
+        check=True,
+    )
+    # check we are installed
+    subprocess_run([bin_path / "opensafely", "--version"], check=True)
+
+    if docker_preflight_check():
+        # run an actual job to test the install
+        env = os.environ.copy()
+        env["OTEL_EXPORTER_CONSOLE"] = "true"
+        ps = subprocess_run(
+            [bin_path / "opensafely", "run", "python"],
+            check=True,
+            text=True,
+            capture_output=True,
+            cwd=project_dir,
+            env=env,
+        )
+        # we should be seeing otel traces
+        assert '"trace_id":' in ps.stdout
+    else:  # no docker, e.g. windows/mac CI
+        # Basic smoketest that doesn't need docker
+        subprocess_run([bin_path / "opensafely", "run", "--help"], check=True)
 
 
 def build_package(package_type):
@@ -127,6 +187,7 @@ def subprocess_run(cmd_args, **kwargs):
         kwargs["cwd"] = to_str(kwargs["cwd"])
     if "env" in kwargs:
         kwargs["env"] = {key: to_str(value) for (key, value) in kwargs["env"].items()}
+    print(f"Executing: {' '.join(cmd_args)}")
     return subprocess.run(cmd_args, **kwargs)
 
 

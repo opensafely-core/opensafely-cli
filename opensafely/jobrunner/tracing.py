@@ -101,6 +101,9 @@ def initialise_trace(job):
     We create a root span, which is a requirement in OTel. For this reason we
     send it out straight away, which means its duration is very short.
     """
+    if not TRACING_AVAILABLE:
+        return
+
     assert not job.trace_context, "this job already has a trace-context"
     assert job.status_code is not None, "job has no initial StatusCode"
     assert (
@@ -115,11 +118,11 @@ def initialise_trace(job):
     # the job has completed; see complete_job() for details.
     root = tracer.start_span("JOB", context={})
 
-    # TraceContextTextMapPropagator only works with the current span, so set it as such.
-    with trace.use_span(root, end_on_exit=False):
-        # we serialise the entire trace context, as it may grow extra fields
-        # (e.g.  baggage) over time
-        TraceContextTextMapPropagator().inject(job.trace_context)
+    span_context = propagation.set_span_in_context(root)
+    propagator = TraceContextTextMapPropagator()
+    # we serialise the entire trace context, as it may grow extra fields
+    # (e.g.  baggage) over time
+    propagator.inject(job.trace_context, context=span_context)
 
 
 def _traceable(job):
