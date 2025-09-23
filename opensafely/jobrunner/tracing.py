@@ -280,7 +280,7 @@ def set_span_metadata(span, job, error=None, results=None, **attrs):
         if not isinstance(v, OTEL_ATTR_TYPES):
             # log to help us notice this
             logger.info(
-                f"Trace span {span.name} attribute {k} was set invalid type: {v}, type {type(v)}"
+                f"Trace span {getattr(span, 'name', 'unknown')} attribute {k} was set invalid type: {v}, type {type(v)}"
             )
             # coerce to string so we preserve some information
             v = str(v)
