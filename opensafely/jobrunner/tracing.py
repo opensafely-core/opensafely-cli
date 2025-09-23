@@ -17,9 +17,8 @@ from opensafely._vendor.opentelemetry.trace.propagation.tracecontext import (
     TraceContextTextMapPropagator,
 )
 
-from opensafely.jobrunner import config
+from opensafely.jobrunner import config, models
 from opensafely.jobrunner.lib import database, warn_assertions
-from opensafely.jobrunner.models import Job, SavedJobRequest, State, StatusCode
 
 
 logger = logging.getLogger(__name__)
@@ -289,7 +288,7 @@ def trace_attributes(job, results=None):
     if job._job_request is None:
         try:
             job._job_request = database.find_one(
-                SavedJobRequest, id=job.job_request_id
+                models.SavedJobRequest, id=job.job_request_id
             ).original
         except ValueError:
             job._job_request = {}
@@ -337,44 +336,3 @@ def trace_attributes(job, results=None):
         attrs["base_created"] = results.base_created
 
     return attrs
-
-
-if __name__ == "__main__":
-    # local testing utility for tracing
-    import time
-
-    from opensafely.jobrunner.run import set_code
-
-    setup_default_tracing()
-
-    timestamp = int(time.time())
-    job = Job(
-        id="job_id",
-        state=State.PENDING,
-        status_code=StatusCode.CREATED,
-        status_code_updated_at=int(timestamp * 1e9),
-        job_request_id="request_id",
-        workspace="workspace",
-        action="action name",
-        run_command="cohortextractor:latest cmd opt",
-        commit="commit",
-        created_at=timestamp,
-    )
-    initialise_trace(job)
-
-    states = [
-        StatusCode.WAITING_ON_DEPENDENCIES,
-        StatusCode.PREPARING,
-        StatusCode.PREPARED,
-        StatusCode.EXECUTING,
-        StatusCode.EXECUTED,
-        StatusCode.FINALIZING,
-        StatusCode.FINALIZED,
-    ]
-
-    for state in states:
-        time.sleep(1.1)
-        set_code(job, state, "test")
-
-    time.sleep(1.1)
-    set_code(job, StatusCode.SUCCEEDED, "success")
