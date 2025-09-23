@@ -7,7 +7,7 @@ export VIRTUAL_ENV  := `echo ${VIRTUAL_ENV:-.venv}`
 export BIN := VIRTUAL_ENV + if os_family() == "unix" { "/bin" } else { "/Scripts" }
 export PIP := BIN + if os_family() == "unix" { "/python -m pip" } else { "/python.exe -m pip" }
 # enforce our chosen pip compile flags
-export COMPILE := BIN + "/pip-compile --allow-unsafe"
+export COMPILE := BIN + "/pip-compile"
 
 
 # list available commands
@@ -46,12 +46,12 @@ _compile src dst *args: virtualenv
 
 # update *vendored* production dependencies. See DEVELOPERS.md.
 requirements-prod *args:
-    just _compile requirements.prod.in requirements.prod.txt {{ args }}
+    just _compile requirements.prod.in requirements.prod.txt --no-allow-unsafe {{ args }}
 
 
 # update requirements.dev.txt if requirements.dev.in has changed
 requirements-dev *args: virtualenv
-    just _compile requirements.dev.in requirements.dev.txt {{ args }}
+    just _compile requirements.dev.in requirements.dev.txt --allow-unsafe {{ args }}
 
 
 # ensure prod requirements installed and up to date

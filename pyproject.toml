@@ -32,8 +32,6 @@ substitute = [
   { match='wrapt._wrappers', replace='opensafely._vendor.wrapt._wrappers'},
   { match='pydantic.color', replace='opensafely._vendor.pydantic.color'},
   { match='pydantic.types', replace='opensafely._vendor.pydantic.types'},
-  { match='opentelemetry.sdk.metrics', replace='opensafely._vendor.opentelemetry.sdk.metrics'},
-  { match='opentelemetry.sdk.resources', replace='opensafely._vendor.opentelemetry.sdk.resources'},
   { match='urllib3.contrib.securetransport', replace='opensafely._vendor.urllib3.contrib.securetransport'},
   { match='urllib3.contrib.pyopenssl', replace='opensafely._vendor.urllib3.contrib.pyopenssl'},
 ]
