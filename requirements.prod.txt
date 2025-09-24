@@ -4,15 +4,15 @@
 #
 #    pip-compile --output-file=requirements.prod.txt requirements.prod.in
 #
-certifi==2020.11.8
+certifi==2025.8.3
     # via requests
 charset-normalizer==3.4.3
     # via requests
-deprecated==1.2.13
+deprecated==1.2.18
     # via opentelemetry-api
-distro==1.8.0
+distro==1.9.0
     # via ruyaml
-idna==2.10
+idna==3.10
     # via requests
 importlib-metadata==8.5.0
     # via opentelemetry-api
@@ -28,7 +28,7 @@ ruyaml==0.91.0
     #   opensafely-pipeline
 urllib3==1.26.5
     # via requests
-wrapt==1.14.1
+wrapt==1.17.3
     # via deprecated
 zipp==3.20.2
     # via importlib-metadata
