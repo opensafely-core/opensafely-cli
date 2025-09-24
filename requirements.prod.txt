@@ -26,8 +26,10 @@ ruyaml==0.91.0
     # via
     #   -r requirements.prod.in
     #   opensafely-pipeline
-urllib3==1.26.5
-    # via requests
+urllib3==2.1.0
+    # via
+    #   -r requirements.prod.in
+    #   requests
 wrapt==1.17.3
     # via deprecated
 zipp==3.20.2

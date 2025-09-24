@@ -2,3 +2,4 @@ opensafely-pipeline@https://github.com/opensafely-core/pipeline/archive/refs/tag
 ruyaml
 requests
 opentelemetry-api==1.33.1
+urllib3<2.2

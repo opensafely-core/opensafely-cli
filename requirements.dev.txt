@@ -174,7 +174,7 @@ typing-extensions==4.8.0
     #   black
     #   opentelemetry-sdk
     #   rich
-urllib3==1.26.5
+urllib3==2.1.0
     # via
     #   -c requirements.prod.txt
     #   requests
