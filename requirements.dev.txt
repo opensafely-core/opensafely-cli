@@ -141,6 +141,8 @@ six==1.16.0
     # via
     #   python-dateutil
     #   requests-mock
+toml==0.10.2
+    # via vendoring
 tomli==2.0.1
     # via
     #   black
@@ -149,7 +151,6 @@ tomli==2.0.1
     #   pip-tools
     #   pyproject-hooks
     #   pytest
-    #   vendoring
 typing-extensions==4.8.0
     # via
     #   black
@@ -157,7 +158,7 @@ typing-extensions==4.8.0
     #   rich
 urllib3==2.2.2
     # via requests
-vendoring @ https://github.com/opensafely-core/vendoring/archive/add-preserve-metadata-option.zip
+vendoring==1.2.0
     # via -r requirements.dev.in
 virtualenv==20.24.6
     # via pre-commit
