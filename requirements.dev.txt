@@ -77,19 +77,22 @@ mypy-extensions==1.0.0
     # via black
 nodeenv==1.8.0
     # via pre-commit
-opentelemetry-api==1.12.0
+opentelemetry-api==1.33.1
     # via
     #   -c requirements.prod.txt
     #   -r requirements.dev.in
     #   opentelemetry-exporter-otlp-proto-http
     #   opentelemetry-sdk
-opentelemetry-exporter-otlp-proto-http==1.12.0
+    #   opentelemetry-semantic-conventions
+opentelemetry-exporter-otlp-proto-http==1.15.0
     # via -r requirements.dev.in
-opentelemetry-proto==1.12.0
+opentelemetry-proto==1.15.0
     # via opentelemetry-exporter-otlp-proto-http
-opentelemetry-sdk==1.12.0
-    # via opentelemetry-exporter-otlp-proto-http
-opentelemetry-semantic-conventions==0.33b0
+opentelemetry-sdk==1.33.1
+    # via
+    #   -r requirements.dev.in
+    #   opentelemetry-exporter-otlp-proto-http
+opentelemetry-semantic-conventions==0.54b1
     # via opentelemetry-sdk
 packaging==23.2
     # via
@@ -199,6 +202,4 @@ pip==23.3.1
 setuptools==70.0.0
     # via
     #   nodeenv
-    #   opentelemetry-api
-    #   opentelemetry-sdk
     #   pip-tools

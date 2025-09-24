@@ -17,17 +17,20 @@ setup(
     author="OpenSAFELY",
     author_email="tech@opensafely.org",
     python_requires=">=3.8",
-    install_requires=[
-        "setuptools",
-    ],
     extras_require={
         "tracing": [
-            "opentelemetry-api==1.12.0",
-            "opentelemetry-sdk==1.12.0",
-            "opentelemetry-exporter-otlp-proto-http==1.12.0",
+            "opentelemetry-api==1.33.1",
+            "opentelemetry-sdk==1.33.1",
+            "opentelemetry-exporter-otlp-proto-http==1.15.0",
         ],
     },
-    entry_points={"console_scripts": ["opensafely=opensafely:main"]},
+    entry_points={
+        "console_scripts": ["opensafely=opensafely:main"],
+        # this is needed or else opensafely._vendor.opentelemtry will fail to load properly due to a bug
+        "opentelemetry_context": [
+            "contextvars_context = opensafely._vendor.opentelemetry.context.contextvars_context:ContextVarsRuntimeContext",
+        ],
+    },
     classifiers=["License :: OSI Approved :: GNU General Public License v3 (GPLv3)"],
     project_urls={
         "Homepage": "https://opensafely.org",
