@@ -36,9 +36,9 @@ def project_dir(tmp_path):
     return project_dir
 
 
-@pytest.mark.parametrize("package_type", ["sdist", "bdist_wheel"])
+@pytest.mark.parametrize("package_type", ["sdist", "wheel"])
 def test_packaging(package_type, tmp_path, older_version_file, project_dir):
-    package_path = build_package(package_type)
+    package_path = build_package(package_type, tmp_path)
     # Install it in a temporary virtualenv
     subprocess_run([sys.executable, "-m", "venv", tmp_path], check=True)
     # sdist requires wheel to build
@@ -78,7 +78,7 @@ def test_installing_with_uv(tmp_path, older_version_file, project_dir):
     if uv_bin is None:
         pytest.skip("Skipping as `uv` not installed")
 
-    package_path = build_package("bdist_wheel")
+    package_path = build_package("wheel", tmp_path)
     bin_path = tmp_path / "bin"
     uv_env = dict(
         os.environ,
@@ -118,7 +118,7 @@ def test_installing_otel_with_uv(tmp_path, older_version_file, project_dir):
     if uv_bin is None:
         pytest.skip("Skipping as `uv` not installed")
 
-    package_path = build_package("bdist_wheel")
+    package_path = build_package("wheel", tmp_path)
     install_target = str(package_path) + "[tracing]"
     bin_path = tmp_path / "bin"
     uv_env = dict(
@@ -154,20 +154,16 @@ def test_installing_otel_with_uv(tmp_path, older_version_file, project_dir):
         subprocess_run([bin_path / "opensafely", "run", "--help"], check=True)
 
 
-def build_package(package_type):
-    extension = {"sdist": "tar.gz", "bdist_wheel": "whl"}[package_type]
+def build_package(package_type, tmp_path):
+    extension = {"sdist": "tar.gz", "wheel": "whl"}[package_type]
     project_root = Path(__file__).parent.parent
-    # This is pretty yucky. Ideally we'd stick all the build artefacts in a
-    # temporary directory but I can't seem to persuade setuptools to do this
-    shutil.rmtree(project_root / "dist", ignore_errors=True)
-    shutil.rmtree(project_root / "build", ignore_errors=True)
     # Build the package
     subprocess_run(
-        [sys.executable, "setup.py", package_type],
+        [sys.executable, "-m", "build", f"--{package_type}", "--outdir", tmp_path],
         check=True,
         cwd=project_root,
     )
-    package_path = list(project_root.glob(f"dist/*.{extension}"))[0]
+    package_path = list(tmp_path.glob(f"*.{extension}"))[0]
     return package_path
 
 

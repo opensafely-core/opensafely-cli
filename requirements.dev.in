@@ -9,7 +9,6 @@ vendoring
 black
 pytest
 requests-mock
-wheel
 pre-commit
 coverage
 ruff
