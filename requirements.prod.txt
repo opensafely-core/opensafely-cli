@@ -6,7 +6,7 @@
 #
 certifi==2020.11.8
     # via requests
-chardet==3.0.4
+charset-normalizer==3.4.3
     # via requests
 deprecated==1.2.13
     # via opentelemetry-api
@@ -20,7 +20,7 @@ opensafely-pipeline @ https://github.com/opensafely-core/pipeline/archive/refs/t
     # via -r requirements.prod.in
 opentelemetry-api==1.33.1
     # via -r requirements.prod.in
-requests==2.25.0
+requests==2.32.4
     # via -r requirements.prod.in
 ruyaml==0.91.0
     # via
