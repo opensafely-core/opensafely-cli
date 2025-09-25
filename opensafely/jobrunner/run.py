@@ -12,8 +12,6 @@ import sys
 import time
 from typing import Optional
 
-from opensafely._vendor.opentelemetry import trace
-
 from opensafely.jobrunner import config, tracing
 from opensafely.jobrunner.executors import get_executor_api
 from opensafely.jobrunner.job_executor import (
@@ -29,6 +27,7 @@ from opensafely.jobrunner.lib.database import find_where, select_values, update
 from opensafely.jobrunner.lib.log_utils import configure_logging, set_log_context
 from opensafely.jobrunner.models import Job, State, StatusCode
 from opensafely.jobrunner.queries import calculate_workspace_state, get_flag_value
+from opensafely.jobrunner.tracing import trace
 
 
 log = logging.getLogger(__name__)

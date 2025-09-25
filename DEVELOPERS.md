@@ -31,6 +31,21 @@ The `opensafely.jobrunner` package (and associated tests at tests/jobrunner)
 are currently maintained by the RAP team, rather than REX. Some things, like
 dependencies, affect the whole system, so may need some cross team reviews.
 
+### Tracing
+
+The opensafely run code is instrumented with opentelemetry, using the vendored
+opentelemety-api package. By default, this does nothing, but its fairly easy to
+enable it if needed for development or debugging.
+
+1. Install the extra dependencies:
+ - if in a devenv, they should already be installed
+ - if opensafely was installed via pip, then `install opensafely[tracing]`
+ - if opensafely was installed via uv, then `uv tool install opensafely[tracing]`
+2. Create an ingest key from the Development Environment in Honeycomb: https://ui.honeycomb.io/bennett-institute-for-applied-data-science/environments/development/api_keys
+3. set `export OTEL_EXPORTER_OTLP_HEADERS="x-honeycomb-team=<your-api-key>"
+4. Use `opensafely run` as normal.
+5. The traces should appear in the `opensafely-run` dataset in the Development environment in Honeycomb.
+
 
 ## Tests
 

@@ -20,6 +20,13 @@ setup(
     install_requires=[
         "setuptools",
     ],
+    extras_require={
+        "tracing": [
+            "opentelemetry-api==1.12.0",
+            "opentelemetry-sdk==1.12.0",
+            "opentelemetry-exporter-otlp-proto-http==1.12.0",
+        ],
+    },
     entry_points={"console_scripts": ["opensafely=opensafely:main"]},
     classifiers=["License :: OSI Approved :: GNU General Public License v3 (GPLv3)"],
     project_urls={

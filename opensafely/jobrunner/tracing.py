@@ -2,42 +2,50 @@ import logging
 import os
 from datetime import datetime
 
-from opensafely._vendor.opentelemetry import trace
-from opensafely._vendor.opentelemetry.exporter.otlp.proto.http.trace_exporter import (
-    OTLPSpanExporter,
-)
-from opensafely._vendor.opentelemetry.sdk.resources import Resource
-from opensafely._vendor.opentelemetry.sdk.trace import TracerProvider
-from opensafely._vendor.opentelemetry.sdk.trace.export import (
-    BatchSpanProcessor,
-    ConsoleSpanExporter,
-)
-from opensafely._vendor.opentelemetry.trace import propagation
-from opensafely._vendor.opentelemetry.trace.propagation.tracecontext import (
-    TraceContextTextMapPropagator,
-)
 
-from opensafely.jobrunner import config
+# we attempt to import the full otel machinery, which is present in dev, and if
+# you install the opensafely[tracing] extra
+try:
+    from opentelemetry import trace
+    from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
+        OTLPSpanExporter,
+    )
+    from opentelemetry.sdk.resources import Resource
+    from opentelemetry.sdk.trace import TracerProvider, export
+    from opentelemetry.trace import propagation
+    from opentelemetry.trace.propagation.tracecontext import (
+        TraceContextTextMapPropagator,
+    )
+
+    TRACING_AVAILABLE = True
+except ImportError:
+    # if we cannot import it, we fallback to the vendored opentelemtry-api,
+    # which provides a no-op tracing api.
+    from opensafely._vendor.opentelemetry import trace
+
+    TRACING_AVAILABLE = False
+
+from opensafely.jobrunner import config, models
 from opensafely.jobrunner.lib import database, warn_assertions
-from opensafely.jobrunner.models import Job, SavedJobRequest, State, StatusCode
 
 
 logger = logging.getLogger(__name__)
 
 
 def get_provider():
+    assert TRACING_AVAILABLE, "tracing packages not installed"
+
     # https://github.com/open-telemetry/semantic-conventions/tree/main/docs/resource#service
     resource = Resource.create(
         attributes={
-            "service.name": os.environ.get("OTEL_SERVICE_NAME", "jobrunner"),
-            "service.namespace": os.environ.get("BACKEND", "unknown"),
+            "service.name": os.environ.get("OTEL_SERVICE_NAME", "opensafely-run"),
             "service.version": config.VERSION,
         }
     )
     return TracerProvider(resource=resource)
 
 
-def add_exporter(provider, exporter, processor=BatchSpanProcessor):
+def add_exporter(provider, exporter, processor=None):
     """Utility method to add an exporter.
 
     We use the BatchSpanProcessor by default, which is the default for
@@ -46,6 +54,9 @@ def add_exporter(provider, exporter, processor=BatchSpanProcessor):
     In testing, we insteads use SimpleSpanProcessor, which is synchronous and
     easy to inspect the output of within a test.
     """
+    assert TRACING_AVAILABLE, "tracing packages not installed"
+    if processor is None:
+        processor = export.BatchSpanProcessor
     # Note: BatchSpanProcessor is configured via env vars:
     # https://opentelemetry-python.readthedocs.io/en/latest/sdk/trace.export.html#opentelemetry.sdk.trace.export.BatchSpanProcessor
     provider.add_span_processor(processor(exporter))
@@ -53,6 +64,9 @@ def add_exporter(provider, exporter, processor=BatchSpanProcessor):
 
 def setup_default_tracing(set_global=True):
     """Inspect environment variables and set up exporters accordingly."""
+
+    if not TRACING_AVAILABLE:
+        return
 
     provider = get_provider()
 
@@ -69,7 +83,7 @@ def setup_default_tracing(set_global=True):
         add_exporter(provider, OTLPSpanExporter())
 
     if "OTEL_EXPORTER_CONSOLE" in os.environ:
-        add_exporter(provider, ConsoleSpanExporter())
+        add_exporter(provider, export.ConsoleSpanExporter())
 
     if set_global:
         trace.set_tracer_provider(provider)
@@ -87,6 +101,9 @@ def initialise_trace(job):
     We create a root span, which is a requirement in OTel. For this reason we
     send it out straight away, which means its duration is very short.
     """
+    if not TRACING_AVAILABLE:
+        return
+
     assert not job.trace_context, "this job already has a trace-context"
     assert job.status_code is not None, "job has no initial StatusCode"
     assert (
@@ -101,11 +118,11 @@ def initialise_trace(job):
     # the job has completed; see complete_job() for details.
     root = tracer.start_span("JOB", context={})
 
-    # TraceContextTextMapPropagator only works with the current span, so set it as such.
-    with trace.use_span(root, end_on_exit=False):
-        # we serialise the entire trace context, as it may grow extra fields
-        # (e.g.  baggage) over time
-        TraceContextTextMapPropagator().inject(job.trace_context)
+    span_context = propagation.set_span_in_context(root)
+    propagator = TraceContextTextMapPropagator()
+    # we serialise the entire trace context, as it may grow extra fields
+    # (e.g.  baggage) over time
+    propagator.inject(job.trace_context, context=span_context)
 
 
 def _traceable(job):
@@ -266,7 +283,7 @@ def set_span_metadata(span, job, error=None, results=None, **attrs):
         if not isinstance(v, OTEL_ATTR_TYPES):
             # log to help us notice this
             logger.info(
-                f"Trace span {span.name} attribute {k} was set invalid type: {v}, type {type(v)}"
+                f"Trace span {getattr(span, 'name', 'unknown')} attribute {k} was set invalid type: {v}, type {type(v)}"
             )
             # coerce to string so we preserve some information
             v = str(v)
@@ -289,7 +306,7 @@ def trace_attributes(job, results=None):
     if job._job_request is None:
         try:
             job._job_request = database.find_one(
-                SavedJobRequest, id=job.job_request_id
+                models.SavedJobRequest, id=job.job_request_id
             ).original
         except ValueError:
             job._job_request = {}
@@ -337,44 +354,3 @@ def trace_attributes(job, results=None):
         attrs["base_created"] = results.base_created
 
     return attrs
-
-
-if __name__ == "__main__":
-    # local testing utility for tracing
-    import time
-
-    from opensafely.jobrunner.run import set_code
-
-    setup_default_tracing()
-
-    timestamp = int(time.time())
-    job = Job(
-        id="job_id",
-        state=State.PENDING,
-        status_code=StatusCode.CREATED,
-        status_code_updated_at=int(timestamp * 1e9),
-        job_request_id="request_id",
-        workspace="workspace",
-        action="action name",
-        run_command="cohortextractor:latest cmd opt",
-        commit="commit",
-        created_at=timestamp,
-    )
-    initialise_trace(job)
-
-    states = [
-        StatusCode.WAITING_ON_DEPENDENCIES,
-        StatusCode.PREPARING,
-        StatusCode.PREPARED,
-        StatusCode.EXECUTING,
-        StatusCode.EXECUTED,
-        StatusCode.FINALIZING,
-        StatusCode.FINALIZED,
-    ]
-
-    for state in states:
-        time.sleep(1.1)
-        set_code(job, state, "test")
-
-    time.sleep(1.1)
-    set_code(job, StatusCode.SUCCEEDED, "success")

@@ -12,7 +12,6 @@ patches-dir = "patches"
 # Other config values which have to be defined even though we don't use them
 protected-files = []
 typing-stubs = {}
-preserve_metadata = true
 
 # some packages don't ship their license in the package. ffs google.
 [tool.vendoring.license.fallback-urls]
@@ -30,10 +29,6 @@ substitute = [
   # https://github.com/psf/requests/blob/589c4547338b592b1fb77c65663d8aa6fbb7e38b/requests/packages.py
   { match='from \. import packages', replace='' },
   { match='wrapt._wrappers', replace='opensafely._vendor.wrapt._wrappers'},
-  { match='pydantic.color', replace='opensafely._vendor.pydantic.color'},
-  { match='pydantic.types', replace='opensafely._vendor.pydantic.types'},
-  { match='opentelemetry.sdk.metrics', replace='opensafely._vendor.opentelemetry.sdk.metrics'},
-  { match='opentelemetry.sdk.resources', replace='opensafely._vendor.opentelemetry.sdk.resources'},
   { match='urllib3.contrib.securetransport', replace='opensafely._vendor.urllib3.contrib.securetransport'},
   { match='urllib3.contrib.pyopenssl', replace='opensafely._vendor.urllib3.contrib.pyopenssl'},
 ]
@@ -57,7 +52,7 @@ omit = [
 ]
 
 [tool.coverage.report]
-fail_under = 87
+fail_under = 90
 skip_covered = true
 show_missing = true
 
