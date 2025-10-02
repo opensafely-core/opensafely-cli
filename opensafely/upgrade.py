@@ -1,5 +1,3 @@
-import os
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -40,27 +38,17 @@ def main(version):
         )
         return 1
 
-    # Windows shennanigans: pip triggers a permissions error when it tries to
-    # update the currently executing binary. However if we replace the binary
-    # with a copy of itself (i.e. copy to a temporary file and then move the
-    # copy over the original) it runs quite happily. This is fine.
-    entrypoint_bin = Path(sys.argv[0]).with_suffix(".exe")
-    if os.name == "nt" and entrypoint_bin.exists():
-        tmp_file = entrypoint_bin.with_suffix(".exe._opensafely_.tmp")
-        # copy2 attempts to preserve all file metadata
-        shutil.copy2(entrypoint_bin, tmp_file)
-        # Under some circumstances we can move the copy directly over the
-        # existing file, which is safer because at no point does the file not
-        # exist and cleaner because it doesn't leave an old file lying around
-        try:
-            tmp_file.replace(entrypoint_bin)
-        # Sometimes, however, this doesn't work in which case we have to move
-        # the original file out of the way first
-        except PermissionError:
-            entrypoint_bin.replace(entrypoint_bin.with_suffix(".exe._old_.tmp"))
-            tmp_file.replace(entrypoint_bin)
-
     pkg = "opensafely==" + version
+
+    if sys.platform == "win32":
+        print(f"Upgrading opensafely tool to {version}.")
+        # must use Popen directly, so we don't wait for it to complete.
+        subprocess.Popen(
+            [sys.executable, "-m", "pip", "install", "--upgrade", pkg],
+        )
+        # Due to Window's file locking behaviour, we exit to allow the pip
+        # upgrade to update us
+        sys.exit(0)
 
     try:
         subprocess.run(

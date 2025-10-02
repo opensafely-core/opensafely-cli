@@ -2,11 +2,13 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path, PurePath
 
 import pytest
 
 import opensafely
+from opensafely.upgrade import get_latest_version
 
 
 BIN_DIR = "bin" if os.name != "nt" else "Scripts"
@@ -41,22 +43,31 @@ def test_packaging(package_type, tmp_path, older_version_file, project_dir):
     package_path = build_package(package_type, tmp_path)
     # Install it in a temporary virtualenv
     subprocess_run([sys.executable, "-m", "venv", tmp_path], check=True)
-    # sdist requires wheel to build
-    subprocess_run([tmp_path / BIN_DIR / "pip", "install", "wheel"], check=True)
     subprocess_run([tmp_path / BIN_DIR / "pip", "install", package_path], check=True)
 
     # Smoketest it by running `--help` and `--version`. This is actually a more
     # comprehensive test than you might think as it involves importing
     # everything and because all the complexity in this project is in the
     # vendoring and packaging, issues tend to show up at import time.
-    subprocess_run([tmp_path / BIN_DIR / "opensafely", "run", "--help"], check=True)
-    subprocess_run([tmp_path / BIN_DIR / "opensafely", "--version"], check=True)
+    subprocess_run(
+        [tmp_path / BIN_DIR / "opensafely", "--debug", "run", "--help"], check=True
+    )
+    ps = subprocess_run(
+        [tmp_path / BIN_DIR / "opensafely", "--debug", "--version"],
+        check=True,
+        text=True,
+        capture_output=True,
+    )
+    version_before = ps.stdout.strip()
+    latest = get_latest_version()
+
+    assert version_before == "opensafely 0.1"
 
     # only on linux, as that has docker installed in GH
     if sys.platform == "linux":
         # deeper integration test
         subprocess_run(
-            [tmp_path / BIN_DIR / "opensafely", "run", "python"],
+            [tmp_path / BIN_DIR / "opensafely", "--debug", "run", "python"],
             check=True,
             cwd=project_dir,
         )
@@ -64,11 +75,26 @@ def test_packaging(package_type, tmp_path, older_version_file, project_dir):
     # This always triggers an upgrade because the development version is always
     # considered lower than any other version
     result = subprocess_run(
-        [tmp_path / BIN_DIR / "opensafely", "upgrade"],
+        [tmp_path / BIN_DIR / "opensafely", "--debug", "upgrade"],
         check=True,
         capture_output=True,
         text=True,
     )
+
+    if sys.platform == "win32":
+        # wait a little for backgroun proces to finish pip upgrade. Should
+        # usually only happen CI
+        time.sleep(5)
+
+    ps = subprocess_run(
+        [tmp_path / BIN_DIR / "opensafely", "--debug", "--version"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    version_after = ps.stdout.strip()
+    assert version_after == f"opensafely v{latest}"
+
     assert "Attempting uninstall: opensafely" in result.stdout
     assert "Successfully installed opensafely" in result.stdout
 
@@ -183,7 +209,14 @@ def subprocess_run(cmd_args, **kwargs):
     if "env" in kwargs:
         kwargs["env"] = {key: to_str(value) for (key, value) in kwargs["env"].items()}
     print(f"Executing: {' '.join(cmd_args)}")
-    return subprocess.run(cmd_args, **kwargs)
+    try:
+        return subprocess.run(cmd_args, **kwargs)
+    except subprocess.CalledProcessError as exc:
+        print("STDOUT:")
+        print(exc.stdout)
+        print("STDERR:")
+        print(exc.stderr)
+        raise
 
 
 def to_str(value):
