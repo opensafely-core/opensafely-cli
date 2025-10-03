@@ -238,8 +238,11 @@ EXECUTOR = os.environ.get(
 # LocalDockerAPI executor specific configuration
 # Note: the local backend also reuses the main GIT_REPO_DIR config
 
+DEFAULT_VOLUME_API = (
+    "BindMountVolumeAPI" if sys.platform == "linux" else "DockerVolumeAPI"
+)
 LOCAL_VOLUME_API = os.environ.get(
-    "LOCAL_VOLUME_API", "opensafely.jobrunner.executors.volumes:DockerVolumeAPI"
+    "LOCAL_VOLUME_API", f"opensafely.jobrunner.executors.volumes:{DEFAULT_VOLUME_API}"
 )
 
 HIGH_PRIVACY_STORAGE_BASE = Path(
