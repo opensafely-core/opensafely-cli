@@ -7,7 +7,6 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from opensafely import (  # noqa: E402
-    check,
     clean,
     codelists,
     execute,
@@ -129,7 +128,6 @@ def main():
     add_subcommand("codelists", codelists)
     add_subcommand("pull", pull)
     add_subcommand("upgrade", upgrade)
-    add_subcommand("check", check)
     add_subcommand("unzip", unzip)
     add_subcommand("extract-stats", extract_stats)
     add_subcommand("info", info)
@@ -159,10 +157,6 @@ def main():
         else:
             print(str(exc), file=sys.stderr)
         success = False
-
-    # if `run`ning locally, run `check` in warn mode
-    if function == local_run.main and "format-output-for-github" not in kwargs:
-        check.main(continue_on_error=True)
 
     # allow functions to return True/False, or an explicit exit code
     if success is False:
