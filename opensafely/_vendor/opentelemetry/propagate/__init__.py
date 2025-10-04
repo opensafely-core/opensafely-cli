@@ -27,7 +27,7 @@ propagators, one of type
 ``opentelemetry.trace.propagation.tracecontext.TraceContextTextMapPropagator``
 and other of type ``opentelemetry.baggage.propagation.W3CBaggagePropagator``.
 Notice that these propagator classes are defined as
-``opentelemetry_propagator`` entry points in the ``setup.cfg`` file of
+``opentelemetry_propagator`` entry points in the ``pyproject.toml`` file of
 ``opentelemetry``.
 
 Example::
@@ -68,22 +68,21 @@ Example::
     https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/context/api-propagators.md
 """
 
-import typing
 from logging import getLogger
 from os import environ
-
-from pkg_resources import iter_entry_points
+from typing import List, Optional
 
 from opensafely._vendor.opentelemetry.context.context import Context
 from opensafely._vendor.opentelemetry.environment_variables import OTEL_PROPAGATORS
 from opensafely._vendor.opentelemetry.propagators import composite, textmap
+from opensafely._vendor.opentelemetry.util._importlib_metadata import entry_points
 
 logger = getLogger(__name__)
 
 
 def extract(
     carrier: textmap.CarrierT,
-    context: typing.Optional[Context] = None,
+    context: Optional[Context] = None,
     getter: textmap.Getter[textmap.CarrierT] = textmap.default_getter,
 ) -> Context:
     """Uses the configured propagator to extract a Context from the carrier.
@@ -104,14 +103,15 @@ def extract(
 
 def inject(
     carrier: textmap.CarrierT,
-    context: typing.Optional[Context] = None,
+    context: Optional[Context] = None,
     setter: textmap.Setter[textmap.CarrierT] = textmap.default_setter,
 ) -> None:
     """Uses the configured propagator to inject a Context into the carrier.
 
     Args:
-        carrier: An object that contains a representation of HTTP
-            headers. Should be paired with setter, which
+        carrier: the medium used by Propagators to read
+            values from and write values to.
+            Should be paired with setter, which
             should know how to set header values on the carrier.
         context: An optional Context to use. Defaults to current
             context if not set.
@@ -121,7 +121,7 @@ def inject(
     get_global_textmap().inject(carrier, context=context, setter=setter)
 
 
-propagators = []
+propagators: List[textmap.TextMapPropagator] = []
 
 # Single use variable here to hack black and make lint pass
 environ_propagators = environ.get(
@@ -129,21 +129,38 @@ environ_propagators = environ.get(
     "tracecontext,baggage",
 )
 
+
 for propagator in environ_propagators.split(","):
     propagator = propagator.strip()
+    if propagator.lower() == "none":
+        logger.debug(
+            "OTEL_PROPAGATORS environment variable contains none, removing all propagators"
+        )
+        propagators = []
+        break
     try:
-        propagators.append(  # type: ignore
+        propagators.append(
             next(  # type: ignore
-                iter_entry_points("opentelemetry_propagator", propagator)
+                iter(  # type: ignore
+                    entry_points(  # type: ignore[misc]
+                        group="opentelemetry_propagator",
+                        name=propagator,
+                    )
+                )
             ).load()()
         )
-    except Exception:  # pylint: disable=broad-except
-        logger.exception(
-            "Failed to load configured propagator `%s`", propagator
+    except StopIteration:
+        raise ValueError(
+            f"Propagator {propagator} not found. It is either misspelled or not installed."
         )
+    except Exception:  # pylint: disable=broad-exception-caught
+        logger.exception("Failed to load propagator: %s", propagator)
         raise
 
-_HTTP_TEXT_FORMAT = composite.CompositePropagator(propagators)  # type: ignore
+
+_HTTP_TEXT_FORMAT: textmap.TextMapPropagator = composite.CompositePropagator(
+    propagators
+)
 
 
 def get_global_textmap() -> textmap.TextMapPropagator:
@@ -154,4 +171,4 @@ def set_global_textmap(
     http_text_format: textmap.TextMapPropagator,
 ) -> None:
     global _HTTP_TEXT_FORMAT  # pylint:disable=global-statement
-    _HTTP_TEXT_FORMAT = http_text_format  # type: ignore
+    _HTTP_TEXT_FORMAT = http_text_format

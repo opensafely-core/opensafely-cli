@@ -4,30 +4,36 @@
 #
 #    pip-compile --output-file=requirements.prod.txt requirements.prod.in
 #
-certifi==2020.11.8
+certifi==2025.8.3
     # via requests
-chardet==3.0.4
+charset-normalizer==3.4.3
     # via requests
-deprecated==1.2.13
+deprecated==1.2.18
     # via opentelemetry-api
-distro==1.8.0
+distro==1.9.0
     # via ruyaml
-idna==2.10
+idna==3.10
     # via requests
+importlib-metadata==8.5.0
+    # via opentelemetry-api
 opensafely-pipeline @ https://github.com/opensafely-core/pipeline/archive/refs/tags/v2025.03.06.161237.zip
     # via -r requirements.prod.in
-opentelemetry-api==1.12.0
+opentelemetry-api==1.33.1
     # via -r requirements.prod.in
-requests==2.25.0
+requests==2.32.4
     # via -r requirements.prod.in
 ruyaml==0.91.0
     # via
     #   -r requirements.prod.in
     #   opensafely-pipeline
-urllib3==1.26.5
-    # via requests
-wrapt==1.14.1
+urllib3==2.1.0
+    # via
+    #   -r requirements.prod.in
+    #   requests
+wrapt==1.17.3
     # via deprecated
+zipp==3.20.2
+    # via importlib-metadata
 
 # The following packages are considered to be unsafe in a requirements file:
 # setuptools

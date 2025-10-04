@@ -4,6 +4,8 @@
 #
 #    pip-compile --allow-unsafe --output-file=requirements.dev.txt requirements.dev.in
 #
+-e file:.
+    # via -r requirements.dev.in
 attrs==23.1.0
     # via
     #   jsonschema
@@ -14,12 +16,16 @@ black==24.3.0
     # via -r requirements.dev.in
 build==1.0.3
     # via pip-tools
-certifi==2024.7.4
-    # via requests
+certifi==2025.8.3
+    # via
+    #   -c requirements.prod.txt
+    #   requests
 cfgv==3.4.0
     # via pre-commit
-charset-normalizer==3.3.2
-    # via requests
+charset-normalizer==3.4.3
+    # via
+    #   -c requirements.prod.txt
+    #   requests
 click==8.1.7
     # via
     #   black
@@ -30,7 +36,10 @@ coverage[toml]==7.3.2
     #   -r requirements.dev.in
     #   pytest-cov
 deprecated==1.2.18
-    # via opentelemetry-api
+    # via
+    #   -c requirements.prod.txt
+    #   opentelemetry-api
+    #   opentelemetry-semantic-conventions
 distlib==0.3.7
     # via virtualenv
 exceptiongroup==1.1.3
@@ -43,10 +52,15 @@ googleapis-common-protos==1.70.0
     # via opentelemetry-exporter-otlp-proto-http
 identify==2.5.31
     # via pre-commit
-idna==3.7
-    # via requests
+idna==3.10
+    # via
+    #   -c requirements.prod.txt
+    #   requests
 importlib-metadata==8.5.0
-    # via build
+    # via
+    #   -c requirements.prod.txt
+    #   build
+    #   opentelemetry-api
 importlib-resources==6.4.5
     # via
     #   jsonschema
@@ -65,17 +79,26 @@ mypy-extensions==1.0.0
     # via black
 nodeenv==1.8.0
     # via pre-commit
-opentelemetry-api==1.12.0
+opentelemetry-api==1.33.1
     # via
+    #   -c requirements.prod.txt
+    #   file:///-
+    #   opensafely
     #   opentelemetry-exporter-otlp-proto-http
     #   opentelemetry-sdk
-opentelemetry-exporter-otlp-proto-http==1.12.0
-    # via -r requirements.dev.in
-opentelemetry-proto==1.12.0
+    #   opentelemetry-semantic-conventions
+opentelemetry-exporter-otlp-proto-http==1.15.0
+    # via
+    #   file:///-
+    #   opensafely
+opentelemetry-proto==1.15.0
     # via opentelemetry-exporter-otlp-proto-http
-opentelemetry-sdk==1.12.0
-    # via opentelemetry-exporter-otlp-proto-http
-opentelemetry-semantic-conventions==0.33b0
+opentelemetry-sdk==1.33.1
+    # via
+    #   file:///-
+    #   opensafely
+    #   opentelemetry-exporter-otlp-proto-http
+opentelemetry-semantic-conventions==0.54b1
     # via opentelemetry-sdk
 packaging==23.2
     # via
@@ -122,8 +145,9 @@ referencing==0.31.0
     # via
     #   jsonschema
     #   jsonschema-specifications
-requests==2.32.0
+requests==2.32.4
     # via
+    #   -c requirements.prod.txt
     #   opentelemetry-exporter-otlp-proto-http
     #   requests-mock
     #   vendoring
@@ -156,29 +180,30 @@ typing-extensions==4.8.0
     #   black
     #   opentelemetry-sdk
     #   rich
-urllib3==2.2.2
-    # via requests
+urllib3==2.1.0
+    # via
+    #   -c requirements.prod.txt
+    #   requests
 vendoring==1.2.0
     # via -r requirements.dev.in
 virtualenv==20.24.6
     # via pre-commit
 wheel==0.41.3
-    # via
-    #   -r requirements.dev.in
-    #   pip-tools
+    # via pip-tools
 wrapt==1.17.3
-    # via deprecated
+    # via
+    #   -c requirements.prod.txt
+    #   deprecated
 zipp==3.20.2
     # via
+    #   -c requirements.prod.txt
     #   importlib-metadata
     #   importlib-resources
 
 # The following packages are considered to be unsafe in a requirements file:
 pip==23.3.1
     # via pip-tools
-setuptools==70.0.0
+setuptools==75.3.2
     # via
     #   nodeenv
-    #   opentelemetry-api
-    #   opentelemetry-sdk
     #   pip-tools

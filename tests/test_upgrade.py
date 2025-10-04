@@ -1,18 +1,44 @@
 import argparse
+import subprocess
 import sys
+from unittest.mock import MagicMock
 
 import pytest
 
 from opensafely import upgrade
 
 
-def test_main_latest_upgrade(set_pypi_version, run, set_current_version):
+def test_main_latest_upgrade_windows(
+    set_pypi_version, run, set_current_version, monkeypatch
+):
     set_pypi_version("1.1.0")
     set_current_version("v1.0.0")
-    run.expect(
-        [sys.executable, "-m", "pip", "install", "--upgrade", "opensafely==1.1.0"]
-    )
-    upgrade.main("latest")
+
+    expected = [
+        sys.executable,
+        "-m",
+        "pip",
+        "install",
+        "--upgrade",
+        "opensafely==1.1.0",
+    ]
+
+    if sys.platform == "windows":
+        # we have to use Popen on windows, we can't use our run fixture.
+        # So set up a mock
+        mock_popen = MagicMock(spec=subprocess.Popen)
+        monkeypatch.setattr(upgrade.subprocess, "Popen", mock_popen)
+    else:
+        run.expect(expected)
+
+    try:
+        upgrade.main("latest")
+    except SystemExit:
+        # on windows we will try to exit, so catch it
+        pass
+
+    if sys.platform == "windows":
+        mock_popen.assert_called_once_with(expected)
 
 
 def test_main_latest_no_upgrade(set_pypi_version, run, set_current_version, capsys):

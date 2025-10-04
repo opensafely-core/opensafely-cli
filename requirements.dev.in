@@ -1,15 +1,16 @@
+# respect prod versions, for consistency
+--constraint requirements.prod.txt
+# install opensafely as editable package, with tracing deps
+--editable file:.[tracing]
+# packaging tooling
 pip-tools
 vendoring
-# regular test dependencies
+# dev/test dependencies
 black
 pytest
 requests-mock
-wheel
 pre-commit
 coverage
 ruff
 pytest-cov
 pytest-freezer
-
-# optional otel deps,
-opentelemetry-exporter-otlp-proto-http
