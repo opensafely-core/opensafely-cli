@@ -51,7 +51,7 @@ jobs:
 
     - name: Build package
       run: |
-        just build-sdist build-wheel
+        just build
 
     - name: Publish package
       uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e  # v1.13.0

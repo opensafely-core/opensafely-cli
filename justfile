@@ -123,8 +123,5 @@ fix: devenv
     $BIN/black .
     $BIN/ruff --fix .
 
-build-wheel:
-    $BIN/python -m build --wheel
-
-build-sdist:
-    $BIN/python -m build --sdist
+build:
+    $BIN/python -m build --wheel --sdist
