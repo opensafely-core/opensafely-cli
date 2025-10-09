@@ -29,9 +29,8 @@ def test_main_latest_upgrade_windows(
 
     try:
         upgrade.main("latest")
-    except SystemExit:
-        # on windows we will try to exit, so catch it
-        pass
+    except SystemExit as exc:
+        assert exc.code == 0
 
     mock.assert_called_once_with(expected)
 
