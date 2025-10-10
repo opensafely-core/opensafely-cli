@@ -1,17 +1,57 @@
 import argparse
+import subprocess
 import sys
+from unittest.mock import MagicMock
 
 import pytest
 
 from opensafely import upgrade
 
 
-def test_main_latest_upgrade(set_pypi_version, run, set_current_version):
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows only")
+def test_main_latest_upgrade_windows(
+    set_pypi_version, set_current_version, monkeypatch
+):
     set_pypi_version("1.1.0")
     set_current_version("v1.0.0")
+
+    expected = [
+        sys.executable,
+        "-m",
+        "pip",
+        "install",
+        "--upgrade",
+        "opensafely==1.1.0",
+    ]
+
+    mock = MagicMock(spec=subprocess.Popen)
+    monkeypatch.setattr(upgrade.subprocess, "Popen", mock)
+
+    try:
+        upgrade.main("latest")
+    except SystemExit as exc:
+        assert exc.code == 0
+
+    mock.assert_called_once_with(expected)
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="Not on Windows")
+def test_main_latest_upgrade(set_pypi_version, set_current_version, run):
+    set_pypi_version("1.1.0")
+    set_current_version("v1.0.0")
+
     run.expect(
-        [sys.executable, "-m", "pip", "install", "--upgrade", "opensafely==1.1.0"]
+        [
+            sys.executable,
+            "-m",
+            "pip",
+            "install",
+            "--upgrade",
+            "opensafely==1.1.0",
+        ],
+        check=True,
     )
+
     upgrade.main("latest")
 
 

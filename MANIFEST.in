@@ -1,5 +1,0 @@
-include opensafely/VERSION
-include LICENSE
-include opensafely/_vendor/certifi/*.pem
-include opensafely/_vendor/*.dist-info/*
-exclude pyproject.toml

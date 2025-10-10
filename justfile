@@ -122,3 +122,6 @@ check: black ruff
 fix: devenv
     $BIN/black .
     $BIN/ruff --fix .
+
+build:
+    $BIN/python -m build --wheel --sdist

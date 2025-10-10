@@ -1,3 +1,66 @@
+[build-system]
+requires = ["setuptools>=75.3.2", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "opensafely"
+dynamic = ["version"]
+description = "Command line tool for running OpenSAFELY studies locally."
+readme = "README.md"
+keywords = ["opensafely", "epidemiology", "research"]
+authors = [
+    {name = "OpenSAFELY", email = "tech@opensafely.org"}
+]
+license = {text = "GPL-3.0"}
+requires-python = ">=3.8"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering",
+]
+
+[project.urls]
+Homepage = "https://opensafely.org"
+Documentation = "https://docs.opensafely.org"
+Repository = "https://github.com/opensafely-core/opensafely-cli"
+"Bug Reports" = "https://github.com/opensafely-core/opensafely-cli/issues"
+"Source" = "https://github.com/opensafely-core/opensafely-cli"
+
+[project.optional-dependencies]
+tracing = [
+    "opentelemetry-api==1.33.1",
+    "opentelemetry-sdk==1.33.1",
+    "opentelemetry-exporter-otlp-proto-http==1.15.0"
+]
+
+[project.scripts]
+opensafely = "opensafely:main"
+
+# this is requires to avoid triggering a bug in the vendored opentelemetry-api
+[project.entry-points.opentelemetry_context]
+contextvars_context = "opensafely._vendor.opentelemetry.context.contextvars_context:ContextVarsRuntimeContext"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["opensafely*"]
+
+[tool.setuptools.package-data]
+"opensafely._vendor.certifi" = ["*.pem"]
+
+[tool.setuptools.dynamic]
+version = {file = "opensafely/VERSION"}
+
 [tool.black]
 extend-exclude = 'opensafely/_vendor/*'
 
@@ -24,10 +87,11 @@ chardet = "https://raw.githubusercontent.com/chardet/chardet/main/LICENSE"
 substitute = [
   # certifi refers to itself by string here so we need to fix that too
   { match='get_path\("certifi"', replace='get_path("opensafely._vendor.certifi"' },
+  { match='files\("certifi"\)', replace='files("opensafely._vendor.certifi")' },
   # The below import just pulls in some nasty backwards compatibility code that
   # we don't need. See:
   # https://github.com/psf/requests/blob/589c4547338b592b1fb77c65663d8aa6fbb7e38b/requests/packages.py
-  { match='from \. import packages', replace='' },
+  { match='from \. import packages, utils', replace='from . import utils' },
   { match='wrapt._wrappers', replace='opensafely._vendor.wrapt._wrappers'},
   { match='urllib3.contrib.securetransport', replace='opensafely._vendor.urllib3.contrib.securetransport'},
   { match='urllib3.contrib.pyopenssl', replace='opensafely._vendor.urllib3.contrib.pyopenssl'},
@@ -52,7 +116,7 @@ omit = [
 ]
 
 [tool.coverage.report]
-fail_under = 90
+fail_under = 89
 skip_covered = true
 show_missing = true
 

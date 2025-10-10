@@ -39,14 +39,11 @@ jobs:
 
     - name: Checkout
       uses: actions/checkout@v5
+    - uses: extractions/setup-just@e33e0265a09d6d736e2ee1e0eb685ef1de4669ff # v3
     - name: Set up Python 3.8
-      uses: actions/setup-python@v6
+      uses: opensafely-core/setup-action@v1
       with:
         python-version: 3.8
-
-    - name: Install wheel package
-      run: |
-        pip install wheel
 
     - name: Generate correct value for VERSION file
       run: |
@@ -54,7 +51,7 @@ jobs:
 
     - name: Build package
       run: |
-        python setup.py sdist bdist_wheel
+        just build
 
     - name: Publish package
       uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e  # v1.13.0
