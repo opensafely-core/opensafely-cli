@@ -123,5 +123,5 @@ fix: devenv
     $BIN/black .
     $BIN/ruff --fix .
 
-build:
+build: virtualenv
     $BIN/python -m build --wheel --sdist
