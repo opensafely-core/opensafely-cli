@@ -46,7 +46,7 @@ def main(version):
         subprocess.Popen(
             [sys.executable, "-m", "pip", "install", "--upgrade", pkg],
         )
-        # Due to Window's file locking behaviour, we exit to allow the pip
+        # Due to Windows' file locking behaviour, we exit to allow the pip
         # upgrade to update us
         sys.exit(0)
 
