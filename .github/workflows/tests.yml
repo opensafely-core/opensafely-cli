@@ -23,7 +23,7 @@ jobs:
     - name: Run tests on ${{ matrix.os }}
       if: ${{ matrix.os == 'ubuntu-22.04' }}
       run: |
-        echo "$PYTHON_VERSION"
+        export PYTHON_VERSION=python${{ matrix.python-version }}
         just test -vvv
 
     - name: Run tests on windows
