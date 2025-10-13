@@ -59,7 +59,6 @@ def test_packaging(package_type, tmp_path, older_version_file, project_dir):
         capture_output=True,
     )
     version_before = ps.stdout.strip()
-    latest = get_latest_version()
 
     assert version_before == "opensafely 0.1"
 
@@ -72,6 +71,13 @@ def test_packaging(package_type, tmp_path, older_version_file, project_dir):
             cwd=project_dir,
         )
 
+    # Grab the version we expect to upgrade to. We can't really fake this, is
+    # we're doing a full functional test.
+    # Note: there's a small chance of a race condition here, if the version is
+    # actually updated in between this call and the call as part of the upgrade
+    # subprocess.
+    latest = get_latest_version()
+
     # This always triggers an upgrade because the development version is always
     # considered lower than any other version
     result = subprocess_run(
@@ -82,8 +88,8 @@ def test_packaging(package_type, tmp_path, older_version_file, project_dir):
     )
 
     if sys.platform == "win32":
-        # wait a little for backgroun proces to finish pip upgrade. Should
-        # usually only happen CI
+        # wait a little for background process to finish the pip upgrade.
+        # Should usually only happen CI
         time.sleep(5)
 
     ps = subprocess_run(
@@ -93,7 +99,12 @@ def test_packaging(package_type, tmp_path, older_version_file, project_dir):
         text=True,
     )
     version_after = ps.stdout.strip()
-    assert version_after == f"opensafely v{latest}"
+    # try handle race condition, as post-merge CI runs publish
+    next_latest = get_latest_version()
+    assert (
+        version_after == f"opensafely v{latest}"
+        or version_after == f"opensafely v{next_latest}"
+    )
 
     assert "Attempting uninstall: opensafely" in result.stdout
     assert "Successfully installed opensafely" in result.stdout
