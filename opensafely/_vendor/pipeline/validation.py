@@ -154,7 +154,13 @@ def validate_ehrql_outputs(action_id: str, action: Action) -> None:
 
     output_patterns = (action.outputs.highly_sensitive or {}).values()
     if not output_patterns_match_spec(output_spec, list(output_patterns)):
-        raise ValidationError("--output in run command and outputs must match")
+        expected = expected_pattern_for_spec(output_spec)
+        formatted_patterns = "                   \n".join(output_patterns)
+        raise ValidationError(
+            f"output specification must match the `--output` argument in the `run` command\n"
+            f"              got: {formatted_patterns}\n"
+            f"but was expecting: {expected}"
+        )
 
 
 def get_output_spec_from_args(args: list[str]) -> str | None:
@@ -174,6 +180,14 @@ def output_patterns_match_spec(spec: str, patterns: list[str]) -> bool:
         return all(fnmatch.fnmatch(pattern, glob_pattern) for pattern in patterns)
     else:
         return spec in patterns
+
+
+def expected_pattern_for_spec(spec: str) -> str:
+    directory, extension = split_directory_and_extension(PurePosixPath(spec))
+    if extension:
+        return f"{directory}/:{extension[1:]}"
+    else:
+        return spec
 
 
 # Borrowed directly from ehrQL:
