@@ -844,7 +844,7 @@ def test_bad_transition(current, invalid, db):
         run.handle_job(job, api)
 
 
-def test_handle_single_job_marks_as_failed(db, monkeypatch):
+def test_handle_single_job_marks_as_failed(db, monkeypatch, capsys):
     api = StubExecutorAPI()
     job = api.add_test_job(ExecutorState.EXECUTED, State.RUNNING, StatusCode.EXECUTED)
 
@@ -877,6 +877,11 @@ def test_handle_single_job_marks_as_failed(db, monkeypatch):
     assert spans[0].attributes["initial_state"] == "RUNNING"
     assert "final_code" not in spans[0].attributes
     assert "final_state" not in spans[0].attributes
+
+    # traceback and user message printed
+    captured = capsys.readouterr()
+    assert "Traceback (most recent call last):" in captured.out
+    assert "Internal Error: Please contact tech-support for assistance." in captured.out
 
 
 def test_handle_single_job_with_executor_retry(db, monkeypatch):

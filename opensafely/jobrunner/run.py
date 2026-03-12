@@ -10,6 +10,7 @@ import logging
 import os
 import sys
 import time
+import traceback
 from typing import Optional
 
 from opensafely.jobrunner import config, tracing
@@ -163,17 +164,20 @@ def handle_single_job(job, api):
             job,
             StatusCode.INTERNAL_ERROR,
             "Internal error: this usually means a platform issue rather than a problem "
-            "for users to fix.\n"
-            "The tech team are automatically notified of these errors and will be "
-            "investigating.",
+            "for users to fix.",
             error=exc,
         )
         # Do not clean up, as we may want to debug
         #
-        # Raising will kill the main loop, by design. The service manager
-        # will restart, and this job will be ignored when it does, as
-        # it has failed. If we have an internal error, a full restart
-        # might recover better.
+        # Raising will kill the main loop, by design. Print the traceback to the
+        # console so the user can report it to tech support.
+        print(traceback.format_exc())
+        print(
+            "Internal Error: Please contact tech-support for assistance. "
+            "Provide the error information above for debugging context."
+        )
+        # Raise a plain Exception rather than the original to avoid printing the
+        # exception twice and obfuscating the printed user message
         raise
 
 
