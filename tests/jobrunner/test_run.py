@@ -667,11 +667,11 @@ def test_handle_job_finalized_failed_exit_code(
     assert spans[-3].name == "FINALIZED"
     completed_span = spans[-2]
     assert completed_span.name == "NONZERO_EXIT"
-    assert completed_span.attributes["exit_code"] == exit_code
-    assert completed_span.attributes["outputs"] == 1
-    assert completed_span.attributes["unmatched_patterns"] == 0
-    assert completed_span.attributes["unmatched_outputs"] == 0
-    assert completed_span.attributes["image_id"] == "image_id"
+    assert completed_span.attributes["job.exit_code"] == exit_code
+    assert completed_span.attributes["job.outputs"] == 1
+    assert completed_span.attributes["job.unmatched_patterns"] == 0
+    assert completed_span.attributes["job.unmatched_outputs"] == 0
+    assert completed_span.attributes["job.image_id"] == "image_id"
     assert completed_span.status.status_code == trace.StatusCode.ERROR
     assert spans[-1].name == "JOB"
 
@@ -703,9 +703,9 @@ def test_handle_job_finalized_failed_unmatched_patterns(db):
     assert spans[-3].name == "FINALIZED"
     completed_span = spans[-2]
     assert completed_span.name == "UNMATCHED_PATTERNS"
-    assert completed_span.attributes["outputs"] == 1
-    assert completed_span.attributes["unmatched_patterns"] == 1
-    assert completed_span.attributes["unmatched_outputs"] == 1
+    assert completed_span.attributes["job.outputs"] == 1
+    assert completed_span.attributes["job.unmatched_patterns"] == 1
+    assert completed_span.attributes["job.unmatched_outputs"] == 1
     assert spans[-1].name == "JOB"
 
 
@@ -870,13 +870,13 @@ def test_handle_single_job_marks_as_failed(db, monkeypatch, capsys):
     spans = get_trace("loop")
     assert len(spans) == 1
     assert spans[0].name == "LOOP_JOB"
-    assert spans[0].attributes["job"] == job.id
-    assert spans[0].attributes["workspace"] == job.workspace
-    assert spans[0].attributes["user"] == job._job_request["created_by"]
-    assert spans[0].attributes["initial_code"] == "EXECUTED"
-    assert spans[0].attributes["initial_state"] == "RUNNING"
-    assert "final_code" not in spans[0].attributes
-    assert "final_state" not in spans[0].attributes
+    assert spans[0].attributes["job.id"] == job.id
+    assert spans[0].attributes["job.workspace"] == job.workspace
+    assert spans[0].attributes["job.user"] == job._job_request["created_by"]
+    assert spans[0].attributes["job.initial_code"] == "EXECUTED"
+    assert spans[0].attributes["job.initial_state"] == "RUNNING"
+    assert "job.final_code" not in spans[0].attributes
+    assert "job.final_state" not in spans[0].attributes
 
     # traceback and user message printed
     captured = capsys.readouterr()
@@ -1112,6 +1112,6 @@ def test_trace_handle_job_successful_transition(db):
 
     spans = get_trace("loop")
     assert len(spans) == 1
-    assert spans[0].attributes["job"] == job.id
-    assert spans[0].attributes["initial_code"] == "PREPARED"
-    assert spans[0].attributes["final_code"] == "EXECUTING"
+    assert spans[0].attributes["job.id"] == job.id
+    assert spans[0].attributes["job.initial_code"] == "PREPARED"
+    assert spans[0].attributes["job.final_code"] == "EXECUTING"
