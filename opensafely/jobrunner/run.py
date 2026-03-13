@@ -50,12 +50,11 @@ class ExecutorError(Exception):
 
 
 def main(exit_callback=lambda _: False):
-    log.info("jobrunner.run loop started")
+    log.debug("jobrunner.run loop started")
     api = get_executor_api()
 
     while True:
-        with tracer.start_as_current_span("LOOP", attributes={"loop": True}):
-            active_jobs = handle_jobs(api)
+        active_jobs = handle_jobs(api)
 
         if exit_callback(active_jobs):
             break
