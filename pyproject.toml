@@ -158,3 +158,10 @@ target-version = "py38"
 [tool.ruff.isort]
 lines-after-imports = 2
 known-third-party = ["opensafely._vendor"]
+
+[tool.pytest.ini_options]
+markers = ["functional: mark as a functional test."]
+filterwarnings = [
+    "ignore:ProjectWarning:UserWarning:opensafely._vendor.pipeline.*:",
+    "ignore:ProjectWarning:UserWarning:tests.*:",
+]
