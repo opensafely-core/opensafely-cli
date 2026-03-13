@@ -50,12 +50,11 @@ class ExecutorError(Exception):
 
 
 def main(exit_callback=lambda _: False):
-    log.info("jobrunner.run loop started")
+    log.debug("jobrunner.run loop started")
     api = get_executor_api()
 
     while True:
-        with tracer.start_as_current_span("LOOP", attributes={"loop": True}):
-            active_jobs = handle_jobs(api)
+        active_jobs = handle_jobs(api)
 
         if exit_callback(active_jobs):
             break
@@ -184,12 +183,12 @@ def handle_single_job(job, api):
 def trace_handle_job(job, api, mode, paused):
     """Call handle job with tracing."""
     attrs = {
-        "initial_state": job.state.name,
-        "initial_code": job.status_code.name,
+        "job.initial_state": job.state.name,
+        "job.initial_code": job.status_code.name,
     }
 
     with tracer.start_as_current_span("LOOP_JOB") as span:
-        tracing.set_span_metadata(span, job, **attrs)
+        tracing.set_span_metadata(span, job, extra=attrs)
         try:
             synchronous_transition = handle_job(job, api, mode, paused)
         except Exception as exc:
@@ -197,8 +196,8 @@ def trace_handle_job(job, api, mode, paused):
             span.record_exception(exc)
             raise
         else:
-            span.set_attribute("final_state", job.state.name)
-            span.set_attribute("final_code", job.status_code.name)
+            span.set_attribute("job.final_state", job.state.name)
+            span.set_attribute("job.final_code", job.status_code.name)
 
     return synchronous_transition
 
@@ -642,7 +641,7 @@ def set_code(
 
         # job trace: we finished the previous state
         tracing.finish_current_state(
-            job, timestamp_ns, error=error, message=message, results=results, **attrs
+            job, timestamp_ns, error=error, results=results, **attrs
         )
 
         # update db object
@@ -660,7 +659,6 @@ def set_code(
                 job,
                 timestamp_ns,
                 error=error,
-                message=message,
                 results=results,
                 **attrs,
             )

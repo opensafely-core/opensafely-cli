@@ -1,6 +1,9 @@
 import logging
 import os
+import warnings
 from datetime import datetime
+
+from opensafely.jobrunner.models import StatusCode
 
 
 # we attempt to import the full otel machinery, which is present in dev, and if
@@ -138,23 +141,21 @@ def _traceable(job):
     return True
 
 
-def finish_current_state(job, timestamp_ns, error=None, results=None, **attrs):
+def finish_current_state(job, timestamp_ns, error=None, results=None, extra=None):
     """Record a span representing the state we've just exited."""
     if not _traceable(job):
         return
 
-    # allow them to be filtered out from tracking spans
-    attrs["is_state"] = True
     try:
         name = job.status_code.name
         start_time = job.status_code_updated_at
-        record_job_span(job, name, start_time, timestamp_ns, error, results, **attrs)
+        record_job_span(job, name, start_time, timestamp_ns, error, results, extra)
     except Exception:
         # make sure trace failures do not error the job
         logger.exception(f"failed to trace state for {job.id}")
 
 
-def record_final_state(job, timestamp_ns, error=None, results=None, **attrs):
+def record_final_state(job, timestamp_ns, error=None, results=None, extra=None):
     """Record a span representing the state we've just exited."""
     if not _traceable(job):
         return
@@ -167,11 +168,10 @@ def record_final_state(job, timestamp_ns, error=None, results=None, **attrs):
         # final states have no duration, so make last for 1 sec, just act
         # as a marker
         end_time = int(timestamp_ns + 1e9)
-        record_job_span(
-            job, name, start_time, end_time, error, results, final=True, **attrs
-        )
+        extra = {"job.succeeded": job.status_code == StatusCode.SUCCEEDED}
+        record_job_span(job, name, start_time, end_time, error, results, extra)
 
-        complete_job(job, timestamp_ns, error, results, **attrs)
+        complete_job(job, timestamp_ns, error, results, extra)
     except Exception:
         # make sure trace failures do not error the job
         logger.exception(f"failed to trace state for {job.id}")
@@ -213,7 +213,7 @@ MINIMUM_NS_TIMESTAMP = int(datetime(2000, 1, 1, 0, 0, 0).timestamp() * 1e9)
 
 
 @warn_assertions
-def record_job_span(job, name, start_time, end_time, error, results, **attrs):
+def record_job_span(job, name, start_time, end_time, error, results, extra=None):
     """Record a span for a job."""
     if not _traceable(job):
         return
@@ -236,11 +236,11 @@ def record_job_span(job, name, start_time, end_time, error, results, **attrs):
     ctx = load_trace_context(job)
     tracer = trace.get_tracer("jobs")
     span = tracer.start_span(name, context=ctx, start_time=start_time)
-    set_span_metadata(span, job, error, results, **attrs)
+    set_span_metadata(span, job, error, results, extra)
     span.end(end_time)
 
 
-def complete_job(job, timestamp_ns, error=None, results=None, **attrs):
+def complete_job(job, timestamp_ns, error=None, results=None, extra=None):
     """Send the root span to record the full duration for this job."""
 
     root_ctx = load_root_span(job)
@@ -262,19 +262,26 @@ def complete_job(job, timestamp_ns, error=None, results=None, **attrs):
     root_span._context = root_ctx
 
     # annotate and send
-    set_span_metadata(root_span, job, error, results, **attrs)
+    set_span_metadata(root_span, job, error, results, extra)
     root_span.end(timestamp_ns)
 
 
 OTEL_ATTR_TYPES = (bool, str, bytes, int, float)
 
 
-def set_span_metadata(span, job, error=None, results=None, **attrs):
+def set_span_metadata(span, job, error=None, results=None, extra=None):
     """Set span metadata with everthing we know about a job."""
     attributes = {}
 
-    if attrs:
-        attributes.update(attrs)
+    if extra:
+        for k, v in extra.items():
+            # automatically give any additional attributes the job prefix if not already present
+            if not k.startswith("job."):  # pragma: nocover
+                # this will fail tests
+                warnings.warn(f"attribute {k} does not start with job. prefix")
+                # but correctly prefix it if somehow this happens for real.
+                k = "job." + k
+            attributes[k] = v
     attributes.update(trace_attributes(job, results))
 
     # opentelemetry can only handle serializing certain attribute types
@@ -311,46 +318,43 @@ def trace_attributes(job, results=None):
         except ValueError:
             job._job_request = {}
 
-    attrs = dict(
-        backend=config.BACKEND,
-        job=job.id,
-        job_request=job.job_request_id,
-        workspace=job.workspace,
-        action=job.action,
-        run_command=job.run_command,
-        user=job._job_request.get("created_by", "unknown"),
-        project=job._job_request.get("project", "unknown"),
-        orgs=",".join(job._job_request.get("orgs", [])),
-        state=job.state.name,
-        message=job.status_message,
+    # Note: no commit attribute because local_run jobs don't have a commit
+    attrs = {
+        "job.backend": config.BACKEND,
+        "job.id": job.id,
+        "job.request": job.job_request_id,
+        "job.workspace": job.workspace,
+        "job.action": job.action,
+        "job.run_command": job.run_command,
+        "job.user": job._job_request.get("created_by", "unknown"),
+        "job.project": job._job_request.get("project", "unknown"),
+        "job.orgs": ",".join(job._job_request.get("orgs", [])),
+        "job.state": job.state.name,
+        "job.message": job.status_message,
         # convert float seconds to ns integer
-        created_at=int(job.created_at * 1e9),
-        started_at=int(job.started_at * 1e9) if job.started_at else None,
+        "job.created_at": int(job.created_at * 1e9),
+        "job.started_at": int(job.started_at * 1e9) if job.started_at else None,
         # when did the state last change?
-        status_code_updated_at=job.status_code_updated_at,
-        requires_db=job.requires_db,
-    )
-
-    # local_run jobs don't have a commit
-    if job.commit:
-        attrs["commit"] = job.commit
+        "job.status_code_updated_at": job.status_code_updated_at,
+        "job.requires_db": job.requires_db,
+    }
 
     if job.action_repo_url:
-        attrs["reusable_action"] = job.action_repo_url
+        attrs["job.reusable_action"] = job.action_repo_url
         if job.action_commit:
-            attrs["reusable_action"] += ":" + job.action_commit
+            attrs["job.reusable_action"] += ":" + job.action_commit
 
     if results:
-        attrs["exit_code"] = results.exit_code
-        attrs["image_id"] = results.image_id
-        attrs["outputs"] = len(results.outputs)
-        attrs["unmatched_patterns"] = len(results.unmatched_patterns)
-        attrs["unmatched_outputs"] = len(results.unmatched_outputs)
-        attrs["executor_message"] = results.message
-        attrs["action_version"] = results.action_version
-        attrs["action_revision"] = results.action_revision
-        attrs["action_created"] = results.action_created
-        attrs["base_revision"] = results.base_revision
-        attrs["base_created"] = results.base_created
+        attrs["job.exit_code"] = results.exit_code
+        attrs["job.image_id"] = results.image_id
+        attrs["job.outputs"] = len(results.outputs)
+        attrs["job.unmatched_patterns"] = len(results.unmatched_patterns)
+        attrs["job.unmatched_outputs"] = len(results.unmatched_outputs)
+        attrs["job.executor_message"] = results.message
+        attrs["job.action_version"] = results.action_version
+        attrs["job.action_revision"] = results.action_revision
+        attrs["job.action_created"] = results.action_created
+        attrs["job.base_revision"] = results.base_revision
+        attrs["job.base_created"] = results.base_created
 
     return attrs
