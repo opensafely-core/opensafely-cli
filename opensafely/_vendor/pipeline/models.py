@@ -3,6 +3,7 @@ from __future__ import annotations
 import pathlib
 import re
 import shlex
+import warnings
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any
@@ -17,6 +18,8 @@ from .validation import (
     validate_glob_pattern,
     validate_no_kwargs,
     validate_not_cohort_extractor_action,
+    validate_not_latest_tag,
+    validate_not_run_all_action,
     validate_type,
 )
 
@@ -270,12 +273,20 @@ class Pipeline:
             raise ValidationError(
                 f"`version` must be a number between 1 and {LATEST_VERSION}"
             )
+        else:
+            if version != LATEST_VERSION:
+                warnings.warn(
+                    f"ProjectWarning: Your project file is using an old version ({version}); consider updating to version {LATEST_VERSION}",
+                    stacklevel=2,
+                )
+
         feat = get_feature_flags_for_version(version)
 
         validate_type(actions, dict, "Project `actions` section")
 
         _actions = dict()
         for action_id, action_config in actions.items():
+            validate_not_run_all_action(action_id, feat)
             validate_action_config(action_id, action_config)
             _actions[action_id] = Action.build(action_id, **action_config)
         actions = _actions
@@ -283,6 +294,10 @@ class Pipeline:
         if feat.REMOVE_SUPPORT_FOR_COHORT_EXTRACTOR:
             for config in actions.values():
                 validate_not_cohort_extractor_action(config)
+
+        if feat.REMOVE_SUPPORT_FOR_LATEST_TAG:
+            for config in actions.values():
+                validate_not_latest_tag(config)
 
         seen: dict[Command, list[str]] = defaultdict(list)
         for name, config in actions.items():
@@ -339,9 +354,10 @@ class Pipeline:
         """
         Get all actions for this Pipeline instance
 
-        We ignore any manually defined run_all action (in later project
-        versions this will be an error). We use a list comprehension rather
-        than set operators as previously so we preserve the original order.
+        Versions < 5 ignore any manually defined run_all action and raise a
+        warning (later project versions the raise an error).
+        We use a list comprehension rather than set operators as previously so we preserve
+        the original order.
         """
         return [action for action in self.actions.keys() if action != RUN_ALL_COMMAND]
 
@@ -355,7 +371,7 @@ class Pipeline:
         images = set()
         for action in self.actions.values():
             # for hysterical raisins, :latest is actually mapped to v1, not v2 or later.
-            # We hope to fix this at some point
+            # version 5 removes use of :latest
             version = "v1" if action.run.version == "latest" else action.run.version
             images.add(f"{action.run.name}:{version}")
 

@@ -15,6 +15,12 @@ The tool makes the process relatively painless. There are a few
 workarounds (crude string subsitutions) we need to apply which are all
 configured in [pyproject.toml](./pyproject.toml).
 
+To update vendored dependecies, run:
+
+```
+./scripts/update.sh
+```
+
 ## opensafely run
 
 Historically, this repo consumed [`job-runner`](https://github.com/opensafely-core/job-runner)
