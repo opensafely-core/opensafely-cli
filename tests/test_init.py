@@ -57,7 +57,9 @@ def test_warn_if_updates_needed_images_outdated(capsys, monkeypatch, tmp_path, r
     ]
 
 
-def test_warnings_format():
+def test_warnings_patched_format_for_pipeline_warnings():
+    # Warnings from the pipeline library (UserWarnings with a message that begins with
+    # ProjectWarning) are formatted to display just the message.
     with pytest.warns(UserWarning) as raised_warnings:
         warnings.warn("Warning: foo", UserWarning)
         warnings.warn("ProjectWarning: foo", UserWarning)
