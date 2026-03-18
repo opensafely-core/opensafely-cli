@@ -15,11 +15,24 @@ The tool makes the process relatively painless. There are a few
 workarounds (crude string subsitutions) we need to apply which are all
 configured in [pyproject.toml](./pyproject.toml).
 
-To update vendored dependecies, run:
+To update vendored dependencies, run:
 
 ```
-./scripts/update.sh
+just update-vendored-dependencies
 ```
+
+### The opensafely-pipeline library
+
+The `opensafely-pipeline` library is not published as a pypi package. If you
+need to update it to a new version, run:
+
+```
+just update-pipeline
+```
+
+This will pull in the new pipeline version, update it in `requirements.prod.in`
+and `requirements.prod.txt`, and update the vendored dependencies.
+
 
 ## opensafely run
 
