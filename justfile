@@ -44,7 +44,7 @@ _compile src dst *args: virtualenv
     {{ COMPILE }} --output-file={{ dst }} {{ src }} {{ args }}
 
 
-# update *vendored* production dependencies. See DEVELOPERS.md.
+# update requirements.prod.txt if requirements.prod.in has changed
 requirements-prod *args:
     just _compile requirements.prod.in requirements.prod.txt --no-allow-unsafe {{ args }}
 
@@ -54,20 +54,26 @@ requirements-dev *args: virtualenv
     just _compile requirements.dev.in requirements.dev.txt --allow-unsafe {{ args }}
 
 
-# ensure prod requirements installed and up to date
-#prodenv: requirements-prod
-#    #!/usr/bin/env bash
-#    set -euo pipefail
-#    # exit if .txt file has not changed since we installed them (-nt == "newer than', but we negate with || to avoid error exit code)
-#    test requirements.prod.txt -nt $VIRTUAL_ENV/.prod || exit 0
-#
-#    $PIP install -r requirements.prod.txt
-#    touch $VIRTUAL_ENV/.prod
+# update *vendored* production dependencies. See DEVELOPERS.md.
+update-vendored-dependencies: virtualenv requirements-prod
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    echo "Vendoring prod dependencies"
+    $BIN/vendoring sync -v
+
+    # clean up
+    echo "Removing all .so libraries"
+    find opensafely/_vendor/ -name \*.so -exec rm {} \;
 
 
 # && dependencies are run after the recipe has run. Needs just>=0.9.9. This is
 # a killer feature over Makefiles.
-#
+
+# update to the latest version of the internal pipeline library
+update-pipeline: && requirements-prod update-vendored-dependencies
+    ./scripts/upgrade-pipeline.sh requirements.prod.in
+
 # ensure dev requirements installed and up to date
 devenv: requirements-dev && install-precommit
     #!/usr/bin/env bash
