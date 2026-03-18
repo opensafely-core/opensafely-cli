@@ -1,5 +1,8 @@
 import os
+import warnings
 from datetime import datetime, timedelta
+
+import pytest
 
 import opensafely
 from tests.test_pull import expect_local_images
@@ -52,3 +55,31 @@ def test_warn_if_updates_needed_images_outdated(capsys, monkeypatch, tmp_path, r
         "    opensafely pull",
         "",
     ]
+
+
+def test_warnings_patched_format_for_pipeline_warnings():
+    # Warnings from the pipeline library (UserWarnings with a message that begins with
+    # ProjectWarning) are formatted to display just the message.
+    with pytest.warns(UserWarning) as raised_warnings:
+        warnings.warn("Warning: foo", UserWarning)
+        warnings.warn("ProjectWarning: foo", UserWarning)
+
+    assert len(raised_warnings.list) == 2
+    standard_warning, project_warning = raised_warnings.list
+
+    # standard warning includes the warning category (and other standard warning formatting)
+    assert "UserWarning: Warning: foo" in warnings.formatwarning(
+        standard_warning.message,
+        standard_warning.category,
+        standard_warning.filename,
+        standard_warning.lineno,
+        standard_warning.line,
+    )
+    # project warning contains just the warning message
+    assert "ProjectWarning: foo\n" == warnings.formatwarning(
+        project_warning.message,
+        project_warning.category,
+        project_warning.filename,
+        project_warning.lineno,
+        project_warning.line,
+    )

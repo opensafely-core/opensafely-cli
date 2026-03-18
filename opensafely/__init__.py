@@ -3,6 +3,7 @@ import logging
 import os
 import sys
 import tempfile
+import warnings
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -30,6 +31,26 @@ __version__ = Path(__file__).parent.joinpath("VERSION").read_text().strip()
 
 
 VERSION_FILE = Path(tempfile.gettempdir()) / "opensafely-version-check"
+
+
+_original_formatwarning = warnings.formatwarning
+
+
+# format ProjectWarnings (warnings about project.yamls from the pipeline library)
+# to print only the message on the console
+def warning_message_only(
+    message,
+    category,
+    filename,
+    lineno,
+    line=None,
+):
+    if str(message).startswith("ProjectWarning"):
+        return f"{message}\n"
+    return _original_formatwarning(message, category, filename, lineno, line)
+
+
+warnings.formatwarning = warning_message_only
 
 
 def should_version_check():
