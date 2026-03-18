@@ -44,7 +44,7 @@ _compile src dst *args: virtualenv
     {{ COMPILE }} --output-file={{ dst }} {{ src }} {{ args }}
 
 
-# update *vendored* production dependencies. See DEVELOPERS.md.
+# update requirements.prod.txt if requirements.prod.in has changed
 requirements-prod *args:
     just _compile requirements.prod.in requirements.prod.txt --no-allow-unsafe {{ args }}
 
@@ -53,6 +53,18 @@ requirements-prod *args:
 requirements-dev *args: virtualenv
     just _compile requirements.dev.in requirements.dev.txt --allow-unsafe {{ args }}
 
+
+# update *vendored* production dependencies. See DEVELOPERS.md.
+update-vendored-dependencies: virtualenv requirements-prod
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    echo "Vendoring prod dependencies"
+    $BIN/vendoring sync -v
+
+    # clean up
+    echo "Removing all .so libraries"
+    find opensafely/_vendor/ -name \*.so -exec rm {} \;
 
 # ensure prod requirements installed and up to date
 #prodenv: requirements-prod
