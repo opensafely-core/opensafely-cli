@@ -66,20 +66,14 @@ update-vendored-dependencies: virtualenv requirements-prod
     echo "Removing all .so libraries"
     find opensafely/_vendor/ -name \*.so -exec rm {} \;
 
-# ensure prod requirements installed and up to date
-#prodenv: requirements-prod
-#    #!/usr/bin/env bash
-#    set -euo pipefail
-#    # exit if .txt file has not changed since we installed them (-nt == "newer than', but we negate with || to avoid error exit code)
-#    test requirements.prod.txt -nt $VIRTUAL_ENV/.prod || exit 0
-#
-#    $PIP install -r requirements.prod.txt
-#    touch $VIRTUAL_ENV/.prod
-
 
 # && dependencies are run after the recipe has run. Needs just>=0.9.9. This is
 # a killer feature over Makefiles.
-#
+
+# update to the latest version of the internal pipeline library
+update-pipeline: && requirements-prod update-vendored-dependencies
+    ./scripts/upgrade-pipeline.sh requirements.prod.in
+
 # ensure dev requirements installed and up to date
 devenv: requirements-dev && install-precommit
     #!/usr/bin/env bash
