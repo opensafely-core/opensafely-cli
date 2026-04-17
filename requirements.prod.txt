@@ -16,7 +16,7 @@ idna==3.10
     # via requests
 importlib-metadata==8.5.0
     # via opentelemetry-api
-opensafely-pipeline @ https://github.com/opensafely-core/pipeline/archive/refs/tags/v2026.03.12.140752.zip
+opensafely-pipeline @ https://github.com/opensafely-core/pipeline/archive/refs/tags/v2026.04.17.132418.zip
     # via -r requirements.prod.in
 opentelemetry-api==1.33.1
     # via -r requirements.prod.in
