@@ -331,7 +331,8 @@ class Pipeline:
         if feat.REMOVE_SUPPORT_FOR_COHORT_EXTRACTOR:
             if expectations is not None:
                 raise ValidationError(
-                    "Project includes `expectations` section, which is not supported in this version"
+                    "Project includes `expectations` section, which is not supported in this version. "
+                    "This section is only applicable to deprecated cohortextractor actions; you can safely remove it."
                 )
         elif feat.EXPECTATIONS_POPULATION:
             if expectations is None:
