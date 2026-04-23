@@ -219,7 +219,7 @@ class Action:
 
     # Valid image versions. `dev` is for local testing
     # Note: at some point, we probably want to disallow latest.
-    VERSION_REGEX = re.compile(r"^((v[\d.]+)|dev|latest)$")
+    VERSION_REGEX = re.compile(r"^((v[\d.]+(-pre)?)|dev|latest)$")
 
     @classmethod
     def parse_run_string(cls, action_id: str, run: str) -> Command:
