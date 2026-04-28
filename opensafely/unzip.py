@@ -3,7 +3,7 @@ import sys
 from pathlib import Path
 
 
-DESCRIPTION = "Unzip a compressesd .csv.gz or .dta.gz file for local viewing"
+DESCRIPTION = "Unzip a compressed .csv.gz or .dta.gz file for local viewing"
 
 
 def add_arguments(parser):
