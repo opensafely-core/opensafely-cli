@@ -1,0 +1,69 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+// README at: https://github.com/devcontainers/templates/tree/main/src/python
+{
+	"name": "Ubuntu",
+	"image": "mcr.microsoft.com/devcontainers/base:noble",
+  "features": {
+      "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				// Microsoft official extensions
+				"ms-python.python",
+				"ms-python.vscode-pylance",
+				// GitHub official extensions
+				"github.vscode-github-actions",
+				// Third-party extensions
+				"biomejs.biome",
+				"charliermarsh.ruff",
+				"redhat.vscode-yaml",
+				"timonwong.shellcheck",
+				// Uninstall the ESLint extension
+				"-dbaeumer.vscode-eslint"
+			],
+			"settings": {
+				// There's a quirk where this doesn't get picked up and you have to reselect the interpreter.
+				// Maybe it works if the venv is created in the Dockerfile?
+				"python.defaultInterpreterPath": "/opt/venv/bin/python",
+				"python.terminal.activateEnvInCurrentTerminal": true,
+				"python.terminal.activateEnvironment": true,
+				"[python]": {
+					"editor.defaultFormatter": "charliermarsh.ruff",
+					"editor.codeActionsOnSave": {
+						"source.fixAll": "explicit"
+					},
+					"editor.formatOnSave": true
+				},
+				"[javascript]": {
+					"editor.defaultFormatter": "biomejs.biome",
+					"editor.codeActionsOnSave": {
+						"source.fixAll.biome": "explicit"
+					},
+					"editor.formatOnSave": true
+				},
+				"[javascriptreact]": {
+					"editor.defaultFormatter": "biomejs.biome",
+					"editor.codeActionsOnSave": {
+						"source.fixAll.biome": "explicit"
+					},
+					"editor.formatOnSave": true
+				},
+				"[typescript]": {
+					"editor.defaultFormatter": "biomejs.biome",
+					"editor.codeActionsOnSave": {
+						"source.fixAll.biome": "explicit"
+					},
+					"editor.formatOnSave": true
+				},
+				"[css]": {
+					"editor.defaultFormatter": "biomejs.biome",
+					"editor.codeActionsOnSave": {
+						"source.fixAll.biome": "explicit"
+					},
+					"editor.formatOnSave": true
+				}
+			}
+		}
+	}
+}
