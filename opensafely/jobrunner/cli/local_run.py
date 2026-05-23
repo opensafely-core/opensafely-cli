@@ -32,7 +32,7 @@ import subprocess
 import sys
 import tempfile
 import textwrap
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from opensafely._vendor.pipeline import (
@@ -632,8 +632,8 @@ def get_stata_license(repo=config.STATA_LICENSE_REPO):
 
     fetch = False
     if cached.exists():
-        mtime = datetime.fromtimestamp(cached.stat().st_mtime)
-        if datetime.utcnow() - mtime > license_timeout:
+        mtime = datetime.fromtimestamp(cached.stat().st_mtime, timezone.utc)
+        if datetime.now(timezone.utc) - mtime > license_timeout:
             fetch = True
     else:
         fetch = True
@@ -657,7 +657,7 @@ def get_stata_license(repo=config.STATA_LICENSE_REPO):
     if cached.exists():
         # if the refresh failed for some reason, update the last time it was
         # used to now to avoid spamming github on every subsequent run
-        t = datetime.utcnow().timestamp()
+        t = datetime.now(timezone.utc).timestamp()
         os.utime(cached, (t, t))
         return cached.read_text()
     else:

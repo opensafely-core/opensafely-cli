@@ -4,7 +4,7 @@ import os
 import sys
 import tempfile
 import warnings
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from opensafely import (  # noqa: E402
@@ -56,7 +56,7 @@ def should_version_check():
     if not VERSION_FILE.exists():
         return True
 
-    four_hours_ago = datetime.utcnow() - timedelta(hours=4)
+    four_hours_ago = datetime.now(timezone.utc) - timedelta(hours=4)
 
     return VERSION_FILE.stat().st_mtime < four_hours_ago.timestamp()
 

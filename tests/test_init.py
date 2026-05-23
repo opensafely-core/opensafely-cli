@@ -1,6 +1,6 @@
 import os
 import warnings
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -15,7 +15,7 @@ def test_should_version_check():
     opensafely.update_version_check()
     assert opensafely.should_version_check() is False
 
-    timestamp = (datetime.utcnow() - timedelta(hours=5)).timestamp()
+    timestamp = (datetime.now(timezone.utc) - timedelta(hours=5)).timestamp()
     os.utime(opensafely.VERSION_FILE, (timestamp, timestamp))
 
     assert opensafely.should_version_check() is True

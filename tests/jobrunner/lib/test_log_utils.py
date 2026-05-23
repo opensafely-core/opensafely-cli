@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 from opensafely.jobrunner.cli import local_run
 from opensafely.jobrunner.lib import log_utils
@@ -7,7 +7,11 @@ from opensafely.jobrunner.models import Job, JobRequest
 
 
 FROZEN_TIMESTAMP = 1608568119.1467905
-FROZEN_TIMESTRING = datetime.utcfromtimestamp(FROZEN_TIMESTAMP).isoformat()
+FROZEN_TIMESTRING = (
+    datetime.fromtimestamp(FROZEN_TIMESTAMP, timezone.utc)
+    .replace(tzinfo=None)
+    .isoformat()
+)
 
 repo_url = "https://github.com/opensafely/project"
 test_job = Job(

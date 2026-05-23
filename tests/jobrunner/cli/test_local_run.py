@@ -3,7 +3,7 @@ import logging
 import os
 import shutil
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -207,7 +207,7 @@ def test_get_stata_license_cache_recent(systmpdir, monkeypatch, tmp_path):
 def test_get_stata_license_cache_expired(systmpdir, tmp_path, license_repo):
     cache = tmp_path / "opensafely-stata.lic"
     cache.write_text("cached-license")
-    utime = (datetime.utcnow() - timedelta(hours=12)).timestamp()
+    utime = (datetime.now(timezone.utc) - timedelta(hours=12)).timestamp()
     os.utime(cache, (utime, utime))
 
     assert local_run.get_stata_license(license_repo) == "repo-license"
