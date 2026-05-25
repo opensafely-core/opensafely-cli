@@ -74,6 +74,14 @@ def main(tool, directory, name, port, no_browser, background, force):
             f"{tool_name} is not a recognised tool to launch. Choose from rstudio, jupyter"
         )
 
+    if not is_project_directory(directory):
+        print(f"No project.yaml file found in {directory}")
+        print(
+            "Run this command from an OpenSAFELY project directory "
+            "or pass --directory."
+        )
+        return False
+
     if not docker_preflight_check():
         return False
 
@@ -230,6 +238,10 @@ def run_tool(docker_args, kwargs, background, no_browser, url):
 
     # we want to exit with the same code that docker did
     return ps.returncode
+
+
+def is_project_directory(directory):
+    return directory.joinpath("project.yaml").is_file()
 
 
 def ensure_image(image):

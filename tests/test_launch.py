@@ -1,5 +1,4 @@
 import os
-import pathlib
 import secrets
 import sys
 from unittest import mock
@@ -10,8 +9,16 @@ from opensafely import launch, utils
 from tests.conftest import run_main
 
 
+@pytest.fixture
+def project_dir(tmp_path):
+    path = tmp_path / "project"
+    path.mkdir()
+    path.joinpath("project.yaml").touch()
+    return path
+
+
 @pytest.mark.parametrize("version", ["", "v1"])
-def test_jupyter(run, no_user, monkeypatch, version):
+def test_jupyter(run, no_user, monkeypatch, project_dir, version):
 
     if not version:
         tool = "jupyter"
@@ -48,7 +55,7 @@ def test_jupyter(run, no_user, monkeypatch, version):
             "--label=opensafely",
             "--platform=linux/amd64",
             "--interactive",
-            f"--volume={pathlib.Path.cwd()}://workspace",
+            f"--volume={project_dir}://workspace",
             "-p=8888:8888",
             "--name=test_jupyter",
             "--hostname=test_jupyter",
@@ -70,13 +77,16 @@ def test_jupyter(run, no_user, monkeypatch, version):
             "--Application.log_level=ERROR",  # errors only please
         ]
     )
-    assert run_main(launch, f"{tool} --name test_jupyter") == 0
+    assert (
+        run_main(launch, f"{tool} --directory {project_dir} --name test_jupyter")
+        == 0
+    )
     mock_open_browser.assert_called_with("http://localhost:8888/?token=TOKEN")
 
 
 @pytest.mark.parametrize("version", ["", "v2"])
 @pytest.mark.parametrize("gitconfig_exists", [True, False])
-def test_rstudio(run, tmp_path, monkeypatch, gitconfig_exists, version):
+def test_rstudio(run, tmp_path, monkeypatch, project_dir, gitconfig_exists, version):
 
     if not version:
         tool = "rstudio"
@@ -125,7 +135,7 @@ def test_rstudio(run, tmp_path, monkeypatch, gitconfig_exists, version):
         "--platform=linux/amd64",
         "--interactive",
         "--user=0:0",
-        f"--volume={pathlib.Path.cwd()}://workspace",
+        f"--volume={project_dir}://workspace",
         "-p=8787:8787",
         "--name=test_rstudio",
         "--hostname=test_rstudio",
@@ -143,20 +153,26 @@ def test_rstudio(run, tmp_path, monkeypatch, gitconfig_exists, version):
 
     run.expect(expected + [f"ghcr.io/opensafely-core/rstudio:{used_version}"])
 
-    assert run_main(launch, f"{tool} --name test_rstudio") == 0
+    assert (
+        run_main(launch, f"{tool} --directory {project_dir} --name test_rstudio")
+        == 0
+    )
     mock_open_browser.assert_called_with("http://localhost:8787")
 
 
 @pytest.mark.skipif(sys.platform != "linux", reason="Only runs on Linux")
 @pytest.mark.parametrize("tool", ["jupyter", "rstudio"])
 @pytest.mark.functional
-def test_launch_browser(monkeypatch, docker, tool):
+def test_launch_browser(monkeypatch, docker, project_dir, tool):
     """This tests the --background flag, as well as providing base functional tests."""
 
     mock_open_browser = mock.Mock(spec=utils.open_browser)
     monkeypatch.setattr(launch.utils, "open_browser", mock_open_browser)
 
-    args = f"{tool} --port 1234 --name test_launch_browser_{tool} --background"
+    args = (
+        f"{tool} --directory {project_dir} --port 1234 "
+        f"--name test_launch_browser_{tool} --background"
+    )
 
     assert run_main(launch, args) == 0
     assert mock_open_browser.mock_calls[0].args[0].startswith("http://localhost:1234")
@@ -164,13 +180,16 @@ def test_launch_browser(monkeypatch, docker, tool):
 
 @pytest.mark.skipif(sys.platform != "linux", reason="Only runs on Linux")
 @pytest.mark.functional
-def test_launch_no_browser(monkeypatch, docker):
+def test_launch_no_browser(monkeypatch, docker, project_dir):
     """Just test rstudio, as the logic is the same for each"""
 
     mock_open_browser = mock.Mock(spec=utils.open_browser)
     monkeypatch.setattr(launch.utils, "open_browser", mock_open_browser)
 
-    args = "rstudio --name test_launch_no_browser --background --no-browser"
+    args = (
+        f"rstudio --directory {project_dir} --name test_launch_no_browser "
+        "--background --no-browser"
+    )
 
     assert run_main(launch, args) == 0
     assert not mock_open_browser.called
@@ -178,25 +197,51 @@ def test_launch_no_browser(monkeypatch, docker):
 
 @pytest.mark.skipif(sys.platform != "linux", reason="Only runs on Linux")
 @pytest.mark.functional
-def test_launch_force(monkeypatch, docker):
+def test_launch_force(monkeypatch, docker, project_dir):
     mock_open_browser = mock.Mock(spec=utils.open_browser)
     monkeypatch.setattr(launch.utils, "open_browser", mock_open_browser)
 
     # start rstuido
-    assert run_main(launch, "rstudio --port 1234 --name test_force --background") == 0
+    assert (
+        run_main(
+            launch,
+            f"rstudio --directory {project_dir} --port 1234 "
+            "--name test_force --background",
+        )
+        == 0
+    )
     assert mock_open_browser.call_count == 1
     assert mock_open_browser.mock_calls[0].args[0] == "http://localhost:1234"
 
     # try again, without ---force
     # should not error, but still open browser, but on original port, not requested port
-    assert run_main(launch, "rstudio --port 4321 --name test_force --background") == 0
+    assert (
+        run_main(
+            launch,
+            f"rstudio --directory {project_dir} --port 4321 "
+            "--name test_force --background",
+        )
+        == 0
+    )
     assert mock_open_browser.call_count == 2
     assert mock_open_browser.mock_calls[1].args[0] == "http://localhost:1234"
 
     # try agin, but with --force, whcih should kill the old one and start new one on requested port
     assert (
-        run_main(launch, "rstudio --port 4321 --name test_force --background --force")
+        run_main(
+            launch,
+            f"rstudio --directory {project_dir} --port 4321 "
+            "--name test_force --background --force",
+        )
         == 0
     )
     assert mock_open_browser.call_count == 3
     assert mock_open_browser.mock_calls[2].args[0] == "http://localhost:4321"
+
+
+def test_launch_requires_project_yaml(run, tmp_path, capsys):
+    assert run_main(launch, f"jupyter --directory {tmp_path}") is False
+
+    captured = capsys.readouterr()
+    assert f"No project.yaml file found in {tmp_path}" in captured.out
+    assert "OpenSAFELY project directory" in captured.out
