@@ -159,6 +159,18 @@ def write_manifest(codelists_dir, downloaded_codelists, append):
 def fetch_codelist(codelist):
     try:
         response = requests.get(codelist.download_url, headers=request_headers())
+        if (
+            response.status_code == 400
+            and "codelist is not downloadable" in response.text.lower()
+        ):
+            exit_with_error(
+                f"Codelist at:\n{codelist.url}\n"
+                "is not downloadable from OpenCodelists.\n\n"
+                "This can happen when the codelist CSV does not contain a code "
+                "column header supported by its coding system. Check the "
+                "codelist page for details, or use a downloadable codelist "
+                "version."
+            )
         response.raise_for_status()
         content_type = response.headers["content-type"]
         if content_type != "text/csv":

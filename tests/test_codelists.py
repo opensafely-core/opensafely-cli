@@ -405,6 +405,35 @@ def test_codelists_add_with_draft_url(codelists_path, requests_mock, capsys):
     assert "is a draft codelist and cannot be added" in stdout
 
 
+def test_codelists_add_with_not_downloadable_url(
+    codelists_path, requests_mock, capsys
+):
+    codelists_path /= "codelists"
+    codelists_file = codelists_path / "codelists.txt"
+    prior_codelists = codelists_file.read_text()
+    for codelist in prior_codelists.splitlines():
+        requests_mock.get(
+            f"https://www.opencodelists.org/codelist/{codelist.rstrip('/')}/download.csv",
+            text="foo",
+        )
+    requests_mock.get(
+        "https://www.opencodelists.org/"
+        "codelist/project123/codelist456/version1/download.csv",
+        text="Codelist is not downloadable",
+        status_code=400,
+        headers={"content-type": "text/html; charset=utf-8"},
+    )
+
+    with pytest.raises(SystemExit):
+        codelists.add(
+            "https://www.opencodelists.org/codelist/project123/codelist456/version1",
+            codelists_path,
+        )
+    stdout, _ = capsys.readouterr()
+    assert "is not downloadable from OpenCodelists" in stdout
+    assert "code column header supported by its coding system" in stdout
+
+
 def test_codelists_add_with_valid_non_codelist_url(
     codelists_path, requests_mock, capsys
 ):
