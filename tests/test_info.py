@@ -28,7 +28,5 @@ def test_list_project_images(capsys):
         """
        ehrql:v1
        python:v2
-    """.lstrip(
-            "\n"
-        )
+    """.lstrip("\n")
     )

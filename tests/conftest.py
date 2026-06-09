@@ -107,17 +107,17 @@ class SubprocessRunFixture(list):
                 setattr(value, output, valid_type())
                 continue
 
-            assert isinstance(
-                output_value, valid_type
-            ), f"run fixture called with text={text} but expected {output} is of type {type(output_value)}"
+            assert isinstance(output_value, valid_type), (
+                f"run fixture called with text={text} but expected {output} is of type {type(output_value)}"
+            )
 
         # check it was called with the expected env items in the actual env
         if env:
             for k, v in env.items():
                 if k in actual_env:
-                    assert (
-                        actual_env[k] == v
-                    ), "run fixture called with env value {k}={actual_env[k]}, expected {k}={v}"
+                    assert actual_env[k] == v, (
+                        "run fixture called with env value {k}={actual_env[k]}, expected {k}={v}"
+                    )
                 else:
                     raise AssertionError(
                         "run fixture called with no value {k}, expected {k}={v}"
