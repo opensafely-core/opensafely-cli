@@ -59,9 +59,6 @@ include = ["opensafely*"]
 [tool.setuptools.dynamic]
 version = {file = "opensafely/VERSION"}
 
-[tool.black]
-extend-exclude = 'opensafely/_vendor/*'
-
 [tool.vendoring]
 destination = "opensafely/_vendor/"
 requirements = "requirements.prod.txt"
@@ -140,6 +137,8 @@ exclude = [
   "opensafely/_vendor",
   "build",
 ]
+
+[tool.ruff.lint]
 extend-select = [
   "A",  # flake8-builtins
   "I",  # isort
@@ -152,9 +151,8 @@ extend-ignore = [
   "E501",
   "E731",
 ]
-target-version = "py310"
 
-[tool.ruff.isort]
+[tool.ruff.lint.isort]
 lines-after-imports = 2
 known-third-party = ["opensafely._vendor"]
 

@@ -12,8 +12,6 @@ attrs==26.1.0
     #   referencing
 backoff==2.2.1
     # via opentelemetry-exporter-otlp-proto-http
-black==26.5.1
-    # via -r requirements.dev.in
 build==1.5.0
     # via pip-tools
 certifi==2026.6.17
@@ -28,7 +26,6 @@ charset-normalizer==3.4.9
     #   requests
 click==8.4.2
     # via
-    #   black
     #   pip-tools
     #   vendoring
 coverage[toml]==7.15.0
@@ -72,8 +69,6 @@ markdown-it-py==4.2.0
     # via rich
 mdurl==0.1.2
     # via markdown-it-py
-mypy-extensions==1.1.0
-    # via black
 nodeenv==1.10.0
     # via pre-commit
 opentelemetry-api==1.33.1
@@ -95,18 +90,14 @@ opentelemetry-semantic-conventions==0.54b1
     # via opentelemetry-sdk
 packaging==26.2
     # via
-    #   black
     #   build
     #   pytest
     #   vendoring
     #   wheel
-pathspec==1.1.1
-    # via black
 pip-tools==7.5.3
     # via -r requirements.dev.in
 platformdirs==4.10.0
     # via
-    #   black
     #   python-discovery
     #   virtualenv
 pluggy==1.6.0
@@ -140,8 +131,6 @@ python-dateutil==2.9.0.post0
     # via freezegun
 python-discovery==1.4.3
     # via virtualenv
-pytokens==0.4.1
-    # via black
 pyyaml==6.0.3
     # via pre-commit
 referencing==0.37.0
@@ -170,14 +159,12 @@ toml==0.10.2
     # via vendoring
 tomli==2.4.1
     # via
-    #   black
     #   build
     #   coverage
     #   pip-tools
     #   pytest
 typing-extensions==4.16.0
     # via
-    #   black
     #   exceptiongroup
     #   opentelemetry-sdk
     #   referencing

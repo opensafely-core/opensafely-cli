@@ -114,20 +114,18 @@ test-no-docker *args: devenv
     $BIN/python -m pytest -m "not needs_docker" {{ args }}
 
 
-black *args=".": devenv
-    $BIN/black --check {{ args }}
-
-ruff *args=".": devenv
-    $BIN/ruff check {{ args }}
-
-# run the various dev checks but does not change any files
-check: black ruff
+format *args=".": devenv
+    $BIN/ruff format --check {{ args }}
 
 
-# fix formatting and import sort ordering
+lint *args=".": devenv
+    $BIN/ruff check --output-format=full {{ args }}
+
+# fix the things we can automate: linting, formatting, import sorting
 fix: devenv
-    $BIN/black .
-    $BIN/ruff --fix .
+    $BIN/ruff check --fix .
+    $BIN/ruff format .
+
 
 build: virtualenv
     $BIN/python -m build --wheel --sdist
