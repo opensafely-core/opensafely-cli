@@ -1,0 +1,43 @@
+name: Tests
+
+on: [push]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  tests:
+    strategy:
+      matrix:
+        os: [ubuntu-22.04, windows-2022]
+        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
+    runs-on: ${{ matrix.os }}
+    name: Run test suite
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
+      - name: Setup tools
+        uses: opensafely-core/setup-action@5b3030fbbcf069c94e352b4f0a94100fae4dbd82 # v1.6.1
+        with:
+          python-version: ${{ matrix.python-version }}
+          install-uv: true
+
+      - name: Run tests on ${{ matrix.os }}
+        if: ${{ matrix.os == 'ubuntu-22.04' }}
+        run: |
+          export PYTHON_VERSION=python${{ matrix.python-version }}
+          just test -vvv
+
+      - name: Run tests on windows
+        if: ${{ matrix.os == 'windows-2022' }}
+        run: |
+          # windows powershell: set to executable w/o version, as it doesn't have one on windows
+          $Env:PYTHON_VERSION = "python"
+          just test-no-docker -vvv
