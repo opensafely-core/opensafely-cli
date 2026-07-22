@@ -66,6 +66,21 @@ def update_version_check():
     VERSION_FILE.touch()
 
 
+def warn_if_unsupported_python_version():
+    if sys.version_info < (3, 10):
+        print(
+            "Warning: The installed Python version being used to run the OpenSAFELY "
+            "CLI is older than Python 3.10 and has reached end of life.\n"
+            "\n"
+            "This installed version of the OpenSAFELY CLI will continue to run, but "
+            "you will no longer receive new versions of the OpenSAFELY CLI.\n"
+            "\n"
+            "Please upgrade your Python installation to ensure you can upgrade to "
+            "new versions of the OpenSAFELY CLI.\n",
+            file=sys.stderr,
+        )
+
+
 def warn_if_updates_needed(argv):
     # we only check for new versions periodically
     if not should_version_check():
@@ -158,6 +173,7 @@ def main():
     add_subcommand("jupyter", jupyter)
     add_subcommand("rstudio", rstudio)
 
+    warn_if_unsupported_python_version()
     warn_if_updates_needed(sys.argv)
     args = parser.parse_args()
     kwargs = vars(args)

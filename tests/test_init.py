@@ -8,6 +8,14 @@ import opensafely
 from tests.test_pull import expect_local_images
 
 
+def test_warn_if_unsupported_python_version(capsys, monkeypatch):
+    monkeypatch.setattr(opensafely.sys, "version_info", (3, 9))
+
+    opensafely.warn_if_unsupported_python_version()
+
+    assert "older than Python 3.10" in capsys.readouterr().err
+
+
 def test_should_version_check():
     opensafely.VERSION_FILE.unlink(missing_ok=True)
 
