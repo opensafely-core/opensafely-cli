@@ -16,6 +16,14 @@ def test_warn_if_unsupported_python_version(capsys, monkeypatch):
     assert "older than Python 3.10" in capsys.readouterr().err
 
 
+def test_warn_if_unsupported_new_python_version(capsys, monkeypatch):
+    monkeypatch.setattr(opensafely.sys, "version_info", (3, 14))
+
+    opensafely.warn_if_unsupported_python_version()
+
+    assert "newer than Python 3.13" in capsys.readouterr().err
+
+
 def test_should_version_check():
     opensafely.VERSION_FILE.unlink(missing_ok=True)
 
