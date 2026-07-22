@@ -6,7 +6,6 @@
 pip-tools
 vendoring
 # dev/test dependencies
-black
 pytest
 requests-mock
 pre-commit

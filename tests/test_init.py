@@ -8,12 +8,33 @@ import opensafely
 from tests.test_pull import expect_local_images
 
 
-def test_warn_if_unsupported_python_version(capsys, monkeypatch):
-    monkeypatch.setattr(opensafely.sys, "version_info", (3, 9))
+@pytest.mark.parametrize(
+    ("version_info", "expected_message"),
+    [
+        ((3, 9), "older than Python 3.10"),
+        ((3, 10), None),
+        ((3, 11), None),
+        ((3, 12), None),
+        ((3, 13), None),
+        ((3, 14), "newer than Python 3.13"),
+    ],
+)
+def test_warn_if_unsupported_python_version(
+    capsys,
+    monkeypatch,
+    version_info,
+    expected_message,
+):
+    monkeypatch.setattr(opensafely.sys, "version_info", version_info)
 
     opensafely.warn_if_unsupported_python_version()
 
-    assert "older than Python 3.10" in capsys.readouterr().err
+    stderr = capsys.readouterr().err
+
+    if expected_message is None:
+        assert stderr == ""
+    else:
+        assert expected_message in stderr
 
 
 def test_should_version_check():

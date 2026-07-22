@@ -49,8 +49,7 @@ def add_arguments(parser):
     parser_update = subparsers.add_parser(
         "update",
         help=(
-            f"Update codelists, using specification at "
-            f"{CODELISTS_DIR}/{CODELISTS_FILE}"
+            f"Update codelists, using specification at {CODELISTS_DIR}/{CODELISTS_FILE}"
         ),
     )
     parser_update.set_defaults(function=update)

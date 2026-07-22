@@ -11,7 +11,6 @@ import os
 import sys
 import time
 import traceback
-from typing import Optional
 
 from opensafely.jobrunner import config, tracing
 from opensafely.jobrunner.executors import get_executor_api
@@ -62,7 +61,7 @@ def main(exit_callback=lambda _: False):
         time.sleep(config.JOB_LOOP_INTERVAL)
 
 
-def handle_jobs(api: Optional[ExecutorAPI]):
+def handle_jobs(api: ExecutorAPI | None):
     log.debug("Querying database for active jobs")
     active_jobs = find_where(Job, state__in=[State.PENDING, State.RUNNING])
     log.debug("Done query")

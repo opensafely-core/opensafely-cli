@@ -31,58 +31,66 @@ def test_main(run):
         stdout="os-job-1",
     )
 
-    run.expect(
-        [
-            "docker",
-            "container",
-            "ls",
-            "--all",
-            "--format={{ .ID }}",
-            "--filter",
-            clean.busybox_filter,
-        ],
-        stdout="os-volume-manager-1",
-    ),
+    (
+        run.expect(
+            [
+                "docker",
+                "container",
+                "ls",
+                "--all",
+                "--format={{ .ID }}",
+                "--filter",
+                clean.busybox_filter,
+            ],
+            stdout="os-volume-manager-1",
+        ),
+    )
     # these two will typically return the same results as the first two
-    run.expect(
-        [
-            "docker",
-            "container",
-            "ls",
-            "--all",
-            "--format={{ .ID }}",
-            "--filter",
-            clean.name_filter,
-        ],
-        stdout="os-job-1",
-    ),
-    run.expect(
-        [
-            "docker",
-            "container",
-            "ls",
-            "--all",
-            "--format={{ .ID }}",
-            "--filter",
-            clean.volume_filter,
-        ],
-        stdout="os-volume-manager-1",
-    ),
+    (
+        run.expect(
+            [
+                "docker",
+                "container",
+                "ls",
+                "--all",
+                "--format={{ .ID }}",
+                "--filter",
+                clean.name_filter,
+            ],
+            stdout="os-job-1",
+        ),
+    )
+    (
+        run.expect(
+            [
+                "docker",
+                "container",
+                "ls",
+                "--all",
+                "--format={{ .ID }}",
+                "--filter",
+                clean.volume_filter,
+            ],
+            stdout="os-volume-manager-1",
+        ),
+    )
     # remove containers
     run.expect(["docker", "rm", "--force", "os-job-1", "os-volume-manager-1"])
 
     # list volumes
-    run.expect(
-        [
-            "docker",
-            "volume",
-            "ls",
-            "--format={{ .Name }}",
-            "--filter",
-            clean.volume_filter,
-        ],
-        stdout="os-volume-1",
-    ),
+    (
+        run.expect(
+            [
+                "docker",
+                "volume",
+                "ls",
+                "--format={{ .Name }}",
+                "--filter",
+                clean.volume_filter,
+            ],
+            stdout="os-volume-1",
+        ),
+    )
     # remove volumes
     run.expect(["docker", "volume", "rm", "--force", "os-volume-1"])
     # prunemove containers
