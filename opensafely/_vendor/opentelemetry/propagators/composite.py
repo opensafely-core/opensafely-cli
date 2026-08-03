@@ -1,20 +1,9 @@
 # Copyright The OpenTelemetry Authors
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-License-Identifier: Apache-2.0
+import collections.abc
 import logging
-import typing
 
-from opensafely._vendor.deprecated import deprecated
+from opensafely._vendor.typing_extensions import deprecated
 
 from opensafely._vendor.opentelemetry.context.context import Context
 from opensafely._vendor.opentelemetry.propagators import textmap
@@ -31,14 +20,14 @@ class CompositePropagator(textmap.TextMapPropagator):
     """
 
     def __init__(
-        self, propagators: typing.Sequence[textmap.TextMapPropagator]
+        self, propagators: collections.abc.Sequence[textmap.TextMapPropagator]
     ) -> None:
         self._propagators = propagators
 
     def extract(
         self,
         carrier: textmap.CarrierT,
-        context: typing.Optional[Context] = None,
+        context: Context | None = None,
         getter: textmap.Getter[textmap.CarrierT] = textmap.default_getter,
     ) -> Context:
         """Run each of the configured propagators with the given context and carrier.
@@ -55,7 +44,7 @@ class CompositePropagator(textmap.TextMapPropagator):
     def inject(
         self,
         carrier: textmap.CarrierT,
-        context: typing.Optional[Context] = None,
+        context: Context | None = None,
         setter: textmap.Setter[textmap.CarrierT] = textmap.default_setter,
     ) -> None:
         """Run each of the configured propagators with the given context and carrier.
@@ -69,7 +58,7 @@ class CompositePropagator(textmap.TextMapPropagator):
             propagator.inject(carrier, context, setter=setter)
 
     @property
-    def fields(self) -> typing.Set[str]:
+    def fields(self) -> set[str]:
         """Returns a set with the fields set in `inject`.
 
         See
@@ -84,7 +73,9 @@ class CompositePropagator(textmap.TextMapPropagator):
         return composite_fields
 
 
-@deprecated(version="1.2.0", reason="You should use CompositePropagator")  # type: ignore
+@deprecated(
+    "You should use CompositePropagator. Deprecated since version 1.2.0."
+)
 class CompositeHTTPPropagator(CompositePropagator):
     """CompositeHTTPPropagator provides a mechanism for combining multiple
     propagators into a single one.
