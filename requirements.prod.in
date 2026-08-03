@@ -1,5 +1,5 @@
 opensafely-pipeline@https://github.com/opensafely-core/pipeline/archive/refs/tags/v2026.04.22.171515.zip
 ruyaml
 requests
-opentelemetry-api==1.33.1
-urllib3<2.2
+opentelemetry-api
+urllib3
