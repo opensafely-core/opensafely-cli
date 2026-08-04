@@ -336,7 +336,7 @@ def make_temporary_manifest(codelists_dir):
 
 @dataclasses.dataclass
 class Codelist:
-    id: str  # noqa: A003
+    id: str
     codelist: str
     version: str
     url: str

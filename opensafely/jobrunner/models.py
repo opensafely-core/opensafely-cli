@@ -102,7 +102,7 @@ StatusCode._FINAL_STATUS_CODES = [
 # never save to the database (hence no __tablename__ attribute)
 @dataclasses.dataclass
 class JobRequest:
-    id: str  # noqa: A003
+    id: str
     repo_url: str
     commit: str
     requested_actions: list
@@ -130,7 +130,7 @@ class SavedJobRequest:
         );
     """
 
-    id: str  # noqa: A003
+    id: str
     original: dict
 
 
@@ -203,7 +203,7 @@ class Job:
         """,
     )
 
-    id: str = None  # noqa: A003
+    id: str = None
     job_request_id: str = None
     state: State = None
     # Git repository URL
@@ -376,7 +376,7 @@ class Flag:
         )
     """
 
-    id: str  # noqa: A003
+    id: str
     value: str
     timestamp: int = None
 

@@ -7,7 +7,7 @@ import warnings
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from opensafely import (  # noqa: E402
+from opensafely import (
     clean,
     codelists,
     execute,
@@ -19,7 +19,7 @@ from opensafely import (  # noqa: E402
     unzip,
     upgrade,
 )
-from opensafely.jobrunner.cli import local_run  # noqa: E402
+from opensafely.jobrunner.cli import local_run
 
 
 # quieten unneeded loggers
