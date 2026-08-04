@@ -151,6 +151,15 @@ extend-select = [
 extend-ignore = [
   "E501",
   "E731",
+  # "Create your own exception"; don't raise Exception() - we deliberately raise and
+  # catch base Exception in the jobrunner code so we can handle unexpected errors and
+  # report/retry
+  "TRY002",
+  # Consequently, also ignore the "do not assert blind exception" rule; this only
+  # happens in tests of the above-mentioned base Exceptions
+  "B017",
+  # And similarly, "do not catch blind exception"
+  "BLE001",
 ]
 
 [tool.ruff.lint.isort]
