@@ -95,12 +95,13 @@ class LocalDockerAPI(ExecutorAPI):
     def prepare(self, job_definition):
         # Check the workspace is not archived
         workspace_dir = get_high_privacy_workspace(job_definition.workspace)
-        if not workspace_dir.exists():
-            if workspace_is_archived(job_definition.workspace):
-                return JobStatus(
-                    ExecutorState.ERROR,
-                    f"Workspace {job_definition.workspace} has been archived. Contact the OpenSAFELY tech team to resolve",
-                )
+        if not workspace_dir.exists() and workspace_is_archived(
+            job_definition.workspace
+        ):
+            return JobStatus(
+                ExecutorState.ERROR,
+                f"Workspace {job_definition.workspace} has been archived. Contact the OpenSAFELY tech team to resolve",
+            )
 
         # Check the image exists locally and error if not. Newer versions of
         # docker-cli support `--pull=never` as an argument to `docker run` which

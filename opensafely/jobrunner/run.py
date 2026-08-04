@@ -217,15 +217,14 @@ def handle_job(job, api, mode=None, paused=None):
     is_synchronous = False
 
     # handle special modes before considering executor state, as they ignore it
-    if paused:
-        if job.state == State.PENDING:
-            # do not start the job, keep it pending
-            set_code(
-                job,
-                StatusCode.WAITING_PAUSED,
-                "Backend is currently paused for maintenance, job will start once this is completed",
-            )
-            return
+    if paused and job.state == State.PENDING:
+        # do not start the job, keep it pending
+        set_code(
+            job,
+            StatusCode.WAITING_PAUSED,
+            "Backend is currently paused for maintenance, job will start once this is completed",
+        )
+        return
 
     if mode == "db-maintenance" and job_definition.allow_database_access:
         if job.state == State.RUNNING:
@@ -497,17 +496,16 @@ def get_obsolete_files(job_definition, outputs):
 def job_to_job_definition(job):
     allow_database_access = False
     env = {"OPENSAFELY_BACKEND": config.BACKEND}
-    if job.requires_db:
-        if not config.USING_DUMMY_DATA_BACKEND:
-            allow_database_access = True
-            env["DATABASE_URL"] = config.DATABASE_URLS[job.database_name]
-            if config.TEMP_DATABASE_NAME:
-                env["TEMP_DATABASE_NAME"] = config.TEMP_DATABASE_NAME
-            if config.PRESTO_TLS_KEY and config.PRESTO_TLS_CERT:
-                env["PRESTO_TLS_CERT"] = config.PRESTO_TLS_CERT
-                env["PRESTO_TLS_KEY"] = config.PRESTO_TLS_KEY
-            if config.EMIS_ORGANISATION_HASH:
-                env["EMIS_ORGANISATION_HASH"] = config.EMIS_ORGANISATION_HASH
+    if job.requires_db and not config.USING_DUMMY_DATA_BACKEND:
+        allow_database_access = True
+        env["DATABASE_URL"] = config.DATABASE_URLS[job.database_name]
+        if config.TEMP_DATABASE_NAME:
+            env["TEMP_DATABASE_NAME"] = config.TEMP_DATABASE_NAME
+        if config.PRESTO_TLS_KEY and config.PRESTO_TLS_CERT:
+            env["PRESTO_TLS_CERT"] = config.PRESTO_TLS_CERT
+            env["PRESTO_TLS_KEY"] = config.PRESTO_TLS_KEY
+        if config.EMIS_ORGANISATION_HASH:
+            env["EMIS_ORGANISATION_HASH"] = config.EMIS_ORGANISATION_HASH
     # Prepend registry name
     action_args = job.action_args
     image = action_args.pop(0)

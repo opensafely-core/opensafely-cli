@@ -23,10 +23,9 @@ def main(path):
 
     for p in paths:
         uncompressed = p.with_suffix("")  # strip .gz
-        if uncompressed.exists():
-            if uncompressed.stat().st_mtime > p.stat().st_mtime:
-                print(f"{p} already unzipped to {uncompressed}")
-                continue
+        if uncompressed.exists() and (uncompressed.stat().st_mtime > p.stat().st_mtime):
+            print(f"{p} already unzipped to {uncompressed}")
+            continue
 
         unzip(p, uncompressed)
         print(f"{p} unzipped to {uncompressed}")
