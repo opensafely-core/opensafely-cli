@@ -97,8 +97,6 @@ class JobResults:
 class ExecutorRetry(Exception):
     """Indicates to the job scheduler that there's a temporary issue and to try again later."""
 
-    pass
-
 
 class ExecutorAPI:
     """
@@ -293,7 +291,6 @@ class ExecutorAPI:
 
         Returns a list of any files that were present but it errored trying to delete them.
         """
-        ...
 
 
 class NullExecutorAPI(ExecutorAPI):
