@@ -175,7 +175,7 @@ def fetch_codelist(codelist):
             f"Check that you can access the codelist at:\n{codelist.url}"
         )
     codelist.filename.write_bytes(response.content)
-    return (datetime.datetime.utcnow(), hash_bytes(response.content))
+    return (datetime.datetime.now(tz=datetime.timezone.utc), hash_bytes(response.content))
 
 
 def get_codelists_dir(codelists_dir=None):
