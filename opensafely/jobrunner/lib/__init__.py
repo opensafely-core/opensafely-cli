@@ -141,6 +141,6 @@ def warn_assertions(f):
             # convert exception to warning
             warnings.warn(str(exc))
 
-        return None
+        return None  # noqa: RET501, PLR1711
 
     return wrapper
