@@ -711,7 +711,7 @@ def get_reason_job_not_started(job):
                 "Waiting on available database workers",
             )
 
-    if os.environ.get("FUNTIMES", False):
+    if os.environ.get("FUNTIMES"):
         # allow any db job to run
         if job.requires_db:
             return None

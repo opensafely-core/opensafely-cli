@@ -21,7 +21,7 @@ DOCKER_LABEL = "opensafely"
 
 def debug(msg):
     """Windows threaded debugger."""
-    if os.environ.get("DEBUG", False):
+    if os.environ.get("DEBUG"):
         # threaded output for some reason needs the carriage return or else
         # it doesn't reset the cursor.
         sys.stderr.write("DEBUG: " + msg.replace("\n", "\r\n") + "\r\n")

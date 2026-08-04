@@ -137,14 +137,14 @@ if PRESTO_TLS_CERT_PATH:
 
 MAX_WORKERS = int(os.environ.get("MAX_WORKERS") or max(cpu_count() - 1, 1))
 MAX_DB_WORKERS = int(os.environ.get("MAX_DB_WORKERS") or MAX_WORKERS)
-MAX_RETRIES = int(os.environ.get("MAX_RETRIES", 0))
+MAX_RETRIES = int(os.environ.get("MAX_RETRIES") or 0)
 
 
 LEVEL4_MAX_FILESIZE = int(
-    os.environ.get("LEVEL4_MAX_FILESIZE", 16 * 1024 * 1024)
+    os.environ.get("LEVEL4_MAX_FILESIZE") or 16 * 1024 * 1024
 )  # 16mb
 
-LEVEL4_MAX_CSV_ROWS = int(os.environ.get("LEVEL4_MAX_CSV_ROWS", 5000))
+LEVEL4_MAX_CSV_ROWS = int(os.environ.get("LEVEL4_MAX_CSV_ROWS") or 5000)
 
 LEVEL4_FILE_TYPES = pipeline.constants.LEVEL4_FILE_TYPES
 
@@ -226,7 +226,7 @@ DATABASE_EXIT_CODES = {
 }
 
 
-DEFAULT_JOB_CPU_COUNT = float(os.environ.get("DEFAULT_JOB_CPU_COUNT", 2))
+DEFAULT_JOB_CPU_COUNT = float(os.environ.get("DEFAULT_JOB_CPU_COUNT") or 2)
 DEFAULT_JOB_MEMORY_LIMIT = os.environ.get("DEFAULT_JOB_MEMORY_LIMIT", "4G")
 
 
