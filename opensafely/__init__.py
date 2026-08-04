@@ -119,7 +119,7 @@ def warn_if_updates_needed(argv):
                 )
                 # if we're out of date, don't warn the user about out of date images as well
                 return
-        except Exception:
+        except Exception:  # noqa: S110
             pass
 
     # check for out of date images unless we are updating images.
@@ -134,7 +134,7 @@ def warn_if_updates_needed(argv):
                     file=sys.stderr,
                 )
 
-        except Exception:
+        except Exception:  # noqa: S110
             pass
 
     update_version_check()

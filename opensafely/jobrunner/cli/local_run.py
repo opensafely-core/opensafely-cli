@@ -649,7 +649,7 @@ def get_stata_license(repo=config.STATA_LICENSE_REPO):
                     tmp.name,
                 )
             shutil.copyfile(f"{tmp.name}/repo/stata.lic", cached)
-        except Exception:
+        except Exception:  # noqa: S110
             pass
         finally:
             tmp.cleanup()
