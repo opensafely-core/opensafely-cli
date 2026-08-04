@@ -496,7 +496,7 @@ def create_job_request_and_jobs(project_dir, actions, force_run_dependencies):
         # Annotate the exception with a list of valid action names so we can
         # show them to the user
         e.valid_actions = [RUN_ALL_COMMAND] + pipeline_config.all_actions
-        raise e
+        raise
     assert_new_jobs_created(job_request, new_jobs, latest_jobs_with_files_present)
     resolve_reusable_action_references(new_jobs)
     insert_into_database(job_request, new_jobs)
