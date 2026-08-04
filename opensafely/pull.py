@@ -112,7 +112,7 @@ def get_actions_from_project_file(project_yaml):
 
     images = []
 
-    for name, action in project.actions.items():
+    for action in project.actions.values():
         if action.run.name in IMAGES and action.run.name not in images:
             images.append(f"{action.run.name}:{action.run.version}")
 

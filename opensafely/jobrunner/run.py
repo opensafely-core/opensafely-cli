@@ -526,7 +526,7 @@ def job_to_job_definition(job):
 
     outputs = {}
     for privacy_level, named_patterns in job.output_spec.items():
-        for name, pattern in named_patterns.items():
+        for pattern in named_patterns.values():
             outputs[pattern] = privacy_level
 
     if job.cancelled:
