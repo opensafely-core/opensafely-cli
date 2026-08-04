@@ -200,7 +200,7 @@ def build_package(package_type, tmp_path):
         check=True,
         cwd=project_root,
     )
-    package_path = list(tmp_path.glob(f"*.{extension}"))[0]
+    package_path = next(tmp_path.glob(f"*.{extension}"))
     return package_path
 
 
