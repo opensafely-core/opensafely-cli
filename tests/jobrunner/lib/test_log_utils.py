@@ -7,7 +7,9 @@ from opensafely.jobrunner.models import Job, JobRequest
 
 
 FROZEN_TIMESTAMP = 1608568119.1467905
-FROZEN_TIMESTRING = datetime.fromtimestamp(FROZEN_TIMESTAMP, tz=timezone.utc).isoformat()
+FROZEN_TIMESTRING = datetime.fromtimestamp(
+    FROZEN_TIMESTAMP, tz=timezone.utc
+).isoformat()
 
 repo_url = "https://github.com/opensafely/project"
 test_job = Job(

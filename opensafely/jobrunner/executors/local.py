@@ -62,7 +62,7 @@ def get_medium_privacy_workspace(workspace):
 
 def get_log_dir(job_definition):
     # Split log directory up by month to make things slightly more manageable
-    month_dir = datetime.date.today().strftime("%Y-%m")
+    month_dir = datetime.datetime.now(tz=datetime.timezone.utc).date().strftime("%Y-%m")
     return config.JOB_LOG_DIR / month_dir / container_name(job_definition)
 
 
