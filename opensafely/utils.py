@@ -157,8 +157,8 @@ def run_docker(
         print(cmd)
     else:
         debug(cmd)
-
-    return subprocess.run(docker_cmd, *args, **kwargs)
+    check = kwargs.pop("check", False)
+    return subprocess.run(docker_cmd, *args, check=check, **kwargs)
 
 
 def dockerctl(cmd, *args, check=True, capture_output=True, text=True, **kwargs):

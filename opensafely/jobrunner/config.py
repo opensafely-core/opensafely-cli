@@ -24,9 +24,7 @@ VERSION = os.environ.get("VERSION", "unknown")
 if VERSION == "unknown":
     try:
         ps = subprocess.run(
-            ["git", "describe", "--tags"],
-            text=True,
-            capture_output=True,
+            ["git", "describe", "--tags"], text=True, capture_output=True, check=False
         )
         VERSION = ps.stdout.strip()
     except (FileNotFoundError, subprocess.CalledProcessError):
@@ -40,6 +38,7 @@ if GIT_SHA == "unknown":
             ["git", "rev-parse", "--short", "HEAD"],
             text=True,
             capture_output=True,
+            check=False,
         )
         GIT_SHA = ps.stdout.strip()
     except (FileNotFoundError, subprocess.CalledProcessError):

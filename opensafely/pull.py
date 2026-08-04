@@ -162,7 +162,9 @@ def remove_deprecated_images(local_images):
         for image in IMAGES:
             tag = f"{registry}/{image}"
             if tag in local_images:
-                subprocess.run(["docker", "image", "rm", tag], capture_output=True)
+                subprocess.run(
+                    ["docker", "image", "rm", tag], capture_output=True, check=False
+                )
 
 
 def get_default_version_for_image(name):
