@@ -426,13 +426,12 @@ def test_finalize_unmatched(docker_cleanup, job_definition, tmp_work_dir, volume
     assert results.unmatched_patterns == ["output/output.*", "output/summary.*"]
     assert results.unmatched_outputs == ["unmatched"]
     assert results.message == "\n  No outputs found matching patterns:\n - {}".format(
-        "\n   - ".join(["output/output.*", "output/summary.*"])
+        "\n   - ".join(["output/output.*", "output/summary.*"])  # noqa: FLY002
     )
+
     assert (
         results.unmatched_hint
-        == "\n  Did you mean to match one of these files instead?\n - {}".format(
-            "\n   - ".join(["unmatched"])
-        )
+        == "\n  Did you mean to match one of these files instead?\n - unmatched"
     )
 
 
@@ -471,7 +470,7 @@ def test_finalize_unmatched_output(
     assert results.unmatched_patterns == ["output/output.*", "output/summary.*"]
     assert results.unmatched_outputs == []
     assert results.message == "\n  No outputs found matching patterns:\n - {}".format(
-        "\n   - ".join(["output/output.*", "output/summary.*"])
+        "\n   - ".join(["output/output.*", "output/summary.*"])  # noqa: FLY002
     )
 
 
