@@ -13,3 +13,6 @@ coverage
 ruff
 pytest-cov
 pytest-freezer
+# 2026-08-05: Pin pip as 26.2 breaks pip-tools
+# https://github.com/jazzband/pip-tools/issues/2436
+pip<26.2
