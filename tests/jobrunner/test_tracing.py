@@ -64,11 +64,11 @@ def test_setup_default_tracing_otlp_with_env(monkeypatch):
 
 def test_trace_attributes(db):
     jr = job_request_factory(
-        original=dict(
-            created_by="testuser",
-            project="project",
-            orgs=["org1", "org2"],
-        )
+        original={
+            "created_by": "testuser",
+            "project": "project",
+            "orgs": ["org1", "org2"],
+        }
     )
     job = job_factory(
         jr,
@@ -124,11 +124,11 @@ def test_trace_attributes(db):
 
 def test_trace_attributes_missing(db):
     jr = job_request_factory(
-        original=dict(
-            created_by="testuser",
-            project="project",
-            orgs=["org1", "org2"],
-        )
+        original={
+            "created_by": "testuser",
+            "project": "project",
+            "orgs": ["org1", "org2"],
+        }
     )
     job = job_factory(
         jr,

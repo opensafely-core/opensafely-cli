@@ -265,7 +265,7 @@ def check():
             f"It looks like '{CODELISTS_FILE}' has been edited but "
             f"'update' hasn't been run.\n{diff}\n"
         )
-    all_csvs = set(f.name for f in codelists_dir.glob("*.csv"))
+    all_csvs = {f.name for f in codelists_dir.glob("*.csv")}
     csvs_in_manifest = set(manifest["files"].keys())
     if all_csvs != csvs_in_manifest:
         diff = format_diff(all_csvs, csvs_in_manifest)

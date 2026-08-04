@@ -58,7 +58,7 @@ def main(verbose=False):
 
     if containers:
         print(f"Removing {len(containers)} OpenSAFELY containers...")
-        docker_output(["rm", "--force"] + list(sorted(containers)), verbose)
+        docker_output(["rm", "--force"] + sorted(containers), verbose)
 
     # find and remove any volumes (not labelled currently)
     volumes = docker_output(

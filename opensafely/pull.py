@@ -140,7 +140,7 @@ def get_local_images():
         text=True,
         capture_output=True,
     )
-    images = dict()
+    images = {}
     for line in ps.stdout.splitlines():
         if not line.strip():
             continue

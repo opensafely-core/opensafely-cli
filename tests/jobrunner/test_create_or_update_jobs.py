@@ -39,11 +39,11 @@ def test_create_or_update_jobs(tmp_work_dir, db):
         workspace="1",
         codelists_ok=True,
         database_name="dummy",
-        original=dict(
-            created_by="user",
-            project="project",
-            orgs=["org1", "org2"],
-        ),
+        original={
+            "created_by": "user",
+            "project": "project",
+            "orgs": ["org1", "org2"],
+        },
     )
     create_or_update_jobs(job_request)
     old_job = find_one(Job)
@@ -81,11 +81,11 @@ def test_create_or_update_jobs_with_git_error(tmp_work_dir):
         workspace="1",
         codelists_ok=True,
         database_name="dummy",
-        original=dict(
-            created_by="user",
-            project="project",
-            orgs=["org1", "org2"],
-        ),
+        original={
+            "created_by": "user",
+            "project": "project",
+            "orgs": ["org1", "org2"],
+        },
     )
     create_or_update_jobs(job_request)
     j = find_one(Job)
@@ -239,23 +239,22 @@ def test_cancelled_jobs_are_flagged(tmp_work_dir):
 def test_validate_job_request(params, exc_msg, monkeypatch):
     monkeypatch.setattr("opensafely.jobrunner.config.USING_DUMMY_DATA_BACKEND", False)
     repo_url = str(Path(__file__).parent.resolve() / "fixtures/git-repo")
-    kwargs = dict(
-        id="123",
-        repo_url=repo_url,
-        # GIT_DIR=tests/fixtures/git-repo git rev-parse v1
-        commit="d1e88b31cbe8f67c58f938adb5ee500d54a69764",
-        branch="v1",
-        requested_actions=["generate_cohort"],
-        cancelled_actions=[],
-        workspace="1",
-        codelists_ok=True,
-        database_name="default",  # note db from from job-server is 'default'
-        original=dict(
-            created_by="user",
-            project="project",
-            orgs=["org1", "org2"],
-        ),
-    )
+    kwargs = {
+        "id": "123",
+        "repo_url": repo_url,
+        "commit": "d1e88b31cbe8f67c58f938adb5ee500d54a69764",
+        "branch": "v1",
+        "requested_actions": ["generate_cohort"],
+        "cancelled_actions": [],
+        "workspace": "1",
+        "codelists_ok": True,
+        "database_name": "default",  # note db from from job-server is 'default'
+        "original": {
+            "created_by": "user",
+            "project": "project",
+            "orgs": ["org1", "org2"],
+        },
+    }
     kwargs.update(params)
     job_request = JobRequest(**kwargs)
 
@@ -279,11 +278,11 @@ def make_job_request(action=None, actions=None, **kwargs):
         database_name="default",
         requested_actions=actions,
         cancelled_actions=[],
-        original=dict(
-            created_by="user",
-            project="project",
-            orgs=["org1", "org2"],
-        ),
+        original={
+            "created_by": "user",
+            "project": "project",
+            "orgs": ["org1", "org2"],
+        },
     )
     for key, value in kwargs.items():
         setattr(job_request, key, value)

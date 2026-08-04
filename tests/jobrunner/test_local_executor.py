@@ -28,7 +28,7 @@ def volume_api(request, monkeypatch):
 @pytest.fixture
 def job_definition(request, test_repo):
     """Basic simple action with no inputs as base for testing."""
-    if "needs_docker" in list(m.name for m in request.node.iter_markers()):
+    if "needs_docker" in [m.name for m in request.node.iter_markers()]:
         ensure_docker_images_present("busybox")
 
     # replace parameterized tests [/] chars
@@ -98,7 +98,7 @@ def wait_for_state(api, job_definition, state, limit=5, step=0.25):
 
 
 def list_repo_files(path):
-    return list(str(f.relative_to(path)) for f in path.glob("**/*") if f.is_file())
+    return [str(f.relative_to(path)) for f in path.glob("**/*") if f.is_file()]
 
 
 def log_dir_log_file_exists(job_definition):

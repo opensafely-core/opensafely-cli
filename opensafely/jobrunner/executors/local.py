@@ -334,7 +334,7 @@ def prepare_job(job_definition):
 
     # `docker cp` can't create parent directories for us so we make sure all
     # these directories get created when we copy in the code
-    extra_dirs = set(Path(filename).parent for filename in job_definition.inputs)
+    extra_dirs = {Path(filename).parent for filename in job_definition.inputs}
 
     try:
         if job_definition.study.git_repo_url and job_definition.study.commit:
@@ -461,7 +461,7 @@ def finalize_job(job_definition):
 def get_job_metadata(job_definition, outputs, container_metadata, results):
     # job_metadata is a big dict capturing everything we know about the state
     # of the job
-    job_metadata = dict()
+    job_metadata = {}
     job_metadata["job_definition_id"] = job_definition.id
     job_metadata["job_definition_request_id"] = job_definition.job_request_id
     job_metadata["created_at"] = job_definition.created_at
@@ -872,7 +872,7 @@ def copy_local_workspace_to_volume(job_definition, workspace_dir, extra_dirs):
     # empty dirs in a temp directory. It should be possible to do this using
     # the `tarfile` module to talk directly to `docker cp` stdin if we care
     # enough.
-    directories = set(Path(filename).parent for filename in code_files)
+    directories = {Path(filename).parent for filename in code_files}
     directories.update(extra_dirs)
     directories.discard(Path("."))
     volume_api = volumes.get_volume_api(job_definition)
