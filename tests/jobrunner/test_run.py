@@ -830,7 +830,7 @@ def invalid_transitions():
     yield from invalid(ExecutorState.EXECUTED, ExecutorState.FINALIZING)
 
 
-@pytest.mark.parametrize("current, invalid", invalid_transitions())
+@pytest.mark.parametrize("current, invalid", tuple(invalid_transitions()))
 def test_bad_transition(current, invalid, db):
     api = StubExecutorAPI()
     job = api.add_test_job(
