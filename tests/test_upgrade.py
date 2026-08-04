@@ -59,14 +59,14 @@ def test_main_latest_no_upgrade(set_pypi_version, run, set_current_version, caps
     set_pypi_version("1.0.0")
     set_current_version("v1.0.0")
     upgrade.main("latest")
-    out, err = capsys.readouterr()
+    out, _err = capsys.readouterr()
     assert out.strip() == "opensafely is already at version 1.0.0"
 
 
 def test_main_specific_no_upgrade(run, set_current_version, capsys):
     set_current_version("v1.1.0")
     upgrade.main("1.1.0")
-    out, err = capsys.readouterr()
+    out, _err = capsys.readouterr()
     assert out.strip() == "opensafely is already at version 1.1.0"
 
 

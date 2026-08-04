@@ -13,7 +13,7 @@ project_fixture_path = Path(__file__).parent / "fixtures" / "projects"
 @pytest.mark.skipif(sys.platform != "linux", reason="Only runs on Linux")
 def test_info(capsys):
     assert info.main()
-    out, err = capsys.readouterr()
+    out, _err = capsys.readouterr()
     assert "opensafely version:" in out
     assert "docker version:" in out
     assert "docker memory:" in out
