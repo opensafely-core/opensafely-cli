@@ -349,7 +349,11 @@ def random_id():
 def timestamp_to_isoformat(ts):
     if ts is None:
         return None
-    return datetime.datetime.utcfromtimestamp(ts).isoformat() + "Z"
+    return (
+        datetime.datetime.fromtimestamp(ts, tz=datetime.timezone.utc)
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
 
 
 def isoformat_to_timestamp(string):
