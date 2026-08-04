@@ -87,9 +87,8 @@ substitute = [
   # we don't need. See:
   # https://github.com/psf/requests/blob/589c4547338b592b1fb77c65663d8aa6fbb7e38b/requests/packages.py
   { match='from \. import packages, utils', replace='from . import utils' },
-  { match='wrapt._wrappers', replace='opensafely._vendor.wrapt._wrappers'},
-  { match='urllib3.contrib.securetransport', replace='opensafely._vendor.urllib3.contrib.securetransport'},
   { match='urllib3.contrib.pyopenssl', replace='opensafely._vendor.urllib3.contrib.pyopenssl'},
+  { match='import urllib3.connection', replace='opensafely._vendor.urllib3.connection'},
 ]
 
 drop = [
@@ -97,6 +96,8 @@ drop = [
   "*-nspkg.pth",
   # Scripts we don't need
   "bin/",
+  # Certifi pulls in its tests directory which we don't need, and conflict with our own tests
+  "certifi/tests/"
 ]
 
 [tool.vendoring.license.directories]
