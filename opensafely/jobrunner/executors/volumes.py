@@ -1,6 +1,5 @@
 import importlib
 import logging
-import os
 import shutil
 import sys
 import tempfile
@@ -58,17 +57,10 @@ class DockerVolumeAPI:
         docker.delete_volume(docker_volume_name(job))
 
     def write_timestamp(job, path, timeout=None):
-        try:
-            f = tempfile.NamedTemporaryFile(delete=False)
-            f.close()
+        with tempfile.NamedTemporaryFile() as f:
             p = Path(f.name)
             p.write_text(str(time.time_ns()))
             docker.copy_to_volume(docker_volume_name(job), p, path, timeout)
-        finally:
-            try:
-                os.remove(f.name)
-            except Exception:
-                pass
 
     def read_timestamp(job, path, timeout=None):
         return docker.read_timestamp(docker_volume_name(job), path, timeout)
