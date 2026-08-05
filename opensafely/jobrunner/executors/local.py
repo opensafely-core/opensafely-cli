@@ -893,13 +893,23 @@ def copy_local_workspace_to_volume(job_definition, workspace_dir, extra_dirs):
 
 # Environment variables whose values do not need to be hidden from the debug
 # logs
-SAFE_ENVIRONMENT_VARIABLES = set(
-    """
-    PATH PYTHON_VERSION DEBIAN_FRONTEND DEBCONF_NONINTERACTIVE_SEEN
-    UBUNTU_VERSION PYENV_SHELL PYENV_VERSION PYTHONUNBUFFERED
-    OPENSAFELY_BACKEND TZ TEMP_DATABASE_NAME PYTHONPATH container LANG LC_ALL
-    """.split()
-)
+SAFE_ENVIRONMENT_VARIABLES = [
+    "PATH",
+    "PYTHON_VERSION",
+    "DEBIAN_FRONTEND",
+    "DEBCONF_NONINTERACTIVE_SEEN",
+    "UBUNTU_VERSION",
+    "PYENV_SHELL",
+    "PYENV_VERSION",
+    "PYTHONUNBUFFERED",
+    "OPENSAFELY_BACKEND",
+    "TZ",
+    "TEMP_DATABASE_NAME",
+    "PYTHONPATH",
+    "container",
+    "LANG",
+    "LC_ALL",
+]
 
 
 def redact_environment_variables(container_metadata):
