@@ -82,9 +82,9 @@ def main(image="all", force=False, project=None):
 
     try:
         updated = False
-        for image in images:
-            if force or image in local_images:
-                name, _, tag = image.partition(":")
+        for image_to_pull in images:
+            if force or image_to_pull in local_images:
+                name, _, tag = image_to_pull.partition(":")
                 if not tag:
                     tag = get_default_version_for_image(name)
                 updated = True
