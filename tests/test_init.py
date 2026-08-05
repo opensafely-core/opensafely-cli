@@ -89,7 +89,13 @@ def test_warn_if_updates_needed_images_outdated(capsys, monkeypatch, tmp_path, r
 def test_warnings_patched_format_for_pipeline_warnings():
     # Warnings from the pipeline library (UserWarnings with a message that begins with
     # ProjectWarning) are formatted to display just the message.
-    with pytest.warns(UserWarning) as raised_warnings:
+    # Note: Ruff rule PT031 (pytest-warns-with-multiple-statements) is ignored; it's intended
+    # to prevent use of multiple statements in a pytest.warns block because they can lead to a
+    # test falsely passing
+    # https://docs.astral.sh/ruff/rules/pytest-warns-with-multiple-statements/
+    # However, we're explcitly testing raising the warning, and we're explicitly testing that it's
+    # raised twice.
+    with pytest.warns(UserWarning) as raised_warnings:  # noqa: PT031
         warnings.warn("Warning: foo", UserWarning)
         warnings.warn("ProjectWarning: foo", UserWarning)
 

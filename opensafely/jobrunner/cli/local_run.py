@@ -534,7 +534,9 @@ def filter_log_messages(record):
 
     # We sometimes log caught exceptions for debugging purposes in production,
     # but we don't want to show these to the user when running locally
-    if getattr(record, "exc_info", None):
+    # Suppress the ruff rule here, because returning the condition directly isn't
+    # very readable
+    if getattr(record, "exc_info", None):  # noqa: SIM103
         return False
 
     return True
