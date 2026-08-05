@@ -198,7 +198,7 @@ def test_prepare_archived(ext, job_definition):
     status = api.prepare(job_definition)
 
     assert status.state == ExecutorState.ERROR
-    assert "has been archived"
+    assert "has been archived" in status.message.lower()
 
 
 @pytest.mark.needs_docker
