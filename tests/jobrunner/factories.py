@@ -148,7 +148,7 @@ class StubExecutorAPI:
 
     """
 
-    synchronous_transitions = []
+    synchronous_transitions = ()
 
     def __init__(self):
         self.tracker = {
@@ -187,7 +187,7 @@ class StubExecutorAPI:
         # handle the synchronous state meaning the state has completed
         if timestamp_ns is None:
             timestamp_ns = time.time_ns()
-        synchronous = getattr(self, "synchronous_transitions", [])
+        synchronous = getattr(self, "synchronous_transitions", ())
         if executor_state in synchronous:
             if executor_state == ExecutorState.PREPARING:
                 executor_state = ExecutorState.PREPARED

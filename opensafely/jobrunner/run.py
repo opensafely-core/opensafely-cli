@@ -213,7 +213,7 @@ def handle_job(job, api, mode=None, paused=None):
     job_definition = job_to_job_definition(job)
 
     # does this api have synchronous_transitions?
-    synchronous_transitions = getattr(api, "synchronous_transitions", [])
+    synchronous_transitions = getattr(api, "synchronous_transitions", ())
     is_synchronous = False
 
     # handle special modes before considering executor state, as they ignore it
