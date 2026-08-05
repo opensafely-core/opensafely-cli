@@ -6,7 +6,7 @@ import sys
 from multiprocessing import cpu_count
 from pathlib import Path
 
-import opensafely._vendor.pipeline as pipeline
+from opensafely._vendor import pipeline
 
 
 class ConfigException(Exception):
