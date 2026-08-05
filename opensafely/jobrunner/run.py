@@ -521,8 +521,8 @@ def job_to_job_definition(job):
 
     input_files = []
     for action in job.requires_outputs_from:
-        for filename in list_outputs_from_action(job.workspace, action):
-            input_files.append(filename)
+        action_input_files = list(list_outputs_from_action(job.workspace, action))
+        input_files.extend(action_input_files)
 
     outputs = {}
     for privacy_level, named_patterns in job.output_spec.items():
