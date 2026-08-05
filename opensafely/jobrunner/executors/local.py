@@ -123,8 +123,8 @@ class LocalDockerAPI(ExecutorAPI):
 
         try:
             prepare_job(job_definition)
-        except docker.DockerDiskSpaceError as e:
-            log.exception(str(e))
+        except docker.DockerDiskSpaceError:
+            log.exception()
             return JobStatus(
                 ExecutorState.ERROR, "Out of disk space, please try again later"
             )
