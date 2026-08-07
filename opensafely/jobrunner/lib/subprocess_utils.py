@@ -13,11 +13,12 @@ from pathlib import PurePath
 def subprocess_run(cmd_args, **kwargs):
     assert not kwargs.get("shell"), "Don't use shell as we need to work cross-platform"
     cmd_args = list(map(to_str, cmd_args))
+    check = kwargs.pop("check", False)
     if "cwd" in kwargs:
         kwargs["cwd"] = to_str(kwargs["cwd"])
     if "env" in kwargs:
         kwargs["env"] = {key: to_str(value) for (key, value) in kwargs["env"].items()}
-    return subprocess.run(cmd_args, **kwargs)
+    return subprocess.run(cmd_args, check=check, **kwargs)
 
 
 def to_str(value):

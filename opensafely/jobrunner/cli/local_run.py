@@ -32,7 +32,7 @@ import subprocess
 import sys
 import tempfile
 import textwrap
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from opensafely._vendor.pipeline import (
@@ -496,7 +496,7 @@ def create_job_request_and_jobs(project_dir, actions, force_run_dependencies):
         # Annotate the exception with a list of valid action names so we can
         # show them to the user
         e.valid_actions = [RUN_ALL_COMMAND] + pipeline_config.all_actions
-        raise e
+        raise
     assert_new_jobs_created(job_request, new_jobs, latest_jobs_with_files_present)
     resolve_reusable_action_references(new_jobs)
     insert_into_database(job_request, new_jobs)
@@ -534,7 +534,9 @@ def filter_log_messages(record):
 
     # We sometimes log caught exceptions for debugging purposes in production,
     # but we don't want to show these to the user when running locally
-    if getattr(record, "exc_info", None):
+    # Suppress the ruff rule here, because returning the condition directly isn't
+    # very readable
+    if getattr(record, "exc_info", None):  # noqa: SIM103
         return False
 
     return True
@@ -632,8 +634,8 @@ def get_stata_license(repo=config.STATA_LICENSE_REPO):
 
     fetch = False
     if cached.exists():
-        mtime = datetime.fromtimestamp(cached.stat().st_mtime)
-        if datetime.utcnow() - mtime > license_timeout:
+        mtime = datetime.fromtimestamp(cached.stat().st_mtime, tz=timezone.utc)
+        if datetime.now(tz=timezone.utc) - mtime > license_timeout:
             fetch = True
     else:
         fetch = True
@@ -649,7 +651,7 @@ def get_stata_license(repo=config.STATA_LICENSE_REPO):
                     tmp.name,
                 )
             shutil.copyfile(f"{tmp.name}/repo/stata.lic", cached)
-        except Exception:
+        except Exception:  # noqa: S110
             pass
         finally:
             tmp.cleanup()
@@ -657,7 +659,7 @@ def get_stata_license(repo=config.STATA_LICENSE_REPO):
     if cached.exists():
         # if the refresh failed for some reason, update the last time it was
         # used to now to avoid spamming github on every subsequent run
-        t = datetime.utcnow().timestamp()
+        t = datetime.now(tz=timezone.utc).timestamp()
         os.utime(cached, (t, t))
         return cached.read_text()
     else:

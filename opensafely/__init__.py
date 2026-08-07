@@ -4,10 +4,10 @@ import os
 import sys
 import tempfile
 import warnings
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from opensafely import (  # noqa: E402
+from opensafely import (
     clean,
     codelists,
     execute,
@@ -19,7 +19,7 @@ from opensafely import (  # noqa: E402
     unzip,
     upgrade,
 )
-from opensafely.jobrunner.cli import local_run  # noqa: E402
+from opensafely.jobrunner.cli import local_run
 
 
 # quieten unneeded loggers
@@ -56,7 +56,7 @@ def should_version_check():
     if not VERSION_FILE.exists():
         return True
 
-    four_hours_ago = datetime.utcnow() - timedelta(hours=4)
+    four_hours_ago = datetime.now(tz=timezone.utc) - timedelta(hours=4)
 
     return VERSION_FILE.stat().st_mtime < four_hours_ago.timestamp()
 
@@ -119,7 +119,7 @@ def warn_if_updates_needed(argv):
                 )
                 # if we're out of date, don't warn the user about out of date images as well
                 return
-        except Exception:
+        except Exception:  # noqa: S110
             pass
 
     # check for out of date images unless we are updating images.
@@ -134,7 +134,7 @@ def warn_if_updates_needed(argv):
                     file=sys.stderr,
                 )
 
-        except Exception:
+        except Exception:  # noqa: S110
             pass
 
     update_version_check()

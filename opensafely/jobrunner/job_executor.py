@@ -16,7 +16,7 @@ class Study:
 
 @dataclass
 class JobDefinition:
-    id: str  # a unique identifier for the job  # noqa: A003
+    id: str  # a unique identifier for the job
     job_request_id: str  # a unique identifier for the job's job request
     study: Study  # the study defining the action for this job
     workspace: str  # the workspace to run the job in
@@ -96,8 +96,6 @@ class JobResults:
 
 class ExecutorRetry(Exception):
     """Indicates to the job scheduler that there's a temporary issue and to try again later."""
-
-    pass
 
 
 class ExecutorAPI:
@@ -293,7 +291,6 @@ class ExecutorAPI:
 
         Returns a list of any files that were present but it errored trying to delete them.
         """
-        ...
 
 
 class NullExecutorAPI(ExecutorAPI):

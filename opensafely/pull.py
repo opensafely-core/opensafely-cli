@@ -82,9 +82,9 @@ def main(image="all", force=False, project=None):
 
     try:
         updated = False
-        for image in images:
-            if force or image in local_images:
-                name, _, tag = image.partition(":")
+        for image_to_pull in images:
+            if force or image_to_pull in local_images:
+                name, _, tag = image_to_pull.partition(":")
                 if not tag:
                     tag = get_default_version_for_image(name)
                 updated = True
@@ -112,7 +112,7 @@ def get_actions_from_project_file(project_yaml):
 
     images = []
 
-    for name, action in project.actions.items():
+    for action in project.actions.values():
         if action.run.name in IMAGES and action.run.name not in images:
             images.append(f"{action.run.name}:{action.run.version}")
 
@@ -140,7 +140,7 @@ def get_local_images():
         text=True,
         capture_output=True,
     )
-    images = dict()
+    images = {}
     for line in ps.stdout.splitlines():
         if not line.strip():
             continue
@@ -162,7 +162,9 @@ def remove_deprecated_images(local_images):
         for image in IMAGES:
             tag = f"{registry}/{image}"
             if tag in local_images:
-                subprocess.run(["docker", "image", "rm", tag], capture_output=True)
+                subprocess.run(
+                    ["docker", "image", "rm", tag], capture_output=True, check=False
+                )
 
 
 def get_default_version_for_image(name):
@@ -213,7 +215,7 @@ def get_auth_token(header):
 
     Bearer realm="https://ghcr.io/token",service="ghcr.io",scope="repository:opensafely-core/busybox:pull"
     """
-    header = header.lstrip("Bearer")
+    header = header.removeprefix("Bearer")
     # split_header_words is weird, but better than doing it ourselves
     words = split_header_words([header])
     values = dict(next(zip(*words)))

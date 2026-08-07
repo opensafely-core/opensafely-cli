@@ -14,21 +14,19 @@ from opensafely.jobrunner.actions import UnknownActionError, get_action_specific
 )
 def test_get_action_specification_ehrql_has_output_flag():
     config = Pipeline.build(
-        **{
-            "version": 3,
-            "expectations": {"population_size": 1000},
-            "actions": {
-                "generate_dataset": {
-                    "run": "ehrql:v1 generate-dataset dataset.py --output=output/dataset.csv",
-                    "outputs": {
-                        "highly_sensitive": {
-                            "cohort": "output/dataset.csv",
-                            "cohort2": "output/input2.csv",
-                        }
-                    },
+        version=3,
+        expectations={"population_size": 1000},
+        actions={
+            "generate_dataset": {
+                "run": "ehrql:v1 generate-dataset dataset.py --output=output/dataset.csv",
+                "outputs": {
+                    "highly_sensitive": {
+                        "cohort": "output/dataset.csv",
+                        "cohort2": "output/input2.csv",
+                    }
                 },
             },
-        }
+        },
     )
 
     action_spec = get_action_specification(config, "generate_dataset")
@@ -45,16 +43,14 @@ def test_get_action_specification_ehrql_has_output_flag():
 )
 def test_get_action_specification_for_cohortextractor_generate_cohort_action():
     config = Pipeline.build(
-        **{
-            "version": 3,
-            "expectations": {"population_size": 1000},
-            "actions": {
-                "generate_cohort": {
-                    "run": "cohortextractor:latest generate_cohort",
-                    "outputs": {"highly_sensitive": {"cohort": "output/input.csv"}},
-                }
-            },
-        }
+        version=3,
+        expectations={"population_size": 1000},
+        actions={
+            "generate_cohort": {
+                "run": "cohortextractor:latest generate_cohort",
+                "outputs": {"highly_sensitive": {"cohort": "output/input.csv"}},
+            }
+        },
     )
 
     action_spec = get_action_specification(
@@ -73,19 +69,17 @@ def test_get_action_specification_for_cohortextractor_generate_cohort_action():
 )
 def test_get_action_specification_with_config():
     config = Pipeline.build(
-        **{
-            "version": 3,
-            "expectations": {"population_size": 1_000},
-            "actions": {
-                "my_action": {
-                    "run": "python:latest python action/__main__.py output/input.csv",
-                    "config": {"option": "value"},
-                    "outputs": {
-                        "moderately_sensitive": {"my_figure": "output/my_figure.png"}
-                    },
-                }
-            },
-        }
+        version=3,
+        expectations={"population_size": 1_000},
+        actions={
+            "my_action": {
+                "run": "python:latest python action/__main__.py output/input.csv",
+                "config": {"option": "value"},
+                "outputs": {
+                    "moderately_sensitive": {"my_figure": "output/my_figure.png"}
+                },
+            }
+        },
     )
 
     action_spec = get_action_specification(config, "my_action")
@@ -116,16 +110,14 @@ def test_get_action_specification_with_dummy_data_file_flag(tmp_path):
         f.write("test")
 
     config = Pipeline.build(
-        **{
-            "version": 1,
-            "actions": {
-                "generate_cohort": {
-                    "run": "cohortextractor:latest generate_cohort",
-                    "outputs": {"moderately_sensitive": {"cohort": "output/input.csv"}},
-                    "dummy_data_file": str(dummy_data_file),
-                }
-            },
-        }
+        version=1,
+        actions={
+            "generate_cohort": {
+                "run": "cohortextractor:latest generate_cohort",
+                "outputs": {"moderately_sensitive": {"cohort": "output/input.csv"}},
+                "dummy_data_file": str(dummy_data_file),
+            }
+        },
     )
 
     action_spec = get_action_specification(
@@ -155,16 +147,14 @@ def test_get_action_specification_without_dummy_data_file_flag(tmp_path):
         f.write("test")
 
     config = Pipeline.build(
-        **{
-            "version": 1,
-            "actions": {
-                "generate_cohort": {
-                    "run": "cohortextractor:latest generate_cohort",
-                    "outputs": {"moderately_sensitive": {"cohort": "output/input.csv"}},
-                    "dummy_data_file": str(dummy_data_file),
-                }
-            },
-        }
+        version=1,
+        actions={
+            "generate_cohort": {
+                "run": "cohortextractor:latest generate_cohort",
+                "outputs": {"moderately_sensitive": {"cohort": "output/input.csv"}},
+                "dummy_data_file": str(dummy_data_file),
+            }
+        },
     )
 
     action_spec = get_action_specification(config, "generate_cohort")
@@ -179,15 +169,13 @@ def test_get_action_specification_without_dummy_data_file_flag(tmp_path):
 )
 def test_get_action_specification_with_unknown_action():
     config = Pipeline.build(
-        **{
-            "version": 1,
-            "actions": {
-                "known_action": {
-                    "run": "python:latest python test.py",
-                    "outputs": {"moderately_sensitive": {"cohort": "output/input.csv"}},
-                }
-            },
-        }
+        version=1,
+        actions={
+            "known_action": {
+                "run": "python:latest python test.py",
+                "outputs": {"moderately_sensitive": {"cohort": "output/input.csv"}},
+            }
+        },
     )
     msg = "Action 'unknown_action' not found in project.yaml"
     with pytest.raises(UnknownActionError, match=msg):

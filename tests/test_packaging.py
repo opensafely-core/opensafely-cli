@@ -200,7 +200,7 @@ def build_package(package_type, tmp_path):
         check=True,
         cwd=project_root,
     )
-    package_path = list(tmp_path.glob(f"*.{extension}"))[0]
+    package_path = next(tmp_path.glob(f"*.{extension}"))
     return package_path
 
 
@@ -208,10 +208,7 @@ def subprocess_run(cmd_args, **kwargs):
     """
     Thin wrapper around `subprocess.run` which ensures that any arguments which
     are pathlib instances get coerced to strings, which is necessary for them
-    to work on Windows (but not POSIX). Most of these issues are fixed in
-    Python 3.8 so it's possible we can drop this later. (The exception being
-    the `env` argument which the documentation doesn't mention so we'll have to
-    wait and see.)
+    to work on Windows (but not POSIX).
     """
     assert not kwargs.get("shell"), "Don't use shell as we need to work cross-platform"
     cmd_args = list(map(to_str, cmd_args))
@@ -220,8 +217,9 @@ def subprocess_run(cmd_args, **kwargs):
     if "env" in kwargs:
         kwargs["env"] = {key: to_str(value) for (key, value) in kwargs["env"].items()}
     print(f"Executing: {' '.join(cmd_args)}")
+    check = kwargs.pop("check", False)
     try:
-        return subprocess.run(cmd_args, **kwargs)
+        return subprocess.run(cmd_args, check=check, **kwargs)
     except subprocess.CalledProcessError as exc:
         print("STDOUT:")
         print(exc.stdout)

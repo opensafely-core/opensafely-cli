@@ -1,7 +1,7 @@
 import logging
 import os
 import warnings
-from datetime import datetime
+from datetime import datetime, timezone
 
 from opensafely.jobrunner.models import StatusCode
 
@@ -209,7 +209,9 @@ def load_trace_context(job):
     return propagation.set_span_in_context(trace.NonRecordingSpan(span_context), {})
 
 
-MINIMUM_NS_TIMESTAMP = int(datetime(2000, 1, 1, 0, 0, 0).timestamp() * 1e9)
+MINIMUM_NS_TIMESTAMP = int(
+    datetime(2000, 1, 1, 0, 0, 0, tzinfo=timezone.utc).timestamp() * 1e9
+)
 
 
 @warn_assertions

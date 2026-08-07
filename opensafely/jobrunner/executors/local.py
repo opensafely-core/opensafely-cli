@@ -62,7 +62,7 @@ def get_medium_privacy_workspace(workspace):
 
 def get_log_dir(job_definition):
     # Split log directory up by month to make things slightly more manageable
-    month_dir = datetime.date.today().strftime("%Y-%m")
+    month_dir = datetime.datetime.now(tz=datetime.timezone.utc).date().strftime("%Y-%m")
     return config.JOB_LOG_DIR / month_dir / container_name(job_definition)
 
 
@@ -90,17 +90,18 @@ def workspace_is_archived(workspace):
 class LocalDockerAPI(ExecutorAPI):
     """ExecutorAPI implementation using local docker service."""
 
-    synchronous_transitions = [ExecutorState.PREPARING, ExecutorState.FINALIZING]
+    synchronous_transitions = (ExecutorState.PREPARING, ExecutorState.FINALIZING)
 
     def prepare(self, job_definition):
         # Check the workspace is not archived
         workspace_dir = get_high_privacy_workspace(job_definition.workspace)
-        if not workspace_dir.exists():
-            if workspace_is_archived(job_definition.workspace):
-                return JobStatus(
-                    ExecutorState.ERROR,
-                    f"Workspace {job_definition.workspace} has been archived. Contact the OpenSAFELY tech team to resolve",
-                )
+        if not workspace_dir.exists() and workspace_is_archived(
+            job_definition.workspace
+        ):
+            return JobStatus(
+                ExecutorState.ERROR,
+                f"Workspace {job_definition.workspace} has been archived. Contact the OpenSAFELY tech team to resolve",
+            )
 
         # Check the image exists locally and error if not. Newer versions of
         # docker-cli support `--pull=never` as an argument to `docker run` which
@@ -122,8 +123,8 @@ class LocalDockerAPI(ExecutorAPI):
 
         try:
             prepare_job(job_definition)
-        except docker.DockerDiskSpaceError as e:
-            log.exception(str(e))
+        except docker.DockerDiskSpaceError:
+            log.exception()
             return JobStatus(
                 ExecutorState.ERROR, "Out of disk space, please try again later"
             )
@@ -334,7 +335,7 @@ def prepare_job(job_definition):
 
     # `docker cp` can't create parent directories for us so we make sure all
     # these directories get created when we copy in the code
-    extra_dirs = set(Path(filename).parent for filename in job_definition.inputs)
+    extra_dirs = {Path(filename).parent for filename in job_definition.inputs}
 
     try:
         if job_definition.study.git_repo_url and job_definition.study.commit:
@@ -461,7 +462,7 @@ def finalize_job(job_definition):
 def get_job_metadata(job_definition, outputs, container_metadata, results):
     # job_metadata is a big dict capturing everything we know about the state
     # of the job
-    job_metadata = dict()
+    job_metadata = {}
     job_metadata["job_definition_id"] = job_definition.id
     job_metadata["job_definition_request_id"] = job_definition.job_request_id
     job_metadata["created_at"] = job_definition.created_at
@@ -715,7 +716,7 @@ def check_l4_file(job_definition, filename, size, workspace_dir):
         actual_file = workspace_dir / filename
         try:
             csv_counts, headers = get_csv_counts(actual_file)
-        except Exception:
+        except Exception:  # noqa: S110
             pass
         else:
             if headers and "patient_id" in headers:
@@ -872,7 +873,7 @@ def copy_local_workspace_to_volume(job_definition, workspace_dir, extra_dirs):
     # empty dirs in a temp directory. It should be possible to do this using
     # the `tarfile` module to talk directly to `docker cp` stdin if we care
     # enough.
-    directories = set(Path(filename).parent for filename in code_files)
+    directories = {Path(filename).parent for filename in code_files}
     directories.update(extra_dirs)
     directories.discard(Path("."))
     volume_api = volumes.get_volume_api(job_definition)
@@ -892,13 +893,23 @@ def copy_local_workspace_to_volume(job_definition, workspace_dir, extra_dirs):
 
 # Environment variables whose values do not need to be hidden from the debug
 # logs
-SAFE_ENVIRONMENT_VARIABLES = set(
-    """
-    PATH PYTHON_VERSION DEBIAN_FRONTEND DEBCONF_NONINTERACTIVE_SEEN
-    UBUNTU_VERSION PYENV_SHELL PYENV_VERSION PYTHONUNBUFFERED
-    OPENSAFELY_BACKEND TZ TEMP_DATABASE_NAME PYTHONPATH container LANG LC_ALL
-    """.split()
-)
+SAFE_ENVIRONMENT_VARIABLES = [
+    "PATH",
+    "PYTHON_VERSION",
+    "DEBIAN_FRONTEND",
+    "DEBCONF_NONINTERACTIVE_SEEN",
+    "UBUNTU_VERSION",
+    "PYENV_SHELL",
+    "PYENV_VERSION",
+    "PYTHONUNBUFFERED",
+    "OPENSAFELY_BACKEND",
+    "TZ",
+    "TEMP_DATABASE_NAME",
+    "PYTHONPATH",
+    "container",
+    "LANG",
+    "LC_ALL",
+]
 
 
 def redact_environment_variables(container_metadata):

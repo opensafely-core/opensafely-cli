@@ -208,7 +208,9 @@ def test_codelists_check_upstream(codelists_path, mock_check):
     assert codelists.check_upstream()
 
     # assert content sent to opencodelists
-    assert mocked.called_once
+    # we use call_count here instead of called_once, as ruff thinks
+    # the called_once attribute doesn't exist
+    assert mocked.call_count == 1
     parsed_request = parse_qs(mocked.last_request.text)
     assert list(parsed_request.keys()) == ["codelists", "manifest"]
 

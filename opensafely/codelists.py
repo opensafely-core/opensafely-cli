@@ -175,7 +175,10 @@ def fetch_codelist(codelist):
             f"Check that you can access the codelist at:\n{codelist.url}"
         )
     codelist.filename.write_bytes(response.content)
-    return (datetime.datetime.utcnow(), hash_bytes(response.content))
+    return (
+        datetime.datetime.now(tz=datetime.timezone.utc),
+        hash_bytes(response.content),
+    )
 
 
 def get_codelists_dir(codelists_dir=None):
@@ -265,7 +268,7 @@ def check():
             f"It looks like '{CODELISTS_FILE}' has been edited but "
             f"'update' hasn't been run.\n{diff}\n"
         )
-    all_csvs = set(f.name for f in codelists_dir.glob("*.csv"))
+    all_csvs = {f.name for f in codelists_dir.glob("*.csv")}
     csvs_in_manifest = set(manifest["files"].keys())
     if all_csvs != csvs_in_manifest:
         diff = format_diff(all_csvs, csvs_in_manifest)
@@ -336,7 +339,7 @@ def make_temporary_manifest(codelists_dir):
 
 @dataclasses.dataclass
 class Codelist:
-    id: str  # noqa: A003
+    id: str
     codelist: str
     version: str
     url: str

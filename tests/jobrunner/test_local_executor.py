@@ -28,7 +28,7 @@ def volume_api(request, monkeypatch):
 @pytest.fixture
 def job_definition(request, test_repo):
     """Basic simple action with no inputs as base for testing."""
-    if "needs_docker" in list(m.name for m in request.node.iter_markers()):
+    if "needs_docker" in [m.name for m in request.node.iter_markers()]:
         ensure_docker_images_present("busybox")
 
     # replace parameterized tests [/] chars
@@ -98,7 +98,7 @@ def wait_for_state(api, job_definition, state, limit=5, step=0.25):
 
 
 def list_repo_files(path):
-    return list(str(f.relative_to(path)) for f in path.glob("**/*") if f.is_file())
+    return [str(f.relative_to(path)) for f in path.glob("**/*") if f.is_file()]
 
 
 def log_dir_log_file_exists(job_definition):
@@ -198,7 +198,7 @@ def test_prepare_archived(ext, job_definition):
     status = api.prepare(job_definition)
 
     assert status.state == ExecutorState.ERROR
-    assert "has been archived"
+    assert "has been archived" in status.message.lower()
 
 
 @pytest.mark.needs_docker
@@ -426,13 +426,12 @@ def test_finalize_unmatched(docker_cleanup, job_definition, tmp_work_dir, volume
     assert results.unmatched_patterns == ["output/output.*", "output/summary.*"]
     assert results.unmatched_outputs == ["unmatched"]
     assert results.message == "\n  No outputs found matching patterns:\n - {}".format(
-        "\n   - ".join(["output/output.*", "output/summary.*"])
+        "\n   - ".join(["output/output.*", "output/summary.*"])  # noqa: FLY002
     )
+
     assert (
         results.unmatched_hint
-        == "\n  Did you mean to match one of these files instead?\n - {}".format(
-            "\n   - ".join(["unmatched"])
-        )
+        == "\n  Did you mean to match one of these files instead?\n - unmatched"
     )
 
 
@@ -471,7 +470,7 @@ def test_finalize_unmatched_output(
     assert results.unmatched_patterns == ["output/output.*", "output/summary.*"]
     assert results.unmatched_outputs == []
     assert results.message == "\n  No outputs found matching patterns:\n - {}".format(
-        "\n   - ".join(["output/output.*", "output/summary.*"])
+        "\n   - ".join(["output/output.*", "output/summary.*"])  # noqa: FLY002
     )
 
 
@@ -529,10 +528,21 @@ def test_finalize_failed_oomkilled(docker_cleanup, job_definition, tmp_work_dir)
     assert api.get_status(job_definition).state == ExecutorState.FINALIZED
     assert job_definition.id in local.RESULTS
     assert local.RESULTS[job_definition.id].exit_code == 137
-    # Note, 6MB is rounded to 0.01GBM by the formatter
+
+    # Note: The message for a 137 exit code depends on the container's metadata
+    # "State" being written as "OOMKilled". If that isn't present, we fall back
+    # to the message in config.DOCKER_EXIT_CODES for 137.
+    # As per comment in the code, this flag has been seen to be unreliable on
+    # some versions of linux. We know we have the correct exit code here, so
+    # just test that we've got a corresponding OOM error message in the results.
+    # https://github.com/opensafely-core/opensafely-cli/blob/2817d310de7913c363e52754ea11a67b3bf456ff/opensafely/jobrunner/executors/local.py#L414
+    # https://github.com/opensafely-core/opensafely-cli/blob/main/opensafely/jobrunner/config.py#L273
     assert (
         local.RESULTS[job_definition.id].message
-        == "Job ran out of memory (limit was 0.01GB)"
+        in [
+            "Job ran out of memory (limit was 0.01GB)",  # Note, 6MB is rounded to 0.01GBM by the formatter
+            "Job killed by OpenSAFELY admin or memory limits",
+        ]
     )
 
     assert log_dir_log_file_exists(job_definition)

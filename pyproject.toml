@@ -34,9 +34,9 @@ Repository = "https://github.com/opensafely-core/opensafely-cli"
 
 [project.optional-dependencies]
 tracing = [
-    "opentelemetry-api==1.33.1",
-    "opentelemetry-sdk==1.33.1",
-    "opentelemetry-exporter-otlp-proto-http==1.15.0"
+    "opentelemetry-api>=1.44.0",
+    "opentelemetry-sdk>=1.44.0",
+    "opentelemetry-exporter-otlp-proto-http>=1.44.0"
 ]
 
 [project.scripts]
@@ -87,9 +87,8 @@ substitute = [
   # we don't need. See:
   # https://github.com/psf/requests/blob/589c4547338b592b1fb77c65663d8aa6fbb7e38b/requests/packages.py
   { match='from \. import packages, utils', replace='from . import utils' },
-  { match='wrapt._wrappers', replace='opensafely._vendor.wrapt._wrappers'},
-  { match='urllib3.contrib.securetransport', replace='opensafely._vendor.urllib3.contrib.securetransport'},
   { match='urllib3.contrib.pyopenssl', replace='opensafely._vendor.urllib3.contrib.pyopenssl'},
+  { match='import urllib3.connection', replace='opensafely._vendor.urllib3.connection'},
 ]
 
 drop = [
@@ -97,6 +96,8 @@ drop = [
   "*-nspkg.pth",
   # Scripts we don't need
   "bin/",
+  # Certifi pulls in its tests directory which we don't need, and conflict with our own tests
+  "certifi/tests/"
 ]
 
 [tool.vendoring.license.directories]
@@ -150,6 +151,15 @@ extend-select = [
 extend-ignore = [
   "E501",
   "E731",
+  # "Create your own exception"; don't raise Exception() - we deliberately raise and
+  # catch base Exception in the jobrunner code so we can handle unexpected errors and
+  # report/retry
+  "TRY002",
+  # Consequently, also ignore the "do not assert blind exception" rule; this only
+  # happens in tests of the above-mentioned base Exceptions
+  "B017",
+  # And similarly, "do not catch blind exception"
+  "BLE001",
 ]
 
 [tool.ruff.lint.isort]

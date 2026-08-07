@@ -164,13 +164,11 @@ def test_project(run, capsys):
 
 
 def test_remove_deprecated_images(run):
-    local_images = set(
-        [
-            "docker.opensafely.org/r",
-            "ghcr.io/opensafely/r",
-            "ghcr.io/opensafely-core/r",
-        ]
-    )
+    local_images = {
+        "docker.opensafely.org/r",
+        "ghcr.io/opensafely/r",
+        "ghcr.io/opensafely-core/r",
+    }
 
     run.expect(["docker", "image", "rm", "docker.opensafely.org/r"])
     run.expect(["docker", "image", "rm", "ghcr.io/opensafely/r"])
@@ -209,14 +207,14 @@ def test_get_actions_from_project_yaml_no_actions():
 @pytest.mark.parametrize(
     "argv,expected",
     [
-        ([], dict(image="all", force=False, project=None)),
-        (["--force"], dict(image="all", force=True, project=None)),
-        (["r"], dict(image="r", force=False, project=None)),
-        (["r", "--force"], dict(image="r", force=True, project=None)),
-        (["--project"], dict(image="all", force=False, project="project.yaml")),
+        ([], {"image": "all", "force": False, "project": None}),
+        (["--force"], {"image": "all", "force": True, "project": None}),
+        (["r"], {"image": "r", "force": False, "project": None}),
+        (["r", "--force"], {"image": "r", "force": True, "project": None}),
+        (["--project"], {"image": "all", "force": False, "project": "project.yaml"}),
         (
             ["--project", "project.yaml"],
-            dict(image="all", force=False, project="project.yaml"),
+            {"image": "all", "force": False, "project": "project.yaml"},
         ),
         (["invalid"], SystemExit()),
     ],

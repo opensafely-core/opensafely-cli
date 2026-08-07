@@ -100,7 +100,7 @@ upgrade env package="": virtualenv
     #!/usr/bin/env bash
     set -euo pipefail
 
-    opts="--upgrade"
+    opts="--upgrade --strip-extras --pip-args uploaded-prior-to=P7D"
     test -z "{{ package }}" || opts="--upgrade-package {{ package }}"
     FORCE=true {{ just_executable() }} requirements-{{ env }} $opts
 

@@ -180,7 +180,7 @@ def apply_reusable_action(run_args, reusable_action):
         if "run" not in action_config:
             raise ReusableActionError("Missing `run` key in 'action.yaml'")
         action_run_args = shlex.split(action_config["run"])
-        action_image, action_tag = action_run_args[0].split(":")
+        action_image, _action_tag = action_run_args[0].split(":")
         if action_image not in config.ALLOWED_IMAGES:
             raise ReusableActionError(f"Unrecognised runtime: {action_image}")
         if is_database_action(action_run_args):

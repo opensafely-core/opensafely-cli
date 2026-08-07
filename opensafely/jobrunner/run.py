@@ -213,19 +213,18 @@ def handle_job(job, api, mode=None, paused=None):
     job_definition = job_to_job_definition(job)
 
     # does this api have synchronous_transitions?
-    synchronous_transitions = getattr(api, "synchronous_transitions", [])
+    synchronous_transitions = getattr(api, "synchronous_transitions", ())
     is_synchronous = False
 
     # handle special modes before considering executor state, as they ignore it
-    if paused:
-        if job.state == State.PENDING:
-            # do not start the job, keep it pending
-            set_code(
-                job,
-                StatusCode.WAITING_PAUSED,
-                "Backend is currently paused for maintenance, job will start once this is completed",
-            )
-            return
+    if paused and job.state == State.PENDING:
+        # do not start the job, keep it pending
+        set_code(
+            job,
+            StatusCode.WAITING_PAUSED,
+            "Backend is currently paused for maintenance, job will start once this is completed",
+        )
+        return
 
     if mode == "db-maintenance" and job_definition.allow_database_access:
         if job.state == State.RUNNING:
@@ -497,17 +496,16 @@ def get_obsolete_files(job_definition, outputs):
 def job_to_job_definition(job):
     allow_database_access = False
     env = {"OPENSAFELY_BACKEND": config.BACKEND}
-    if job.requires_db:
-        if not config.USING_DUMMY_DATA_BACKEND:
-            allow_database_access = True
-            env["DATABASE_URL"] = config.DATABASE_URLS[job.database_name]
-            if config.TEMP_DATABASE_NAME:
-                env["TEMP_DATABASE_NAME"] = config.TEMP_DATABASE_NAME
-            if config.PRESTO_TLS_KEY and config.PRESTO_TLS_CERT:
-                env["PRESTO_TLS_CERT"] = config.PRESTO_TLS_CERT
-                env["PRESTO_TLS_KEY"] = config.PRESTO_TLS_KEY
-            if config.EMIS_ORGANISATION_HASH:
-                env["EMIS_ORGANISATION_HASH"] = config.EMIS_ORGANISATION_HASH
+    if job.requires_db and not config.USING_DUMMY_DATA_BACKEND:
+        allow_database_access = True
+        env["DATABASE_URL"] = config.DATABASE_URLS[job.database_name]
+        if config.TEMP_DATABASE_NAME:
+            env["TEMP_DATABASE_NAME"] = config.TEMP_DATABASE_NAME
+        if config.PRESTO_TLS_KEY and config.PRESTO_TLS_CERT:
+            env["PRESTO_TLS_CERT"] = config.PRESTO_TLS_CERT
+            env["PRESTO_TLS_KEY"] = config.PRESTO_TLS_KEY
+        if config.EMIS_ORGANISATION_HASH:
+            env["EMIS_ORGANISATION_HASH"] = config.EMIS_ORGANISATION_HASH
     # Prepend registry name
     action_args = job.action_args
     image = action_args.pop(0)
@@ -523,12 +521,12 @@ def job_to_job_definition(job):
 
     input_files = []
     for action in job.requires_outputs_from:
-        for filename in list_outputs_from_action(job.workspace, action):
-            input_files.append(filename)
+        action_input_files = list(list_outputs_from_action(job.workspace, action))
+        input_files.extend(action_input_files)
 
     outputs = {}
     for privacy_level, named_patterns in job.output_spec.items():
-        for name, pattern in named_patterns.items():
+        for pattern in named_patterns.values():
             outputs[pattern] = privacy_level
 
     if job.cancelled:
@@ -676,7 +674,13 @@ def set_code(
         # is still running" messages, but it is useful to have semi-regular
         # confirmations in the logs that it is still running. The below will
         # log approximately once every 10 minutes.
-        if datetime.datetime.fromtimestamp(timestamp_s).minute % 10 == 0:
+        if (
+            datetime.datetime.fromtimestamp(
+                timestamp_s, tz=datetime.timezone.utc
+            ).minute
+            % 10
+            == 0
+        ):
             log.info(job.status_message, extra={"status_code": job.status_code})
 
 
@@ -705,7 +709,7 @@ def get_reason_job_not_started(job):
                 "Waiting on available database workers",
             )
 
-    if os.environ.get("FUNTIMES", False):
+    if os.environ.get("FUNTIMES"):
         # allow any db job to run
         if job.requires_db:
             return None

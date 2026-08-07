@@ -86,7 +86,7 @@ def test_handle_job_full_execution_synchronous(db, freezer):
     freezer.move_to("2022-01-01T12:34:56")
 
     api = StubExecutorAPI()
-    api.synchronous_transitions = [ExecutorState.PREPARING, ExecutorState.FINALIZING]
+    api.synchronous_transitions = (ExecutorState.PREPARING, ExecutorState.FINALIZING)
 
     start = int(time.time_ns())
 
@@ -830,7 +830,7 @@ def invalid_transitions():
     yield from invalid(ExecutorState.EXECUTED, ExecutorState.FINALIZING)
 
 
-@pytest.mark.parametrize("current, invalid", invalid_transitions())
+@pytest.mark.parametrize("current, invalid", tuple(invalid_transitions()))
 def test_bad_transition(current, invalid, db):
     api = StubExecutorAPI()
     job = api.add_test_job(
@@ -914,7 +914,7 @@ def test_handle_single_job_shortcuts_synchronous(db):
     api = StubExecutorAPI()
     job = api.add_test_job(ExecutorState.UNKNOWN, State.PENDING, StatusCode.CREATED)
 
-    api.synchronous_transitions = [ExecutorState.PREPARING]
+    api.synchronous_transitions = (ExecutorState.PREPARING,)
 
     run.handle_single_job(job, api)
 

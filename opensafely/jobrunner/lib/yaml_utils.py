@@ -56,6 +56,6 @@ def make_yaml_error_more_helpful(exc, name):
             pass
         exc.note = ""
         exc.warn = ""
-    except Exception:
+    except Exception:  # noqa: S110
         pass
     return exc

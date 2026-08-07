@@ -428,7 +428,7 @@ def run(
     # in the evnironment and tell Docker to fetch them from there
     if env is None:
         env = {}
-    for key, value in env.items():
+    for key in env:
         run_args.extend(["--env", key])
     ps = docker(
         run_args + args, check=True, capture_output=True, env=dict(os.environ, **env)

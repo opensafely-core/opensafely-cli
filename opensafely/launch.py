@@ -150,11 +150,11 @@ def launch_jupyter(version, directory, name, port, no_browser, background):
 
     image = f"python:{version}"
     ensure_image(image)
-    kwargs = dict(
-        image=image,
-        cmd=jupyter_cmd,
-        directory=directory,
-    )
+    kwargs = {
+        "image": image,
+        "cmd": jupyter_cmd,
+        "directory": directory,
+    }
 
     print(f"Starting a Jupyter Lab session at {url}.")
     return run_tool(docker_args, kwargs, background, no_browser, url)
@@ -193,12 +193,12 @@ def launch_rstudio(version, directory, name, port, no_browser, background):
 
     image = f"rstudio:{version}"
     ensure_image(image)
-    kwargs = dict(
-        image=image,
+    kwargs = {
+        "image": image,
         # rstudio needs to start as root, but drops privileges to uid later
-        user="0:0",
-        directory=directory,
-    )
+        "user": "0:0",
+        "directory": directory,
+    }
 
     print(f"Opening an RStudio Server session at {url}.")
     return run_tool(docker_args, kwargs, background, no_browser, url)

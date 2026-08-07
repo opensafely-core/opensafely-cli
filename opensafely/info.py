@@ -39,7 +39,10 @@ def main(list_project_images=None):
     print("System information:")
     try:
         ps = subprocess.run(
-            ["docker", "info", "-f", "{{json .}}"], capture_output=True, text=True
+            ["docker", "info", "-f", "{{json .}}"],
+            capture_output=True,
+            text=True,
+            check=False,
         )
         info = json.loads(ps.stdout)
 

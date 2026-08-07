@@ -3,12 +3,12 @@ import shlex
 import subprocess
 import sys
 
-import pytest  # noqa: E402
-from opensafely._vendor import requests  # noqa: E402
-from requests_mock import mocker  # noqa: E402
+import pytest
+from opensafely._vendor import requests
+from requests_mock import mocker
 
-import opensafely  # noqa: E402
-from opensafely import utils  # noqa: E402
+import opensafely
+from opensafely import utils
 
 
 # Because we're using a vendored version of requests we need to monkeypatch the

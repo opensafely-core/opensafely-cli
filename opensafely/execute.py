@@ -73,14 +73,16 @@ def in_env_args(var, env):
 def main(
     image,
     entrypoint=None,
-    env=[],
+    env=None,
     user=None,
     cpus=None,
     memory=None,
     verbose=False,
-    cmd_args=[],
+    cmd_args=None,
     environ=os.environ,
 ):
+    env = env or []
+    cmd_args = cmd_args or []
     if not docker_preflight_check():
         return False
 
