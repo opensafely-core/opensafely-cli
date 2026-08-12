@@ -57,10 +57,18 @@ class DockerVolumeAPI:
         docker.delete_volume(docker_volume_name(job))
 
     def write_timestamp(job, path, timeout=None):
-        with tempfile.NamedTemporaryFile() as f:
-            p = Path(f.name)
+        # Note: writing to a temporary file while there's already a handle open to it
+        # is fine on unix, but sometimes errors on Windows, so we use a temp directory
+        # here instead of opening/writing to a temp file directly.
+        with tempfile.TemporaryDirectory() as tmpdir:
+            p = Path(tmpdir) / "timestamp"
             p.write_text(str(time.time_ns()))
-            docker.copy_to_volume(docker_volume_name(job), p, path, timeout)
+            docker.copy_to_volume(
+                docker_volume_name(job),
+                p,
+                path,
+                timeout,
+            )
 
     def read_timestamp(job, path, timeout=None):
         return docker.read_timestamp(docker_volume_name(job), path, timeout)
