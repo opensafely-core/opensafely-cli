@@ -13,15 +13,11 @@ attrs==26.1.0
 build==1.5.0
     # via pip-tools
 certifi==2026.7.22
-    # via
-    #   -c requirements.prod.txt
-    #   requests
+    # via requests
 cfgv==3.5.0
     # via pre-commit
 charset-normalizer==3.4.9
-    # via
-    #   -c requirements.prod.txt
-    #   requests
+    # via requests
 click==8.4.2
     # via
     #   pip-tools
@@ -45,9 +41,7 @@ googleapis-common-protos==1.75.0
 identify==2.6.19
     # via pre-commit
 idna==3.18
-    # via
-    #   -c requirements.prod.txt
-    #   requests
+    # via requests
 iniconfig==2.3.0
     # via pytest
 jsonschema==4.26.0
@@ -62,7 +56,7 @@ nodeenv==1.10.0
     # via pre-commit
 opentelemetry-api==1.44.0
     # via
-    #   -c requirements.prod.txt
+    #   -c requirements.prod.in
     #   opensafely
     #   opentelemetry-exporter-otlp-proto-http
     #   opentelemetry-sdk
@@ -130,7 +124,7 @@ referencing==0.37.0
     #   jsonschema-specifications
 requests==2.34.2
     # via
-    #   -c requirements.prod.txt
+    #   -c requirements.prod.in
     #   opentelemetry-exporter-otlp-proto-http
     #   requests-mock
     #   vendoring
@@ -156,7 +150,6 @@ tomli==2.4.1
     #   pytest
 typing-extensions==4.16.0
     # via
-    #   -c requirements.prod.txt
     #   exceptiongroup
     #   opentelemetry-api
     #   opentelemetry-exporter-otlp-proto-http
@@ -166,7 +159,7 @@ typing-extensions==4.16.0
     #   virtualenv
 urllib3==2.7.0
     # via
-    #   -c requirements.prod.txt
+    #   -c requirements.prod.in
     #   requests
 vendoring==1.2.0
     # via -r requirements.dev.in

@@ -1,5 +1,5 @@
 # respect prod versions, for consistency
---constraint requirements.prod.txt
+-c requirements.prod.in
 # install opensafely as editable package, with tracing deps
 --editable file:.[tracing]
 # packaging tooling
