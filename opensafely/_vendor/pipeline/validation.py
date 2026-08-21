@@ -192,8 +192,7 @@ def get_output_spec_from_args(args: list[str]) -> str | None:
         if switch == "--output":
             return value
         if switch.startswith("--output="):
-            # Need to support 3.8 so no `removeprefix`
-            return switch[len("--output=") :]
+            return switch.removeprefix("--output=")
     return None
 
 

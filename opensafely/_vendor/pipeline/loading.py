@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Union
+from typing import Any
 
 from opensafely._vendor.ruyaml import YAML
 from opensafely._vendor.ruyaml.error import (
@@ -45,7 +45,7 @@ from . import exceptions
 PARSER = YAML(typ=["safe", "rt"], pure=True)  # type: ignore[arg-type]
 
 
-RuyamlMarkedError = Union[MarkedYAMLError, MarkedYAMLFutureWarning, MarkedYAMLWarning]
+RuyamlMarkedError = MarkedYAMLError | MarkedYAMLFutureWarning | MarkedYAMLWarning
 
 
 def make_yaml_error_more_helpful(
