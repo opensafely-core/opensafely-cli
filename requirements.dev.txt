@@ -16,13 +16,13 @@ certifi==2026.7.22
     # via requests
 cfgv==3.5.0
     # via pre-commit
-charset-normalizer==3.4.9
+charset-normalizer==3.5.1
     # via requests
 click==8.4.2
     # via
     #   pip-tools
     #   vendoring
-coverage==7.15.3
+coverage==7.15.4
     # via
     #   -r requirements.dev.in
     #   pytest-cov
@@ -30,17 +30,17 @@ distlib==0.4.3
     # via virtualenv
 exceptiongroup==1.3.1
     # via pytest
-filelock==3.32.2
+filelock==3.32.3
     # via
     #   python-discovery
     #   virtualenv
 freezegun==1.5.5
     # via pytest-freezer
-googleapis-common-protos==1.75.0
+googleapis-common-protos==1.75.1
     # via opentelemetry-exporter-otlp-proto-http
 identify==2.6.19
     # via pre-commit
-idna==3.18
+idna==3.19
     # via requests
 iniconfig==2.3.0
     # via pytest
@@ -81,21 +81,21 @@ packaging==26.3
     #   pytest
     #   vendoring
     #   wheel
-pip-tools==7.6.0
+pip-tools==7.6.1
     # via -r requirements.dev.in
-platformdirs==4.11.0
+platformdirs==4.11.3
     # via virtualenv
 pluggy==1.6.0
     # via
     #   pytest
     #   pytest-cov
-pre-commit==4.6.1
+pre-commit==4.6.2
     # via -r requirements.dev.in
-protobuf==7.35.1
+protobuf==7.36.0
     # via
     #   googleapis-common-protos
     #   opentelemetry-proto
-pygments==2.20.0
+pygments==2.21.0
     # via
     #   pytest
     #   rich
@@ -114,7 +114,7 @@ pytest-freezer==0.4.9
     # via -r requirements.dev.in
 python-dateutil==2.9.0.post0
     # via freezegun
-python-discovery==1.5.1
+python-discovery==1.5.2
     # via virtualenv
 pyyaml==6.0.3
     # via pre-commit
@@ -136,7 +136,7 @@ rpds-py==0.30.0
     # via
     #   jsonschema
     #   referencing
-ruff==0.16.1
+ruff==0.16.4
     # via -r requirements.dev.in
 six==1.17.0
     # via python-dateutil
@@ -155,6 +155,7 @@ typing-extensions==4.16.0
     #   opentelemetry-exporter-otlp-proto-http
     #   opentelemetry-sdk
     #   opentelemetry-semantic-conventions
+    #   pip-tools
     #   referencing
     #   virtualenv
 urllib3==2.7.0
@@ -163,9 +164,9 @@ urllib3==2.7.0
     #   requests
 vendoring==1.2.0
     # via -r requirements.dev.in
-virtualenv==21.7.1
+virtualenv==21.7.4
     # via pre-commit
-wheel==0.47.0
+wheel==0.48.0
     # via pip-tools
 
 # The following packages are considered to be unsafe in a requirements file:
@@ -173,5 +174,5 @@ pip==26.1.2
     # via
     #   -r requirements.dev.in
     #   pip-tools
-setuptools==83.0.0
+setuptools==84.0.0
     # via pip-tools
