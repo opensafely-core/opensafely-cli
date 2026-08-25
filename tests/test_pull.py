@@ -44,7 +44,6 @@ def test_default_no_local_images(run, capsys):
 def test_default_no_local_images_force(run, capsys):
     run.expect(["docker", "info"])
     expect_local_images(run)
-    run.expect(["docker", "pull", tag("cohortextractor", version="latest")])
     run.expect(["docker", "pull", tag("ehrql")])
     run.expect(["docker", "pull", tag("jupyter")])
     run.expect(["docker", "pull", tag("python", version="v2")])
@@ -67,7 +66,6 @@ def test_default_no_local_images_force(run, capsys):
     out, err = capsys.readouterr()
     assert err == ""
     assert out.splitlines() == [
-        "Updating OpenSAFELY cohortextractor:latest image",
         "Updating OpenSAFELY ehrql:v1 image",
         "Updating OpenSAFELY jupyter:v1 image",
         "Updating OpenSAFELY python:v2 image",

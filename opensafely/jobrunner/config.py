@@ -76,7 +76,6 @@ else:
     USING_DUMMY_DATA_BACKEND = BACKEND == "expectations"
 
 ALLOWED_IMAGES = {
-    "cohortextractor",
     "databuilder",
     "ehrql",
     "stata-mp",
