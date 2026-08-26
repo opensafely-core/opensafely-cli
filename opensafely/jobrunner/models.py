@@ -212,7 +212,7 @@ class Job:
     commit: str = None
     # Name of workspace (effectively, the output directory)
     workspace: str = None
-    # Only applicable to "generate_cohort" jobs: the name of the database to
+    # Only applicable to "generate-dataset" jobs: the name of the database to
     # query against
     database_name: str = None
     # Name of the action (one of the keys in the `actions` dict in
