@@ -32,9 +32,9 @@ def test_create_or_update_jobs(tmp_work_dir, db):
         id="123",
         repo_url=repo_url,
         # GIT_DIR=tests/fixtures/git-repo git rev-parse v1
-        commit="cfbd0fe545d4e4c0747f0746adaa79ce5f8dfc74",
+        commit="891bc700d6bb79f500b0d44952a1ed737d806dad",
         branch="v1",
-        requested_actions=["generate_cohort"],
+        requested_actions=["generate_dataset"],
         cancelled_actions=[],
         workspace="1",
         codelists_ok=True,
@@ -48,18 +48,19 @@ def test_create_or_update_jobs(tmp_work_dir, db):
     create_or_update_jobs(job_request)
     old_job = find_one(Job)
     assert old_job.job_request_id == "123"
-    assert old_job.state == State.PENDING
+    assert old_job.state == State.PENDING, old_job.status_message
     assert old_job.repo_url == repo_url
-    assert old_job.commit == "cfbd0fe545d4e4c0747f0746adaa79ce5f8dfc74"
+    assert old_job.commit == "891bc700d6bb79f500b0d44952a1ed737d806dad"
     assert old_job.workspace == "1"
-    assert old_job.action == "generate_cohort"
+    assert old_job.action == "generate_dataset"
     assert old_job.wait_for_job_ids == []
     assert old_job.requires_outputs_from == []
     assert old_job.run_command == (
-        "cohortextractor:latest generate_cohort --expectations-population=1000"
-        " --output-dir=."
+        "ehrql:v1 generate-dataset analysis/dataset_definition.py --output output/dataset.csv.gz"
     )
-    assert old_job.output_spec == {"highly_sensitive": {"cohort": "input.csv"}}
+    assert old_job.output_spec == {
+        "highly_sensitive": {"dataset": "output/dataset.csv.gz"}
+    }
     assert old_job.status_message == "Created"
     # Check no new jobs created from same JobRequest
     create_or_update_jobs(job_request)
