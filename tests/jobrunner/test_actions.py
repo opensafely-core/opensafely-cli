@@ -14,8 +14,7 @@ from opensafely.jobrunner.actions import UnknownActionError, get_action_specific
 )
 def test_get_action_specification_ehrql_has_output_flag():
     config = Pipeline.build(
-        version=3,
-        expectations={"population_size": 1000},
+        version=5,
         actions={
             "generate_dataset": {
                 "run": "ehrql:v1 generate-dataset dataset.py --output=output/dataset.csv",
@@ -43,8 +42,7 @@ def test_get_action_specification_ehrql_has_output_flag():
 )
 def test_get_action_specification_with_config():
     config = Pipeline.build(
-        version=3,
-        expectations={"population_size": 1_000},
+        version=5,
         actions={
             "my_action": {
                 "run": "python:v2 python action/__main__.py output/input.csv",
@@ -80,7 +78,7 @@ def test_get_action_specification_with_config():
 )
 def test_get_action_specification_with_unknown_action():
     config = Pipeline.build(
-        version=1,
+        version=5,
         actions={
             "known_action": {
                 "run": "python:v2 python test.py",
