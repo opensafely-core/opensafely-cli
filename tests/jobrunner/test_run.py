@@ -435,7 +435,7 @@ def test_handle_job_waiting_on_db_workers(monkeypatch, db):
     job = api.add_test_job(
         ExecutorState.UNKNOWN,
         State.PENDING,
-        run_command="cohortextractor:latest generate_cohort",
+        run_command="ehrql:v1 generate-dataset",
         requires_db=True,
     )
 
@@ -758,7 +758,7 @@ def test_handle_pending_db_maintenance_mode(db, backend_db_config):
     job = api.add_test_job(
         ExecutorState.UNKNOWN,
         State.PENDING,
-        run_command="cohortextractor:latest generate_cohort",
+        run_command="ehrql:v1 generate-dataset",
         requires_db=True,
     )
 
@@ -781,7 +781,7 @@ def test_handle_running_db_maintenance_mode(db, backend_db_config):
         ExecutorState.EXECUTING,
         State.RUNNING,
         StatusCode.EXECUTING,
-        run_command="cohortextractor:latest generate_cohort",
+        run_command="ehrql:v1 generate-dataset",
         requires_db=True,
     )
 
@@ -806,7 +806,7 @@ def test_handle_pending_pause_mode(db, backend_db_config):
     job = api.add_test_job(
         ExecutorState.UNKNOWN,
         State.PENDING,
-        run_command="cohortextractor:latest generate_cohort",
+        run_command="ehrql:v1 generate-dataset",
         requires_db=True,
     )
 
@@ -830,7 +830,7 @@ def test_handle_running_pause_mode(db, backend_db_config):
         State.RUNNING,
         StatusCode.EXECUTING,
         status_message="doing my thang",
-        run_command="cohortextractor:latest generate_cohort",
+        run_command="ehrql:v1 generate-dataset",
         requires_db=True,
     )
 
