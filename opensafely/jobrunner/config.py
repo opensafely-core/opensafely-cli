@@ -213,15 +213,36 @@ ENABLE_MAINTENANCE_MODE_THREAD = os.environ.get(
 
 
 # Map known exit codes to user-friendly messages
+# Taken from https://github.com/opensafely-core/job-runner/blob/dd0c916db15168d3d0be0134c1dc1fbb7f54785a/controller/config.py#L160
 DATABASE_EXIT_CODES = {
-    # Custom database-related exit codes return from cohortextractor, see
-    # https://github.com/opensafely-core/cohort-extractor/blob/0a314a909817dbcc48907643e0b6eeff319337db/cohortextractor/cohortextractor.py#L787
+    # Custom database-related exit codes return from ehrQL, see e.g.
+    # https://github.com/opensafely-core/ehrql/blob/868e07b9d3638996c14a573030ca946765d8fdf9/ehrql/backends/tpp.py#L229-L254
+    # These are unlikely to be hit since the CLI always uses dummy data and ehrql's
+    # in-memory engine
     3: (
         "A transient database error occurred, your job may run "
         "if you try it again, if it keeps failing then contact tech support"
     ),
     4: "New data is being imported into the database, please try again in a few hours",
     5: "Something went wrong with the database, please contact tech support",
+    6: (
+        "Your ehrQL is valid but it produced SQL which is too complex for the database"
+        " to run; please contact tech-support so we can help you simplify it."
+    ),
+    # Other ehrQL exit codes with specific meanings, see:
+    # https://github.com/opensafely-core/ehrql/blob/868e07b9d3638996c14a573030ca946765d8fdf9/ehrql/__main__.py#L112
+    # https://github.com/opensafely-core/ehrql/blob/868e07b9d3638996c14a573030ca946765d8fdf9/ehrql/exceptions.py#L66
+    # Messages have been modified to remove instructions that only apply to real
+    # jobs run in the backend (e.g. to check code runs locally, or to contact tech-support)
+    2: ("There was a problem with the command line arguments in your ehrQL action"),
+    10: "There was a problem reading your ehrQL code",
+    11: "There was a problem reading one of the supplied data files",
+    12: "You do not have the required permissions for the ehrQL you are trying to run",
+    13: "Assurance tests failed",
+    14: (
+        "Your job was making such slow progress that it was unlikely to complete "
+        "successfully"
+    ),
 }
 
 

@@ -607,7 +607,7 @@ def test_handle_job_finalized_success_with_large_file(db):
     [
         (
             3,
-            "cohortextractor generate_cohort",
+            "ehrql generate-dataset",
             (
                 "A transient database error occurred, your job may run "
                 "if you try it again, if it keeps failing then contact tech support"
@@ -615,18 +615,54 @@ def test_handle_job_finalized_success_with_large_file(db):
         ),
         (
             4,
-            "cohortextractor generate_cohort",
+            "ehrql generate-dataset",
             "New data is being imported into the database, please try again in a few hours",
         ),
         (
             5,
-            "cohortextractor generate_cohort",
+            "ehrql generate-dataset",
             "Something went wrong with the database, please contact tech support",
         ),
+        (
+            6,
+            "ehrql generate-dataset",
+            "Your ehrQL is valid but it produced SQL which is too complex",
+        ),
+        (
+            2,
+            "ehrql generate-dataset",
+            "There was a problem with the command line arguments in your ehrQL action",
+        ),
+        (
+            10,
+            "ehrql generate-dataset",
+            "There was a problem reading your ehrQL code",
+        ),
+        (
+            11,
+            "ehrql generate-dataset",
+            "There was a problem reading one of the supplied data files",
+        ),
+        (
+            12,
+            "ehrql generate-dataset",
+            "You do not have the required permissions for the ehrQL you are trying to run",
+        ),
+        (
+            13,
+            "ehrql generate-dataset",
+            "Assurance tests failed",
+        ),
+        (
+            14,
+            "ehrql generate-dataset",
+            "Your job was making such slow progress that it was unlikely to complete",
+        ),
         # the same exit codes for a job that doesn't have access to the database show no message
-        (3, "python foo.py", None),
-        (4, "python foo.py", None),
-        (5, "python foo.py", None),
+        *[
+            (code, "python foo.py", None)
+            for code in [3, 4, 5, 6, 2, 10, 11, 12, 13, 14]
+        ],
     ],
 )
 def test_handle_job_finalized_failed_exit_code(
@@ -638,7 +674,7 @@ def test_handle_job_finalized_failed_exit_code(
         State.RUNNING,
         StatusCode.FINALIZED,
         run_command=run_command,
-        requires_db="cohortextractor" in run_command,
+        requires_db="ehrql" in run_command,
     )
     api.set_job_result(
         job,
@@ -660,7 +696,7 @@ def test_handle_job_finalized_failed_exit_code(
     expected = "Job exited with an error"
     if extra_message:
         expected += f": {extra_message}"
-    assert job.status_message == expected
+    assert job.status_message.startswith(expected)
     assert job.outputs == {"output/file.csv": "highly_sensitive"}
 
     spans = get_trace("jobs")
