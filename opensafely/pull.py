@@ -170,8 +170,6 @@ def remove_deprecated_images(local_images):
 def get_default_version_for_image(name):
     if name in ["python", "r", "rstudio"]:
         return "v2"
-    elif name == "cohortextractor":
-        return "latest"
     else:
         return "v1"
 

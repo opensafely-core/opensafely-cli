@@ -112,7 +112,7 @@ class TestHandleReusableAction:
         [
             "notanaction:v1",
             # These are valid runtimes, but not allowed in re-usable actions
-            "cohortextractor:v1 generate_cohort",
+            "sqlrunner:v1 do.sql",
             "ehrql:v1 generate-dataset dataset.py --output dataset.csv",
         ],
     )

@@ -14,8 +14,7 @@ from opensafely.jobrunner.actions import UnknownActionError, get_action_specific
 )
 def test_get_action_specification_ehrql_has_output_flag():
     config = Pipeline.build(
-        version=3,
-        expectations={"population_size": 1000},
+        version=5,
         actions={
             "generate_dataset": {
                 "run": "ehrql:v1 generate-dataset dataset.py --output=output/dataset.csv",
@@ -41,39 +40,12 @@ def test_get_action_specification_ehrql_has_output_flag():
     sys.platform.startswith("win"),
     reason="ActionSpecification is only used to build commands for Docker",
 )
-def test_get_action_specification_for_cohortextractor_generate_cohort_action():
-    config = Pipeline.build(
-        version=3,
-        expectations={"population_size": 1000},
-        actions={
-            "generate_cohort": {
-                "run": "cohortextractor:latest generate_cohort",
-                "outputs": {"highly_sensitive": {"cohort": "output/input.csv"}},
-            }
-        },
-    )
-
-    action_spec = get_action_specification(
-        config, "generate_cohort", using_dummy_data_backend=True
-    )
-
-    assert (
-        action_spec.run
-        == """cohortextractor:latest generate_cohort --expectations-population=1000 --output-dir=output"""
-    )
-
-
-@pytest.mark.skipif(
-    sys.platform.startswith("win"),
-    reason="ActionSpecification is only used to build commands for Docker",
-)
 def test_get_action_specification_with_config():
     config = Pipeline.build(
-        version=3,
-        expectations={"population_size": 1_000},
+        version=5,
         actions={
             "my_action": {
-                "run": "python:latest python action/__main__.py output/input.csv",
+                "run": "python:v2 python action/__main__.py output/input.csv",
                 "config": {"option": "value"},
                 "outputs": {
                     "moderately_sensitive": {"my_figure": "output/my_figure.png"}
@@ -86,7 +58,7 @@ def test_get_action_specification_with_config():
 
     assert (
         action_spec.run
-        == """python:latest python action/__main__.py output/input.csv --config '{"option": "value"}'"""
+        == """python:v2 python action/__main__.py output/input.csv --config '{"option": "value"}'"""
     )
 
     # Does argparse accept options after arguments?
@@ -104,75 +76,12 @@ def test_get_action_specification_with_config():
     sys.platform.startswith("win"),
     reason="ActionSpecification is only used to build commands for Docker",
 )
-def test_get_action_specification_with_dummy_data_file_flag(tmp_path):
-    dummy_data_file = tmp_path / "test.csv"
-    with dummy_data_file.open("w") as f:
-        f.write("test")
-
-    config = Pipeline.build(
-        version=1,
-        actions={
-            "generate_cohort": {
-                "run": "cohortextractor:latest generate_cohort",
-                "outputs": {"moderately_sensitive": {"cohort": "output/input.csv"}},
-                "dummy_data_file": str(dummy_data_file),
-            }
-        },
-    )
-
-    action_spec = get_action_specification(
-        config,
-        "generate_cohort",
-        using_dummy_data_backend=True,
-    )
-
-    expected = " ".join(
-        [
-            "cohortextractor:latest",
-            "generate_cohort",
-            f"--dummy-data-file={dummy_data_file}",
-            "--output-dir=output",
-        ]
-    )
-    assert action_spec.run == expected
-
-
-@pytest.mark.skipif(
-    sys.platform.startswith("win"),
-    reason="ActionSpecification is only used to build commands for Docker",
-)
-def test_get_action_specification_without_dummy_data_file_flag(tmp_path):
-    dummy_data_file = tmp_path / "test.csv"
-    with dummy_data_file.open("w") as f:
-        f.write("test")
-
-    config = Pipeline.build(
-        version=1,
-        actions={
-            "generate_cohort": {
-                "run": "cohortextractor:latest generate_cohort",
-                "outputs": {"moderately_sensitive": {"cohort": "output/input.csv"}},
-                "dummy_data_file": str(dummy_data_file),
-            }
-        },
-    )
-
-    action_spec = get_action_specification(config, "generate_cohort")
-
-    expected = "cohortextractor:latest generate_cohort --output-dir=output"
-    assert action_spec.run == expected
-
-
-@pytest.mark.skipif(
-    sys.platform.startswith("win"),
-    reason="ActionSpecification is only used to build commands for Docker",
-)
 def test_get_action_specification_with_unknown_action():
     config = Pipeline.build(
-        version=1,
+        version=5,
         actions={
             "known_action": {
-                "run": "python:latest python test.py",
+                "run": "python:v2 python test.py",
                 "outputs": {"moderately_sensitive": {"cohort": "output/input.csv"}},
             }
         },

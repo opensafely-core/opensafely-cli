@@ -64,30 +64,22 @@ def test_local_run_level_4_checks_applied_and_logged(
     assert "output/data.csv  - File has patient_id column" in stdout
 
 
-@pytest.mark.parametrize("extraction_tool", ["cohortextractor", "ehrql"])
 @pytest.mark.slow_test
 @pytest.mark.needs_docker
-def test_local_run_success(extraction_tool, tmp_path, docker_cleanup):
+def test_local_run_success(tmp_path, docker_cleanup):
     project_dir = tmp_path / "project"
     shutil.copytree(str(FIXTURE_DIR / "full_project"), project_dir)
 
-    local_run.main(project_dir=project_dir, actions=[f"analyse_data_{extraction_tool}"])
+    local_run.main(project_dir=project_dir, actions=["analyse_data_ehrql"])
 
-    # FIXME: consolidate these when databuilder supports more columns in dummy data
-    if extraction_tool == "cohortextractor":
-        paths = [
-            "output/input.csv",
-            "cohortextractor-counts.txt",
-            "metadata/analyse_data_cohortextractor.log",
-            "metadata/db.sqlite",
-        ]
-    else:
-        paths = [
-            "output/dataset.csv",
-            "output/count_by_year.csv",
-            "metadata/analyse_data_ehrql.log",
-            "metadata/db.sqlite",
-        ]
+    paths = [
+        "output/dataset.csv",
+        "ehrql-male.csv",
+        "ehrql-female.csv",
+        "ehrql-qu'ote.csv",
+        "metadata/analyse_data_ehrql.log",
+        "metadata/db.sqlite",
+    ]
 
     for path in paths:
         assert (project_dir / path).exists(), path
@@ -112,10 +104,7 @@ def test_local_run_stata(tmp_path, monkeypatch, docker_cleanup):
 
 @pytest.mark.slow_test
 @pytest.mark.needs_docker
-@pytest.mark.parametrize("extraction_tool", ["cohortextractor", "ehrql"])
-def test_local_run_copes_with_detritus_of_earlier_interrupted_run(
-    extraction_tool, tmp_path
-):
+def test_local_run_copes_with_detritus_of_earlier_interrupted_run(tmp_path):
     # This test simulates the case where an earlier run has been interrupted (for example by the user pressing ctrl-c).
     # In particular we put a couple of jobs in unfinished states, which they could never be left in under normal
     # operation. The correct behaviour of the local run, which this tests for, is for such unfinished jobs to be marked
@@ -152,11 +141,7 @@ def test_local_run_copes_with_detritus_of_earlier_interrupted_run(
             outputs={},
         )
 
-    # FIXME: consolidate these when databuilder supports more columns in dummy data
-    if extraction_tool == "cohortextractor":
-        actions = ["generate_cohort", "prepare_data_m_cohortextractor"]
-    else:
-        actions = ["generate_dataset", "analyse_data_ehrql"]
+    actions = ["generate_dataset", "analyse_data_ehrql"]
 
     database.insert(job(job_id="123", action=actions[0], state=State.RUNNING))
     database.insert(job(job_id="456", action=actions[1], state=State.PENDING))
