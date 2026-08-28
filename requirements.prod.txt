@@ -12,7 +12,7 @@ distro==1.9.0
     # via ruyaml
 idna==3.19
     # via requests
-opensafely-pipeline @ https://github.com/opensafely-core/pipeline/archive/refs/tags/v2026.08.21.072958.zip
+opensafely-pipeline @ https://github.com/opensafely-core/pipeline/archive/refs/tags/v2026.08.28.083922.zip
     # via -r requirements.prod.in
 opentelemetry-api==1.44.0
     # via -r requirements.prod.in

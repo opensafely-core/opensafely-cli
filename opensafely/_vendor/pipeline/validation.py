@@ -156,14 +156,16 @@ def validate_cohortextractor_outputs(action_id: str, action: Action) -> None:
         )
 
 
-def validate_ehrql_outputs(action_id: str, action: Action) -> None:
+def validate_ehrql_outputs(action_id: str, action: Action, ehrql_type: str) -> None:
     """
     Check ehrQL's output config is valid for this command
 
     We can't validate outputs in the Action or Outputs models because we need
     to look up other fields (eg run).
     """
-    if action.outputs.moderately_sensitive or action.outputs.minimally_sensitive:
+    if ehrql_type == "dataset" and (
+        action.outputs.moderately_sensitive or action.outputs.minimally_sensitive
+    ):
         raise ValidationError(
             f"`{action_id}` action uses `generate-dataset` and so all outputs must "
             f"be labelled `highly_sensitive`"
@@ -173,7 +175,7 @@ def validate_ehrql_outputs(action_id: str, action: Action) -> None:
     if not output_spec:
         raise ValidationError(
             f"`{action_id}` action does not provide an `--output` argument specifying "
-            f"where the results of `generate-dataset` should be stored"
+            f"where the results of `generate-{ehrql_type}` should be stored"
         )
 
     output_patterns = (action.outputs.highly_sensitive or {}).values()
