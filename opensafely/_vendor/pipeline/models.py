@@ -212,8 +212,11 @@ class Action:
 
         if re.match(r"cohortextractor:\S+ generate_cohort", run.raw):
             validate_cohortextractor_outputs(action_id, action)
-        if re.match(r"(ehrql|databuilder):\S+ generate[-_]dataset", run.raw):
-            validate_ehrql_outputs(action_id, action)
+        if match := re.match(
+            r"(ehrql|databuilder):\S+ generate[-_](?P<ehrql_type>dataset|measures)",
+            run.raw,
+        ):
+            validate_ehrql_outputs(action_id, action, match.group("ehrql_type"))
 
         return action
 
