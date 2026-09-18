@@ -6,8 +6,8 @@ from .main import load_pipeline
 
 
 __all__ = [
-    "ProjectValidationError",
     "RUN_ALL_COMMAND",
+    "ProjectValidationError",
     "YAMLError",
     "load_pipeline",
 ]

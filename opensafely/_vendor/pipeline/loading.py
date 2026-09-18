@@ -80,7 +80,7 @@ def parse_yaml_file(data: str | Path, filename: str | None = None) -> dict[str, 
     if FAST_PARSER is not None:  # pragma: no cover
         try:
             return FAST_PARSER.load(data)  # type: ignore[no-any-return]
-        except Exception:
+        except Exception:  # noqa: S110, BLE001
             pass
 
     try:
