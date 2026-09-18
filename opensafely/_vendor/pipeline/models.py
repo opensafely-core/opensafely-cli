@@ -4,16 +4,15 @@ import pathlib
 import re
 import shlex
 import warnings
-from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any
 
 from .constants import RUN_ALL_COMMAND
 from .exceptions import InvalidPatternError, ValidationError
-from .features import LATEST_VERSION, get_feature_flags_for_version
+from .features import LATEST_VERSION, MINIMUM_VERSION, get_feature_flags_for_version
 from .validation import (
     validate_action_config,
-    validate_cohortextractor_outputs,
+    validate_actions_config,
     validate_ehrql_outputs,
     validate_glob_pattern,
     validate_no_kwargs,
@@ -21,6 +20,7 @@ from .validation import (
     validate_not_latest_tag,
     validate_not_run_all_action,
     validate_type,
+    validate_unique_output_paths,
 )
 
 
@@ -28,7 +28,6 @@ from .validation import (
 DB_COMMANDS = {
     "ehrql": ("generate-dataset", "generate-measures"),
     "sqlrunner": "*",  # all commands are valid
-    "cohortextractor": ("generate_cohort", "generate_codelist_report"),
     "databuilder": ("generate-dataset",),
 }
 
@@ -55,26 +54,6 @@ def is_database_action(args: list[str]) -> bool:
 
 
 @dataclass(frozen=True)
-class Expectations:
-    population_size: int
-
-    @classmethod
-    def build(
-        cls,
-        population_size: Any = None,
-        **kwargs: Any,
-    ) -> Expectations:
-        validate_no_kwargs(kwargs, "project `expectations` section")
-        try:
-            population_size = int(population_size)
-        except (TypeError, ValueError):
-            raise ValidationError(
-                "Project expectations population size must be a number",
-            )
-        return cls(population_size)
-
-
-@dataclass(frozen=True)
 class Outputs:
     highly_sensitive: dict[str, str] | None
     moderately_sensitive: dict[str, str] | None
@@ -95,7 +74,7 @@ class Outputs:
             and minimally_sensitive is None
         ):
             raise ValidationError(
-                f"must specify at least one output of: {', '.join(['highly_sensitive', 'moderately_sensitive', 'minimally_sensitive'])}"
+                "must specify at least one output of: highly_sensitive, moderately_sensitive, minimally_sensitive"
             )
 
         validate_no_kwargs(kwargs, f"`outputs` section for action {action_id}")
@@ -210,8 +189,6 @@ class Action:
                 )
         action = cls(action_id, outputs, run, needs, config, dummy_data_file)
 
-        if re.match(r"cohortextractor:\S+ generate_cohort", run.raw):
-            validate_cohortextractor_outputs(action_id, action)
         if match := re.match(
             r"(ehrql|databuilder):\S+ generate[-_](?P<ehrql_type>dataset|measures)",
             run.raw,
@@ -252,17 +229,14 @@ class Action:
 class Pipeline:
     version: float
     actions: dict[str, Action]
-    expectations: Expectations | None
 
     @classmethod
     def build(
         cls,
         version: Any = None,
         actions: Any = None,
-        expectations: Any = None,
         **kwargs: Any,
     ) -> Pipeline:
-        validate_no_kwargs(kwargs, "project")
         if version is None:
             raise ValidationError(
                 f"Project file must have a `version` attribute specifying which "
@@ -274,84 +248,44 @@ class Pipeline:
             version = float(version)
         except (TypeError, ValueError):
             raise ValidationError(
-                f"`version` must be a number between 1 and {LATEST_VERSION}"
+                f"`version` must be a number between {MINIMUM_VERSION} and {LATEST_VERSION}"
             )
         else:
+            if version < MINIMUM_VERSION:
+                raise ValidationError(
+                    f"Your project file is using a deprecated version ({version}); update to at least version {MINIMUM_VERSION}"
+                )
             if version != LATEST_VERSION:
                 warnings.warn(
                     f"ProjectWarning: Your project file is using an old version ({version}); consider updating to version {LATEST_VERSION}",
                     stacklevel=2,
                 )
 
+        validate_no_kwargs(kwargs, "project")
+
         feat = get_feature_flags_for_version(version)
 
         validate_type(actions, dict, "Project `actions` section")
 
-        _actions = dict()
+        _actions = {}
         for action_id, action_config in actions.items():
             validate_not_run_all_action(action_id, feat)
             validate_action_config(action_id, action_config)
             _actions[action_id] = Action.build(action_id, **action_config)
         actions = _actions
 
-        if feat.REMOVE_SUPPORT_FOR_COHORT_EXTRACTOR:
-            for config in actions.values():
-                validate_not_cohort_extractor_action(config)
+        for config in actions.values():
+            validate_not_cohort_extractor_action(config)
 
         if feat.REMOVE_SUPPORT_FOR_LATEST_TAG:
             for config in actions.values():
                 validate_not_latest_tag(config)
 
-        seen: dict[Command, list[str]] = defaultdict(list)
-        for name, config in actions.items():
-            run = config.run
-            if run in seen:
-                raise ValidationError(
-                    f"Action {name} has the same 'run' command as other actions: {' ,'.join(seen[run])}"
-                )
-            seen[run].append(name)
+        validate_actions_config(actions)
 
-        if feat.UNIQUE_OUTPUT_PATH:
-            # find duplicate paths defined in the outputs section
-            seen_files = []
-            for config in actions.values():
-                for output in config.outputs.dict().values():
-                    for filename in output.values():
-                        if filename in seen_files:
-                            raise ValidationError(
-                                f"Output path {filename} is not unique"
-                            )
+        validate_unique_output_paths(actions)
 
-                        seen_files.append(filename)
-
-        for a in actions.values():
-            for n in a.needs:
-                if n not in actions:
-                    raise ValidationError(
-                        f"Action `{a.action_id}` references an unknown action in its `needs` list: {n}"
-                    )
-
-        if feat.REMOVE_SUPPORT_FOR_COHORT_EXTRACTOR:
-            if expectations is not None:
-                raise ValidationError(
-                    "Project includes `expectations` section, which is not supported in this version. "
-                    "This section is only applicable to deprecated cohortextractor actions; you can safely remove it."
-                )
-        elif feat.EXPECTATIONS_POPULATION:
-            if expectations is None:
-                raise ValidationError("Project must include `expectations` section")
-        else:
-            expectations = {"population_size": 1000}
-
-        if expectations is not None:
-            validate_type(expectations, dict, "Project `expectations` section")
-            if "population_size" not in expectations:
-                raise ValidationError(
-                    "Project `expectations` section must include `population_size` section",
-                )
-            expectations = Expectations.build(**expectations)
-
-        return cls(version, actions, expectations)
+        return cls(version, actions)
 
     @property
     def all_actions(self) -> list[str]:
@@ -363,7 +297,7 @@ class Pipeline:
         We use a list comprehension rather than set operators as previously so we preserve
         the original order.
         """
-        return [action for action in self.actions.keys() if action != RUN_ALL_COMMAND]
+        return [action for action in self.actions if action != RUN_ALL_COMMAND]
 
     @property
     def action_images(self) -> set[str]:

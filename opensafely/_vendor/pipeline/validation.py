@@ -3,17 +3,17 @@ from __future__ import annotations
 import fnmatch
 import posixpath
 import warnings
+from collections import defaultdict
 from pathlib import Path, PurePath, PurePosixPath, PureWindowsPath
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
 
 from .constants import LEVEL4_FILE_TYPES
 from .exceptions import InvalidPatternError, ValidationError
-from .outputs import get_output_dirs
 
 
 if TYPE_CHECKING:  # pragma: no cover
-    from .models import Action
+    from .models import Action, Command
 
 
 def validate_type(val: Any, exp_type: type, loc: str, optional: bool = False) -> None:
@@ -59,11 +59,10 @@ def validate_glob_pattern(pattern: str, privacy_level: str) -> None:
             "output paths must have a file type extension at the end"
         )
 
-    if privacy_level == "moderately_sensitive":
-        if path.suffix not in LEVEL4_FILE_TYPES:
-            raise InvalidPatternError(
-                f"{path} is not an allowed file type for moderately_sensitive outputs"
-            )
+    if privacy_level == "moderately_sensitive" and path.suffix not in LEVEL4_FILE_TYPES:
+        raise InvalidPatternError(
+            f"{path} is not an allowed file type for moderately_sensitive outputs"
+        )
 
     # Check that the path is in normal form
     if posixpath.normpath(pattern) != pattern:
@@ -90,6 +89,29 @@ def validate_action_config(action_id: str, action_config: Any) -> None:
             raise ValidationError(
                 f"Action {action_id} must contain a configuration for '{key}'"
             )
+
+
+def validate_actions_config(actions: dict[str, Action]) -> None:
+    """
+    Validates that actions are consistent and valid with respect to other actions
+    - run commands are not duplicated
+    - Specified `needs` are valid actions
+    """
+    seen: dict[Command, list[str]] = defaultdict(list)
+    for name, config in actions.items():
+        run = config.run
+        if run in seen:
+            raise ValidationError(
+                f"Action {name} has the same 'run' command as other actions: {' ,'.join(seen[run])}"
+            )
+        seen[run].append(name)
+
+    for a in actions.values():
+        for n in a.needs:
+            if n not in actions:
+                raise ValidationError(
+                    f"Action `{a.action_id}` references an unknown action in its `needs` list: {n}"
+                )
 
 
 def validate_not_cohort_extractor_action(action: Action) -> None:
@@ -121,39 +143,18 @@ def validate_not_latest_tag(action: Action) -> None:
         )
 
 
-def validate_cohortextractor_outputs(action_id: str, action: Action) -> None:
+def validate_unique_output_paths(actions: dict[str, Action]) -> None:
     """
-    Check cohortextractor's output config is valid for this command
-
-    We can't validate outputs in the Action or Outputs models because we need
-    to look up other fields (eg run).
+    Validates that paths defined in the outputs section are unique
     """
-    # ensure we only have output level defined.
-    num_output_levels = len(action.outputs)
-    if num_output_levels != 1:
-        raise ValidationError(
-            "A `generate_cohort` action must have exactly one output; "
-            f"{action_id} had {num_output_levels}"
-        )
+    seen_files = []
+    for config in actions.values():
+        for output in config.outputs.dict().values():
+            for filename in output.values():
+                if filename in seen_files:
+                    raise ValidationError(f"Output path {filename} is not unique")
 
-    output_dirs = get_output_dirs(action.outputs)
-    if len(output_dirs) == 1:
-        return
-
-    # If we detect multiple output directories but the command explicitly
-    # specifies an output directory then we assume the user knows what
-    # they're doing and don't attempt to modify the output directory or
-    # throw an error
-    flag = "--output-dir"
-    has_output_dir = any(
-        arg == flag or arg.startswith(f"{flag}=") for arg in action.run.parts
-    )
-    if not has_output_dir:
-        raise ValidationError(
-            f"generate_cohort command should produce output in only one "
-            f"directory, found {len(output_dirs)}:\n"
-            + "\n".join([f" - {d}/" for d in output_dirs])
-        )
+                seen_files.append(filename)
 
 
 def validate_ehrql_outputs(action_id: str, action: Action, ehrql_type: str) -> None:
