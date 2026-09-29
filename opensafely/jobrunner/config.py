@@ -85,6 +85,15 @@ ALLOWED_IMAGES = {
     "sqlrunner",
 }
 
+INVALID_IMAGE_TAGS = {
+    "ehrql": ["latest"],
+    "stata-mp": ["latest"],
+    "r": ["latest"],
+    "jupyter": ["latest"],
+    "python": ["latest"],
+    "sqlrunner": ["latest"],
+}
+
 DOCKER_REGISTRY = os.environ.get("DOCKER_REGISTRY", "ghcr.io/opensafely-core")
 
 

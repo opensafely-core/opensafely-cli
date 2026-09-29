@@ -16,7 +16,7 @@ from opensafely.jobrunner.reusable_actions import ReusableAction
 class TestHandleReusableAction:
     def test_when_not_a_reusable_action(self, **kwargs):
         # Happy path 1
-        action_in = "python:latest python analysis/my_action.py"
+        action_in = "python:v2 python analysis/my_action.py"
         action_out = reusable_actions.handle_reusable_action(action_in)[0]
         assert action_in is action_out
         kwargs["get_sha_from_remote_ref"].assert_not_called()
@@ -24,35 +24,31 @@ class TestHandleReusableAction:
 
     @mock.patch(
         "opensafely.jobrunner.reusable_actions.parse_yaml",
-        return_value={"run": "python:latest python reusable_action/main.py"},
+        return_value={"run": "python:v2 python reusable_action/main.py"},
     )
     def test_when_a_reusable_action_with_options(self, *args, **kwargs):
         # Happy path 2
-        action_in = "reusable-action:latest --output-format=png"
+        action_in = "reusable-action:v1 --output-format=png"
         action_out = reusable_actions.handle_reusable_action(action_in)[0]
         assert action_in is not action_out
         assert (
-            action_out
-            == "python:latest python reusable_action/main.py --output-format=png"
+            action_out == "python:v2 python reusable_action/main.py --output-format=png"
         )
 
     @mock.patch(
         "opensafely.jobrunner.reusable_actions.parse_yaml",
-        return_value={"run": "python:latest python reusable_action/main.py"},
+        return_value={"run": "python:v2 python reusable_action/main.py"},
     )
     def test_when_a_reusable_action_with_arguments(self, *args, **kwargs):
         # Happy path 3
-        action_in = "reusable-action:latest output/input.csv"
+        action_in = "reusable-action:v1 output/input.csv"
         action_out = reusable_actions.handle_reusable_action(action_in)[0]
         assert action_in is not action_out
-        assert (
-            action_out
-            == "python:latest python reusable_action/main.py output/input.csv"
-        )
+        assert action_out == "python:v2 python reusable_action/main.py output/input.csv"
 
     @mock.patch(
         "opensafely.jobrunner.reusable_actions.parse_yaml",
-        return_value={"run": "python:latest python reusable_action/main.py"},
+        return_value={"run": "python:v2 python reusable_action/main.py"},
     )
     def test_when_a_reusable_action_with_options_and_arguments(self, *args, **kwargs):
         # Happy path 4
@@ -61,25 +57,23 @@ class TestHandleReusableAction:
         # * Arguments are optional within reason, but are more restricted than options
         # For more information, see:
         # https://click.palletsprojects.com/en/8.0.x/parameters/
-        action_in = "reusable-action:latest --output-format=png output/input.csv"
+        action_in = "reusable-action:v1 --output-format=png output/input.csv"
         action_out = reusable_actions.handle_reusable_action(action_in)[0]
         assert action_in is not action_out
         assert (
             action_out
-            == "python:latest python reusable_action/main.py --output-format=png output/input.csv"
+            == "python:v2 python reusable_action/main.py --output-format=png output/input.csv"
         )
 
     def test_with_bad_run_command(self, **kwargs):
         # We don't need to check the scheme, netloc, or org because we add those.
         with pytest.raises(reusable_actions.ReusableActionError):
-            reusable_actions.handle_reusable_action(
-                "../my-bad-org/reusable-action:latest"
-            )
+            reusable_actions.handle_reusable_action("../my-bad-org/reusable-action:v1")
 
     def test_with_bad_remote_ref(self, **kwargs):
         kwargs["get_sha_from_remote_ref"].side_effect = git.GitUnknownRefError
         with pytest.raises(reusable_actions.ReusableActionError):
-            reusable_actions.handle_reusable_action("reusable-action:latest")
+            reusable_actions.handle_reusable_action("reusable-action:v1")
 
     @mock.patch(
         "opensafely.jobrunner.reusable_actions.validate_branch_and_commit",
@@ -87,12 +81,12 @@ class TestHandleReusableAction:
     )
     def test_with_bad_commit(self, *args, **kwargs):
         with pytest.raises(reusable_actions.ReusableActionError):
-            reusable_actions.handle_reusable_action("reusable-action:latest")
+            reusable_actions.handle_reusable_action("reusable-action:v1")
 
     def test_with_bad_file(self, **kwargs):
         kwargs["read_file_from_repo"].side_effect = git.GitError
         with pytest.raises(reusable_actions.ReusableActionError):
-            reusable_actions.handle_reusable_action("reusable-action:latest")
+            reusable_actions.handle_reusable_action("reusable-action:v1")
 
     @mock.patch(
         "opensafely.jobrunner.reusable_actions.parse_yaml",
@@ -100,25 +94,32 @@ class TestHandleReusableAction:
     )
     def test_with_bad_yaml(self, *args, **kwargs):
         with pytest.raises(reusable_actions.ReusableActionError):
-            reusable_actions.handle_reusable_action("reusable-action:latest")
+            reusable_actions.handle_reusable_action("reusable-action:v1")
 
     @mock.patch("opensafely.jobrunner.reusable_actions.parse_yaml", return_value={})
     def test_with_bad_action_config(self, *args, **kwargs):
         with pytest.raises(reusable_actions.ReusableActionError):
-            reusable_actions.handle_reusable_action("reusable-action:latest")
+            reusable_actions.handle_reusable_action("reusable-action:v1")
 
     @pytest.mark.parametrize(
-        "action",
+        "action,message",
         [
-            "notanaction:v1",
+            ("notanaction:v1", "Unrecognised runtime"),
+            # valid image, but invalid tag
+            ("python:latest python reusable_action/main.py", "Invalid version tag"),
             # These are valid runtimes, but not allowed in re-usable actions
-            "sqlrunner:v1 do.sql",
-            "ehrql:v1 generate-dataset dataset.py --output dataset.csv",
+            ("sqlrunner:v1 do.sql", "cannot run commands which access the database"),
+            (
+                "ehrql:v1 generate-dataset dataset.py --output dataset.csv",
+                "cannot run commands which access the database",
+            ),
         ],
     )
-    def test_reusable_action_with_invalid_runtime(self, action, *args, **kwargs):
+    def test_reusable_action_with_invalid_runtime(
+        self, action, message, *args, **kwargs
+    ):
         reusable_action = ReusableAction(
             repo_url="foo", commit="bar", action_file=f"run: {action}".encode("ascii")
         )
-        with pytest.raises(reusable_actions.ReusableActionError):
+        with pytest.raises(reusable_actions.ReusableActionError, match=message):
             reusable_actions.apply_reusable_action(["foo:v1"], reusable_action)
