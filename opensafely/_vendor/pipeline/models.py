@@ -3,24 +3,24 @@ from __future__ import annotations
 import pathlib
 import re
 import shlex
-import warnings
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from .constants import RUN_ALL_COMMAND
 from .exceptions import InvalidPatternError, ValidationError
-from .features import LATEST_VERSION, MINIMUM_VERSION, get_feature_flags_for_version
+from .features import LATEST_VERSION, MINIMUM_VERSION
 from .validation import (
     validate_action_config,
     validate_actions_config,
     validate_ehrql_outputs,
     validate_glob_pattern,
+    validate_image_tag,
     validate_no_kwargs,
     validate_not_cohort_extractor_action,
-    validate_not_latest_tag,
     validate_not_run_all_action,
     validate_type,
     validate_unique_output_paths,
+    validate_version_in_range,
 )
 
 
@@ -197,8 +197,11 @@ class Action:
 
         return action
 
-    # Valid image versions. `dev` is for local testing
-    # Note: at some point, we probably want to disallow latest.
+    # Valid image versions. `dev` is for local testing, `-pre` is for
+    # pre-release testing.
+    # latest is deprecated, but still included here as it was previously
+    # allowed; it will be disallowed during validation, but this allows for
+    # more informative error messages to the user.
     VERSION_REGEX = re.compile(r"^((v[\d.]+(-pre)?)|dev|latest)$")
 
     @classmethod
@@ -247,43 +250,58 @@ class Pipeline:
         try:
             version = float(version)
         except (TypeError, ValueError):
+            # If we don't have a valid version number, we can't validate any further
             raise ValidationError(
                 f"`version` must be a number between {MINIMUM_VERSION} and {LATEST_VERSION}"
             )
-        else:
-            if version < MINIMUM_VERSION:
-                raise ValidationError(
-                    f"Your project file is using a deprecated version ({version}); update to at least version {MINIMUM_VERSION}"
-                )
-            if version != LATEST_VERSION:
-                warnings.warn(
-                    f"ProjectWarning: Your project file is using an old version ({version}); consider updating to version {LATEST_VERSION}",
-                    stacklevel=2,
-                )
 
-        validate_no_kwargs(kwargs, "project")
+        # Collect validation errors so we can report on multiple problems
+        validation_errors: list[str] = []
 
-        feat = get_feature_flags_for_version(version)
+        add_validation_error(
+            validation_errors,
+            validate_version_in_range,
+            version,
+            MINIMUM_VERSION,
+            LATEST_VERSION,
+        )
 
-        validate_type(actions, dict, "Project `actions` section")
+        add_validation_error(validation_errors, validate_no_kwargs, kwargs, "project")
 
-        _actions = {}
+        if add_validation_error(
+            validation_errors, validate_type, actions, dict, "Project `actions` section"
+        ):
+            # If the actions section itself is an invalid type, we can't validate any further
+            raise ValidationError(format_validation_errors(validation_errors))
+
+        _valid_actions = {}
+
+        add_validation_error(
+            validation_errors, validate_not_run_all_action, list(actions)
+        )
+
         for action_id, action_config in actions.items():
-            validate_not_run_all_action(action_id, feat)
-            validate_action_config(action_id, action_config)
-            _actions[action_id] = Action.build(action_id, **action_config)
-        actions = _actions
+            if not add_validation_error(
+                validation_errors, validate_action_config, action_id, action_config
+            ):
+                _valid_actions[action_id] = Action.build(action_id, **action_config)
+
+        actions = _valid_actions
 
         for config in actions.values():
-            validate_not_cohort_extractor_action(config)
+            add_validation_error(
+                validation_errors, validate_not_cohort_extractor_action, config
+            )
 
-        if feat.REMOVE_SUPPORT_FOR_LATEST_TAG:
-            for config in actions.values():
-                validate_not_latest_tag(config)
+        for config in actions.values():
+            add_validation_error(validation_errors, validate_image_tag, config)
 
-        validate_actions_config(actions)
+        add_validation_error(validation_errors, validate_actions_config, actions)
 
-        validate_unique_output_paths(actions)
+        add_validation_error(validation_errors, validate_unique_output_paths, actions)
+
+        if validation_errors:
+            raise ValidationError(format_validation_errors(validation_errors))
 
         return cls(version, actions)
 
@@ -291,13 +309,8 @@ class Pipeline:
     def all_actions(self) -> list[str]:
         """
         Get all actions for this Pipeline instance
-
-        Versions < 5 ignore any manually defined run_all action and raise a
-        warning (later project versions the raise an error).
-        We use a list comprehension rather than set operators as previously so we preserve
-        the original order.
         """
-        return [action for action in self.actions if action != RUN_ALL_COMMAND]
+        return list(self.actions)
 
     @property
     def action_images(self) -> set[str]:
@@ -308,9 +321,31 @@ class Pipeline:
         """
         images = set()
         for action in self.actions.values():
-            # for hysterical raisins, :latest is actually mapped to v1, not v2 or later.
-            # version 5 removes use of :latest
-            version = "v1" if action.run.version == "latest" else action.run.version
-            images.add(f"{action.run.name}:{version}")
+            images.add(f"{action.run.name}:{action.run.version}")
 
         return images
+
+
+def add_validation_error(
+    validation_errors: list[str], validation_fn: Callable[..., Any], *fn_args: Any
+) -> bool:
+    """
+    Call a validation function, catch any validation error and add it to the
+    validation_errors list
+    """
+    has_error = False
+    try:
+        validation_fn(*fn_args)
+    except ValidationError as e:
+        validation_errors.append(str(e))
+        has_error = True
+    return has_error
+
+
+def format_validation_errors(validation_errors: list[str]) -> str:
+    return "\n".join(
+        [
+            "Errors in project file",
+            *[f"  - {err}" for err in validation_errors],
+        ]
+    )
