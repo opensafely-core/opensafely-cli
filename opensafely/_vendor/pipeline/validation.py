@@ -5,15 +5,29 @@ import posixpath
 import warnings
 from collections import defaultdict
 from pathlib import Path, PurePath, PurePosixPath, PureWindowsPath
-from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
 
-from .constants import LEVEL4_FILE_TYPES
+from . import features
+from .constants import LEVEL4_FILE_TYPES, RUN_ALL_COMMAND
 from .exceptions import InvalidPatternError, ValidationError
+from .features import DeprecatedStatus
 
 
 if TYPE_CHECKING:  # pragma: no cover
     from .models import Action, Command
+
+
+def validate_version_in_range(version: int, min_version: int, max_version: int) -> None:
+    if version < min_version:
+        raise ValidationError(
+            f"Project file is using a deprecated version ({version}); update to at least version {min_version}"
+        )
+
+    elif version != max_version:
+        warnings.warn(
+            f"ProjectWarning: Your project file is using an old version ({version}); consider updating to version {max_version}",
+            stacklevel=2,
+        )
 
 
 def validate_type(val: Any, exp_type: type, loc: str, optional: bool = False) -> None:
@@ -121,26 +135,36 @@ def validate_not_cohort_extractor_action(action: Action) -> None:
         )
 
 
-def validate_not_run_all_action(action_id: str, feat: SimpleNamespace) -> None:
-    if action_id != "run_all":
-        return
-    if feat.REMOVE_SUPPORT_FOR_RUN_ALL_ACTION:
+def validate_not_run_all_action(action_ids: list[str]) -> None:
+    if RUN_ALL_COMMAND in action_ids:
         raise ValidationError(
-            "`run_all` is a reserved action name and is not allowed for user-defined actions."
-        )
-    else:
-        warnings.warn(
-            "ProjectWarning: `run_all` is a reserved action name; user-defined actions with this name "
-            "are ignored and will raise an error in later versions.",
-            stacklevel=3,
+            f"`{RUN_ALL_COMMAND}` is a reserved action name and is not allowed for user-defined actions."
         )
 
 
-def validate_not_latest_tag(action: Action) -> None:
-    if action.run.parts[0].endswith(":latest"):
-        raise ValidationError(
-            f"Action {action.action_id} uses `{action.run.parts[0]}`, which is not supported. Provide a version e.g. `:v2` instead"
-        )
+def validate_image_tag(action: Action) -> None:
+    image, tag = action.run.parts[0].split(":")
+    # Validate not latest
+    if tag == "latest":
+        message = f"Action {action.action_id} uses `{action.run.parts[0]}`, which is not supported. Provide a version e.g. `:v2` instead."
+        if image in ["python", "r"]:
+            message += f" For equivalence, replace `{image}:latest` with `{image}:v1` (but note that `v1` is scheduled for deprecation)."
+        raise ValidationError(message)
+
+    # Validate not deprecated
+    deprecated_status = features.DEPRECATED_IMAGES.get(image, {}).get(tag)
+    match deprecated_status:
+        case DeprecatedStatus.PENDING:
+            warnings.warn(
+                f"Action {action.action_id} uses `{action.run.parts[0]}`, which is scheduled for deprecation. Consider upgrading to a more recent version.",
+                stacklevel=2,
+            )
+        case DeprecatedStatus.DEPRECATED:
+            raise ValidationError(
+                f"Action {action.action_id} uses `{action.run.parts[0]}`, which is deprecated. Upgrading to a more recent version."
+            )
+        case _:
+            return
 
 
 def validate_unique_output_paths(actions: dict[str, Action]) -> None:
