@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from enum import Enum
 from types import SimpleNamespace
 
 
@@ -15,7 +16,7 @@ FEATURE_FLAGS_BY_VERSION = {
 
 LATEST_VERSION = max([v[0] for v in FEATURE_FLAGS_BY_VERSION.values()])
 
-MINIMUM_VERSION = 4
+MINIMUM_VERSION = 5
 
 
 def get_feature_flags_for_version(version: float) -> SimpleNamespace:
@@ -33,3 +34,14 @@ def get_feature_flags_for_version(version: float) -> SimpleNamespace:
         setattr(feat, k, value)
 
     return feat
+
+
+class DeprecatedStatus(Enum):
+    PENDING = "pending"
+    DEPRECATED = "deprecated"
+
+
+DEPRECATED_IMAGES = {
+    "r": {"v1": DeprecatedStatus.PENDING},
+    "python": {"v1": DeprecatedStatus.PENDING},
+}
