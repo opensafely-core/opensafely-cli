@@ -12,7 +12,7 @@ attrs==26.1.0
     #   referencing
 build==1.6.1
     # via pip-tools
-certifi==2026.7.22
+certifi==2026.10.19
     # via requests
 cfgv==3.5.0
     # via pre-commit
@@ -170,9 +170,7 @@ wheel==0.48.0
     # via pip-tools
 
 # The following packages are considered to be unsafe in a requirements file:
-pip==26.1.2
-    # via
-    #   -r requirements.dev.in
-    #   pip-tools
+pip==26.2.2
+    # via pip-tools
 setuptools==84.0.0
     # via pip-tools
