@@ -39,7 +39,7 @@ def test_setup_default_tracing_otlp_defaults(monkeypatch):
     exporter = provider._active_span_processor._span_processors[0].span_exporter
     assert isinstance(exporter, trace_exporter.OTLPSpanExporter)
     assert exporter._endpoint == "https://api.honeycomb.io/v1/traces"
-    assert exporter._headers == {"foo": "bar"}
+    assert exporter._client._headers["foo"] == "bar"
     assert env["OTEL_EXPORTER_OTLP_ENDPOINT"] == "https://api.honeycomb.io"
 
 
@@ -57,7 +57,7 @@ def test_setup_default_tracing_otlp_with_env(monkeypatch):
 
     assert isinstance(exporter, trace_exporter.OTLPSpanExporter)
     assert exporter._endpoint == "https://endpoint/v1/traces"
-    assert exporter._headers == {"foo": "bar"}
+    assert exporter._client._headers["foo"] == "bar"
 
 
 def test_trace_attributes(db):
