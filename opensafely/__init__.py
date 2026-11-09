@@ -67,7 +67,7 @@ def update_version_check():
 
 
 def warn_if_unsupported_python_version():
-    if sys.version_info < (3, 10):  # noqa: UP036
+    if sys.version_info < (3, 11):
         print(
             "Warning: The installed Python version being used to run the OpenSAFELY "
             "CLI is older than Python 3.11 and has reached end of life.\n"
