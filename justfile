@@ -31,6 +31,9 @@ virtualenv:
     # create venv and upgrade pip
     test -d $VIRTUAL_ENV || { $PYTHON_VERSION -m venv $VIRTUAL_ENV && $PIP install --upgrade pip; }
 
+    # existing environments (e.g. created by uv) may not include pip
+    $PIP --version >/dev/null 2>&1 || $BIN/python -m ensurepip --upgrade
+
     # ensure we have pip-tools so we can run pip-compile
     test -e $BIN/pip-compile || $PIP install pip-tools
 
