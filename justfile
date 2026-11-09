@@ -58,7 +58,7 @@ requirements-dev *args: virtualenv
 
 
 # update *vendored* production dependencies. See DEVELOPERS.md.
-update-vendored-dependencies: virtualenv requirements-prod
+update-vendored-dependencies: devenv requirements-prod
     #!/usr/bin/env bash
     set -euo pipefail
 
