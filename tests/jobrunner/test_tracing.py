@@ -33,7 +33,6 @@ def test_setup_default_tracing_console(monkeypatch):
 def test_setup_default_tracing_otlp_defaults(monkeypatch):
     env = {"OTEL_EXPORTER_OTLP_HEADERS": "'foo=bar'"}
     monkeypatch.setattr(os, "environ", env)
-    monkeypatch.setattr(trace_exporter, "environ", env)
     provider = tracing.setup_default_tracing(set_global=False)
     assert provider.resource.attributes["service.name"] == "opensafely-run"
 
@@ -51,7 +50,6 @@ def test_setup_default_tracing_otlp_with_env(monkeypatch):
         "OTEL_EXPORTER_OTLP_ENDPOINT": "https://endpoint",
     }
     monkeypatch.setattr(os, "environ", env)
-    monkeypatch.setattr(trace_exporter, "environ", env)
     provider = tracing.setup_default_tracing(set_global=False)
     assert provider.resource.attributes["service.name"] == "service"
 
