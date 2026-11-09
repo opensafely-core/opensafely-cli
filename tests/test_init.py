@@ -11,12 +11,13 @@ from tests.test_pull import expect_local_images
 @pytest.mark.parametrize(
     ("version_info", "expected_message"),
     [
-        ((3, 9), "older than Python 3.10"),
-        ((3, 10), None),
+        ((3, 10), "older than Python 3.11"),
         ((3, 11), None),
         ((3, 12), None),
         ((3, 13), None),
-        ((3, 14), "newer than Python 3.13"),
+        ((3, 14), None),
+        ((3, 15), None),
+        ((3, 16), "newer than Python 3.15"),
     ],
 )
 def test_warn_if_unsupported_python_version(
