@@ -92,7 +92,7 @@ will not be released.
 Making a local build can be useful for testing and QA purposes.
 This is done by running:
 ```
-python setup.py sdist bdist_wheel
+just build
 ```
 
 which will output a `.tar.gz` and `.whl` file in the `dist/` directory.
